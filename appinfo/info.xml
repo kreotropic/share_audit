@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>share_audit_dashboard</id>
+    <name>Share Audit Dashboard</name>
+    <summary>Visual audit dashboard for all shares across your instance</summary>
+    <description><![CDATA[
+Share Audit Dashboard gives administrators a single, visual overview of every share on the
+instance: user, group, public link, email, federated, and Talk shares.
+
+Features:
+- Dashboard with counters and trends per share type
+- Filterable, searchable, server-side paginated list of all shares
+- Security alerts: public links without password or expiration, oversharing, sensitive files exposed publicly
+- Human-readable permissions (no cryptic numbers)
+- CSV export for compliance and auditing
+
+Unlike the CLI-only sharelisting app, everything is available in the browser for any administrator.
+    ]]></description>
+    <version>0.1.0</version>
+    <licence>agpl</licence>
+    <author mail="ricardo.ferreira@jofebar.com">Ricardo Ferreira</author>
+    <namespace>ShareAuditDashboard</namespace>
+    <category>monitoring</category>
+    <category>security</category>
+
+    <dependencies>
+        <php min-version="8.1"/>
+        <nextcloud min-version="30" max-version="33"/>
+    </dependencies>
+
+    <settings>
+        <admin-section>OCA\ShareAuditDashboard\Settings\AdminSection</admin-section>
+        <admin>OCA\ShareAuditDashboard\Settings\AdminSettings</admin>
+    </settings>
+</info>

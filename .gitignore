@@ -1,0 +1,6 @@
+/node_modules/
+/vendor/
+/js/*.map
+/.phpunit.result.cache
+_smoke.php
+_seed.php

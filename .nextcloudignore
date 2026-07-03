@@ -1,0 +1,15 @@
+node_modules
+src
+tests
+.git
+.gitignore
+.nextcloudignore
+webpack.config.js
+babel.config.js
+package.json
+package-lock.json
+composer.json
+composer.lock
+_smoke.php
+_seed.php
+js/*.map

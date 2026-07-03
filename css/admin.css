@@ -1,0 +1,8 @@
+#share-audit-dashboard {
+	max-width: 100%;
+}
+
+#share-audit-dashboard .sad-loading {
+	padding: 20px 0;
+	color: var(--color-text-maxcontrast);
+}
