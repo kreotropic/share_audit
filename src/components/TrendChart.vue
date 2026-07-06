@@ -154,7 +154,7 @@ export default {
 
 .sad-trend {
 	width: 100%;
-	height: auto;
+	height: 240px;
 	overflow: visible;
 }
 

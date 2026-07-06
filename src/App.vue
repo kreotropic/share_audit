@@ -78,7 +78,7 @@ export default {
 
 <style scoped lang="scss">
 .sad-app {
-	max-width: 1100px;
+	width: 100%;
 }
 
 .sad-tabs {

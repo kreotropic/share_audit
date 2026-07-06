@@ -11,6 +11,14 @@
 
 			<section class="sad-panel sad-panel--wide">
 				<header class="sad-panel__head">
+					<h3>{{ t('share_audit_dashboard', 'Internal vs external sharing') }}</h3>
+					<span class="sad-panel__sub">{{ t('share_audit_dashboard', 'Where your shared data is exposed') }}</span>
+				</header>
+				<InternalExternalBar :by-type="stats.byType" />
+			</section>
+
+			<section class="sad-panel sad-panel--wide">
+				<header class="sad-panel__head">
 					<h3>{{ t('share_audit_dashboard', 'Shares created') }}</h3>
 					<span class="sad-panel__sub">
 						{{ t('share_audit_dashboard', 'Last 12 months') }}
@@ -32,7 +40,11 @@
 					<h3>{{ t('share_audit_dashboard', 'Top sharers') }}</h3>
 					<ul v-if="stats.topOwners.length" class="sad-top">
 						<li v-for="owner in stats.topOwners" :key="owner.owner">
-							<span class="sad-top__name">{{ owner.owner }}</span>
+							<span class="sad-top__name">
+								{{ owner.displayName || owner.owner }}
+								<span v-if="owner.displayName && owner.displayName !== owner.owner"
+									class="sad-top__uid">{{ owner.owner }}</span>
+							</span>
 							<span class="sad-top__count">{{ owner.count }}</span>
 						</li>
 					</ul>
@@ -66,6 +78,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import StatsCards from '../components/StatsCards.vue'
 import TrendChart from '../components/TrendChart.vue'
 import TypeBarChart from '../components/TypeBarChart.vue'
+import InternalExternalBar from '../components/InternalExternalBar.vue'
 import { fetchStats } from '../services/api.js'
 
 export default {
@@ -77,6 +90,7 @@ export default {
 		StatsCards,
 		TrendChart,
 		TypeBarChart,
+		InternalExternalBar,
 	},
 	emits: ['navigate', 'alerts-count'],
 	data() {
@@ -157,6 +171,13 @@ export default {
 .sad-top__count {
 	color: var(--color-text-maxcontrast);
 	font-weight: 600;
+}
+
+.sad-top__uid {
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
+	font-weight: normal;
+	margin-left: 6px;
 }
 
 .sad-alerts-note {

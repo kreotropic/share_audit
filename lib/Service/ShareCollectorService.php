@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
+use OCP\IUserManager;
 use OCP\Share\IShare;
 
 /**
@@ -28,6 +29,7 @@ class ShareCollectorService {
     public function __construct(
         private ShareMapper $mapper,
         private SecurityAnalyzerService $security,
+        private IUserManager $userManager,
     ) {
     }
 
@@ -58,9 +60,23 @@ class ShareCollectorService {
                 'last365' => $this->mapper->countCreatedSince($now - 365 * 86400),
             ],
             'trendSeries' => $this->monthlyTrend(12),
-            'topOwners' => $this->mapper->topOwners(5),
+            'topOwners' => $this->enrichOwners($this->mapper->topOwners(5)),
             'alertsCount' => $this->security->countAlerts(),
         ];
+    }
+
+    /**
+     * Add resolved display names to the top-owners list.
+     *
+     * @param array<int, array{owner: string, count: int}> $owners
+     * @return array<int, array{owner: string, displayName: string, count: int}>
+     */
+    private function enrichOwners(array $owners): array {
+        return array_map(function (array $o) {
+            $user = $this->userManager->get($o['owner']);
+            $o['displayName'] = $user?->getDisplayName() ?: $o['owner'];
+            return $o;
+        }, $owners);
     }
 
     /**
@@ -89,12 +105,12 @@ class ShareCollectorService {
      * @param array $filters normalized filters (see ShareMapper::applyFilters)
      * @return array{items: array<int, array<string, mixed>>, total: int, page: int, limit: int}
      */
-    public function getShares(array $filters, int $page, int $limit): array {
+    public function getShares(array $filters, int $page, int $limit, string $sort = 'created', string $dir = 'desc'): array {
         $page = max(1, $page);
         $limit = max(1, min(500, $limit));
         $offset = ($page - 1) * $limit;
 
-        $rows = $this->mapper->findShares($filters, $limit, $offset);
+        $rows = $this->mapper->findShares($filters, $limit, $offset, $sort, $dir);
 
         return [
             'items' => array_map([$this, 'normalizeRow'], $rows),

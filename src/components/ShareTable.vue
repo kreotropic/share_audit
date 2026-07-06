@@ -3,14 +3,15 @@
 		<table class="sad-table">
 			<thead>
 				<tr>
-					<th>{{ t('share_audit_dashboard', 'Type') }}</th>
-					<th>{{ t('share_audit_dashboard', 'Path') }}</th>
-					<th>{{ t('share_audit_dashboard', 'Owner') }}</th>
-					<th>{{ t('share_audit_dashboard', 'Recipient') }}</th>
-					<th>{{ t('share_audit_dashboard', 'Permissions') }}</th>
-					<th>{{ t('share_audit_dashboard', 'Created') }}</th>
-					<th>{{ t('share_audit_dashboard', 'Expires') }}</th>
-					<th>{{ t('share_audit_dashboard', 'Password') }}</th>
+					<th v-for="col in columns"
+						:key="col.key"
+						:class="{ 'sad-th--sortable': col.sortable, 'sad-th--active': sortKey === col.key }"
+						@click="col.sortable && $emit('sort', col.key)">
+						{{ col.label }}
+						<span v-if="col.sortable" class="sad-th__arrow">
+							{{ sortKey === col.key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+						</span>
+					</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -54,6 +55,29 @@ export default {
 			type: Array,
 			required: true,
 		},
+		sortKey: {
+			type: String,
+			default: 'created',
+		},
+		sortDir: {
+			type: String,
+			default: 'desc',
+		},
+	},
+	emits: ['sort'],
+	computed: {
+		columns() {
+			return [
+				{ key: 'type', label: t('share_audit_dashboard', 'Type'), sortable: true },
+				{ key: 'path', label: t('share_audit_dashboard', 'Path'), sortable: true },
+				{ key: 'owner', label: t('share_audit_dashboard', 'Owner'), sortable: true },
+				{ key: 'recipient', label: t('share_audit_dashboard', 'Recipient'), sortable: true },
+				{ key: 'permissions', label: t('share_audit_dashboard', 'Permissions'), sortable: false },
+				{ key: 'created', label: t('share_audit_dashboard', 'Created'), sortable: true },
+				{ key: 'expires', label: t('share_audit_dashboard', 'Expires'), sortable: true },
+				{ key: 'password', label: t('share_audit_dashboard', 'Password'), sortable: true },
+			]
+		},
 	},
 	methods: {
 		t,
@@ -96,6 +120,29 @@ export default {
 	tbody tr:hover {
 		background-color: var(--color-background-hover);
 	}
+}
+
+.sad-th--sortable {
+	cursor: pointer;
+	user-select: none;
+
+	&:hover {
+		color: var(--color-main-text);
+	}
+}
+
+.sad-th--active {
+	color: var(--color-main-text);
+}
+
+.sad-th__arrow {
+	font-size: 10px;
+	opacity: 0.6;
+	margin-left: 2px;
+}
+
+.sad-th--active .sad-th__arrow {
+	opacity: 1;
 }
 
 .sad-table__path {

@@ -1,16 +1,15 @@
 <template>
 	<div>
-		<ShareFilters @update="onFiltersUpdate" />
-
-		<div class="sad-list-toolbar">
-			<span class="sad-list-toolbar__count">{{ rangeLabel }}</span>
-			<NcButton :disabled="exporting || total === 0"
-				@click="exportCsv">
-				{{ exporting
-					? t('share_audit_dashboard', 'Exporting…')
-					: t('share_audit_dashboard', 'Export CSV') }}
-			</NcButton>
-		</div>
+		<ShareFilters @update="onFiltersUpdate">
+			<template #trailing>
+				<NcButton :disabled="exporting || total === 0"
+					@click="exportCsv">
+					{{ exporting
+						? t('share_audit_dashboard', 'Exporting…')
+						: t('share_audit_dashboard', 'Export CSV') }}
+				</NcButton>
+			</template>
+		</ShareFilters>
 
 		<NcNoteCard v-if="exportError" type="error" class="sad-export-error">
 			{{ exportError }}
@@ -31,7 +30,10 @@
 		</NcEmptyContent>
 
 		<template v-else>
-			<ShareTable :shares="items" />
+			<ShareTable :shares="items"
+				:sort-key="sortKey"
+				:sort-dir="sortDir"
+				@sort="onSort" />
 
 			<div class="sad-pagination">
 				<span class="sad-pagination__info">
@@ -82,6 +84,8 @@ export default {
 			page: 1,
 			limit: 50,
 			filters: {},
+			sortKey: 'created',
+			sortDir: 'desc',
 			exporting: false,
 			exportError: null,
 		}
@@ -118,6 +122,16 @@ export default {
 			this.page = page
 			this.load()
 		},
+		onSort(key) {
+			if (this.sortKey === key) {
+				this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc'
+			} else {
+				this.sortKey = key
+				this.sortDir = 'asc'
+			}
+			this.page = 1
+			this.load()
+		},
 		async exportCsv() {
 			this.exporting = true
 			this.exportError = null
@@ -149,6 +163,8 @@ export default {
 				const data = await fetchShares({
 					page: this.page,
 					limit: this.limit,
+					sort: this.sortKey,
+					sortDir: this.sortDir,
 					...this.filters,
 				})
 				this.items = data.items
@@ -164,20 +180,6 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.sad-list-toolbar {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	margin-bottom: 8px;
-	min-height: 34px;
-}
-
-.sad-list-toolbar__count {
-	color: var(--color-text-maxcontrast);
-	font-size: 13px;
-}
-
 .sad-export-error {
 	margin-bottom: 12px;
 }

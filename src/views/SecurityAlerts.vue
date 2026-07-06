@@ -14,8 +14,14 @@
 			</template>
 		</NcEmptyContent>
 
-		<ul v-else class="sad-alerts">
-			<li v-for="alert in items"
+		<template v-else>
+			<section class="sad-panel sad-alerts-breakdown">
+				<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
+				<HBarChart :rows="breakdownRows" />
+			</section>
+
+			<ul class="sad-alerts">
+				<li v-for="alert in items"
 				:key="alert.id"
 				class="sad-alert"
 				:class="'sad-alert--' + alert.severity">
@@ -37,6 +43,7 @@
 				</div>
 			</li>
 		</ul>
+		</template>
 	</div>
 </template>
 
@@ -46,6 +53,7 @@ import NcChip from '@nextcloud/vue/components/NcChip'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import HBarChart from '../components/HBarChart.vue'
 import { issueLabel, formatDate } from '../utils/format.js'
 import { fetchAlerts } from '../services/api.js'
 
@@ -56,6 +64,7 @@ export default {
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
+		HBarChart,
 	},
 	emits: ['alerts-count'],
 	data() {
@@ -63,12 +72,23 @@ export default {
 			loading: true,
 			error: null,
 			items: [],
+			breakdown: {},
 		}
+	},
+	computed: {
+		breakdownRows() {
+			return Object.entries(this.breakdown).map(([key, count]) => ({
+				key,
+				label: issueLabel(key),
+				count,
+			}))
+		},
 	},
 	async mounted() {
 		try {
 			const data = await fetchAlerts()
 			this.items = data.items
+			this.breakdown = data.breakdown ?? {}
 			this.$emit('alerts-count', this.items.length)
 		} catch (e) {
 			this.error = t('share_audit_dashboard', 'Could not load security alerts.')
@@ -93,6 +113,18 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.sad-alerts-breakdown {
+	padding: 16px;
+	margin-bottom: 20px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large, 12px);
+
+	h3 {
+		margin: 0 0 12px;
+		font-size: 15px;
+	}
+}
+
 .sad-alerts {
 	display: flex;
 	flex-direction: column;

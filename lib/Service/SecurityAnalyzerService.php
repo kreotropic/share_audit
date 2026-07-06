@@ -59,6 +59,23 @@ class SecurityAnalyzerService {
     }
 
     /**
+     * Count how many alerts carry each issue code, for the alert breakdown
+     * chart. Keys follow SettingsService::RULES order.
+     *
+     * @param array<int, array<string, mixed>> $alerts result of getAlerts()
+     * @return array<string, int>
+     */
+    public function countByIssue(array $alerts): array {
+        $counts = array_fill_keys(SettingsService::RULES, 0);
+        foreach ($alerts as $alert) {
+            foreach ($alert['issues'] as $issue) {
+                $counts[$issue['code']] = ($counts[$issue['code']] ?? 0) + 1;
+            }
+        }
+        return $counts;
+    }
+
+    /**
      * Determine the list of issues for a public-link row.
      *
      * @param array<string, mixed> $row

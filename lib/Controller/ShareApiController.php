@@ -59,6 +59,8 @@ class ShareApiController extends Controller {
         string $hasPassword = '',
         string $hasExpiration = '',
         int $createdSince = 0,
+        string $sort = 'created',
+        string $sortDir = 'desc',
     ): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
@@ -66,7 +68,7 @@ class ShareApiController extends Controller {
 
         $filters = $this->buildFilters($types, $owner, $search, $hasPassword, $hasExpiration, $createdSince);
 
-        return new JSONResponse($this->collector->getShares($filters, $page, $limit));
+        return new JSONResponse($this->collector->getShares($filters, $page, $limit, $sort, $sortDir));
     }
 
     /**
@@ -122,7 +124,11 @@ class ShareApiController extends Controller {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        return new JSONResponse(['items' => $this->security->getAlerts()]);
+        $alerts = $this->security->getAlerts();
+        return new JSONResponse([
+            'items' => $alerts,
+            'breakdown' => $this->security->countByIssue($alerts),
+        ]);
     }
 
     /**

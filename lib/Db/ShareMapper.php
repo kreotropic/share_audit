@@ -26,6 +26,17 @@ class ShareMapper {
      */
     private const EXCLUDED_TYPES = [2, 11, 13];
 
+    /** Whitelist of sortable columns: frontend key => DB column. */
+    private const SORT_COLUMNS = [
+        'type' => 's.share_type',
+        'path' => 'f.path',
+        'owner' => 's.uid_owner',
+        'recipient' => 's.share_with',
+        'created' => 's.stime',
+        'expires' => 's.expiration',
+        'password' => 's.password',
+    ];
+
     public function __construct(
         private IDBConnection $db,
     ) {
@@ -154,7 +165,10 @@ class ShareMapper {
      * @param array $filters see applyFilters()
      * @return array<int, array<string, mixed>> raw share rows
      */
-    public function findShares(array $filters, int $limit, int $offset): array {
+    public function findShares(array $filters, int $limit, int $offset, string $sort = 'created', string $dir = 'desc'): array {
+        $column = self::SORT_COLUMNS[$sort] ?? 's.stime';
+        $direction = strtolower($dir) === 'asc' ? 'ASC' : 'DESC';
+
         $qb = $this->db->getQueryBuilder();
         $qb->select(
             's.id', 's.share_type', 's.share_with', 's.uid_owner', 's.uid_initiator',
@@ -164,7 +178,7 @@ class ShareMapper {
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
             ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
-            ->orderBy('s.stime', 'DESC')
+            ->orderBy($column, $direction)
             ->addOrderBy('s.id', 'DESC')
             ->setMaxResults($limit)
             ->setFirstResult($offset);

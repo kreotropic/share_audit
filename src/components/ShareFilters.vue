@@ -13,26 +13,30 @@
 			:multiple="true"
 			:close-on-select="false"
 			:placeholder="t('share_audit_dashboard', 'All types')"
-			:input-label="t('share_audit_dashboard', 'Share type')"
+			:aria-label-combobox="t('share_audit_dashboard', 'Share type')"
 			@update:model-value="emitFilters" />
 
 		<NcSelect class="sad-filters__flag"
 			v-model="password"
-			:options="triStateOptions"
+			:options="passwordOptions"
 			:clearable="false"
-			:input-label="t('share_audit_dashboard', 'Password')"
+			:aria-label-combobox="t('share_audit_dashboard', 'Password')"
 			@update:model-value="emitFilters" />
 
 		<NcSelect class="sad-filters__flag"
 			v-model="expiration"
-			:options="triStateOptions"
+			:options="expirationOptions"
 			:clearable="false"
-			:input-label="t('share_audit_dashboard', 'Expiration')"
+			:aria-label-combobox="t('share_audit_dashboard', 'Expiration')"
 			@update:model-value="emitFilters" />
 
 		<NcButton type="tertiary" @click="reset">
 			{{ t('share_audit_dashboard', 'Clear') }}
 		</NcButton>
+
+		<span class="sad-filters__trailing">
+			<slot name="trailing" />
+		</span>
 	</div>
 </template>
 
@@ -56,10 +60,15 @@ export default {
 			search: '',
 			selectedTypes: [],
 			typeOptions: typeFilterOptions(),
-			triStateOptions: [
-				{ id: '', label: t('share_audit_dashboard', 'Any') },
-				{ id: 'true', label: t('share_audit_dashboard', 'Yes') },
-				{ id: 'false', label: t('share_audit_dashboard', 'No') },
+			passwordOptions: [
+				{ id: '', label: t('share_audit_dashboard', 'Any password') },
+				{ id: 'true', label: t('share_audit_dashboard', 'With password') },
+				{ id: 'false', label: t('share_audit_dashboard', 'Without password') },
+			],
+			expirationOptions: [
+				{ id: '', label: t('share_audit_dashboard', 'Any expiration') },
+				{ id: 'true', label: t('share_audit_dashboard', 'With expiration') },
+				{ id: 'false', label: t('share_audit_dashboard', 'Without expiration') },
 			],
 			password: null,
 			expiration: null,
@@ -67,8 +76,8 @@ export default {
 		}
 	},
 	created() {
-		this.password = this.triStateOptions[0]
-		this.expiration = this.triStateOptions[0]
+		this.password = this.passwordOptions[0]
+		this.expiration = this.expirationOptions[0]
 	},
 	methods: {
 		t,
@@ -83,8 +92,8 @@ export default {
 		reset() {
 			this.search = ''
 			this.selectedTypes = []
-			this.password = this.triStateOptions[0]
-			this.expiration = this.triStateOptions[0]
+			this.password = this.passwordOptions[0]
+			this.expiration = this.expirationOptions[0]
 			this.emitFilters()
 		},
 		emitFilters() {
@@ -104,21 +113,31 @@ export default {
 .sad-filters {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: flex-end;
+	align-items: center;
 	gap: 12px;
 	margin-bottom: 16px;
 }
 
 .sad-filters__search {
-	min-width: 220px;
-	max-width: 300px;
+	width: 240px;
 }
 
 .sad-filters__types {
-	min-width: 200px;
+	width: 190px;
 }
 
 .sad-filters__flag {
-	min-width: 130px;
+	width: 165px;
+}
+
+// NcSelect ships with a wide default min-width; override it so the whole
+// filter bar (incl. Clear + Export) fits on a single row. Width is set by the
+// wrapper classes above.
+.sad-filters :deep(.v-select) {
+	min-width: 0;
+}
+
+.sad-filters__trailing {
+	margin-left: auto;
 }
 </style>
