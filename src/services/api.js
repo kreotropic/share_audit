@@ -78,6 +78,14 @@ export async function bulkShareAction(action, ids, params = {}) {
 }
 
 /**
+ * Fetch the exposure overview (counts per category, score, top users).
+ */
+export async function fetchExposure() {
+	const { data } = await axios.get(base('/api/exposure'))
+	return data
+}
+
+/**
  * Fetch the paginated list of orphan shares (owner disabled/deleted).
  */
 export async function fetchOrphans(params = {}) {

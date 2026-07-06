@@ -29,5 +29,7 @@ return [
         // Orphan shares (owner disabled/deleted).
         ['name' => 'orphanShare#index', 'url' => '/api/orphans', 'verb' => 'GET'],
         ['name' => 'orphanShare#revoke', 'url' => '/api/orphans/revoke', 'verb' => 'POST'],
+        // Exposure map (internal / external / public + score).
+        ['name' => 'exposure#overview', 'url' => '/api/exposure', 'verb' => 'GET'],
     ],
 ];

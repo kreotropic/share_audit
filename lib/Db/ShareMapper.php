@@ -143,6 +143,30 @@ class ShareMapper {
     }
 
     /**
+     * Top owners for a given raw share_type (e.g. public links), by count.
+     *
+     * @return array<int, array{owner: string, count: int}>
+     */
+    public function topOwnersByType(int $shareType, int $limit = 5): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('uid_owner')
+            ->selectAlias($qb->func()->count('*'), 'cnt')
+            ->from('share')
+            ->where($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)))
+            ->groupBy('uid_owner')
+            ->orderBy('cnt', 'DESC')
+            ->setMaxResults($limit);
+
+        $result = $qb->executeQuery();
+        $rows = [];
+        while ($row = $result->fetch()) {
+            $rows[] = ['owner' => (string)$row['uid_owner'], 'count' => (int)$row['cnt']];
+        }
+        $result->closeCursor();
+        return $rows;
+    }
+
+    /**
      * Count shares matching the given filters (for pagination totals).
      *
      * @param array $filters see applyFilters()
@@ -259,6 +283,14 @@ class ShareMapper {
                 $qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like)),
                 $qb->expr()->iLike('s.share_name', $qb->createNamedParameter($like)),
             ));
+        }
+
+        // Per-column search (from the table-header filters).
+        foreach (['pathSearch' => 'f.path', 'ownerSearch' => 's.uid_owner', 'recipientSearch' => 's.share_with'] as $key => $column) {
+            if (!empty($filters[$key])) {
+                $like = '%' . $this->db->escapeLikeParameter((string)$filters[$key]) . '%';
+                $qb->andWhere($qb->expr()->iLike($column, $qb->createNamedParameter($like)));
+            }
         }
 
         if (array_key_exists('hasPassword', $filters) && $filters['hasPassword'] !== null) {

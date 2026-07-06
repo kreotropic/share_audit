@@ -9,7 +9,7 @@
 			<NcButton v-for="tab in tabs"
 				:key="tab.id"
 				:type="activeTab === tab.id ? 'primary' : 'tertiary'"
-				@click="activeTab = tab.id">
+				@click="selectTab(tab.id)">
 				<span class="sad-tab">
 					{{ tab.label }}
 					<NcCounterBubble v-if="counterFor(tab.id) > 0"
@@ -24,11 +24,12 @@
 				@navigate="activeTab = $event"
 				@alerts-count="alertsCount = $event"
 				@orphan-count="orphanCount = $event" />
-			<ShareList v-else-if="activeTab === 'shares'" />
+			<ShareList v-else-if="activeTab === 'shares'" :preset-types="sharesPreset" />
 			<SecurityAlerts v-else-if="activeTab === 'alerts'"
 				@alerts-count="alertsCount = $event" />
 			<OrphanShares v-else-if="activeTab === 'orphans'"
 				@orphan-count="orphanCount = $event" />
+			<ExposureMap v-else-if="activeTab === 'exposure'" @drilldown="onDrilldown" />
 			<Settings v-else-if="activeTab === 'settings'" @saved="onSettingsSaved" />
 		</div>
 	</div>
@@ -42,7 +43,14 @@ import Dashboard from './views/Dashboard.vue'
 import ShareList from './views/ShareList.vue'
 import SecurityAlerts from './views/SecurityAlerts.vue'
 import OrphanShares from './views/OrphanShares.vue'
+import ExposureMap from './views/ExposureMap.vue'
 import Settings from './views/Settings.vue'
+
+const DRILLDOWN_TYPES = {
+	internal: [0, 1, 10, 7],
+	external: [4, 6, 9],
+	public: [3],
+}
 
 export default {
 	name: 'App',
@@ -53,6 +61,7 @@ export default {
 		ShareList,
 		SecurityAlerts,
 		OrphanShares,
+		ExposureMap,
 		Settings,
 	},
 	data() {
@@ -60,6 +69,7 @@ export default {
 			activeTab: 'dashboard',
 			alertsCount: 0,
 			orphanCount: 0,
+			sharesPreset: null,
 		}
 	},
 	computed: {
@@ -69,12 +79,23 @@ export default {
 				{ id: 'shares', label: t('share_audit_dashboard', 'All shares') },
 				{ id: 'alerts', label: t('share_audit_dashboard', 'Security alerts') },
 				{ id: 'orphans', label: t('share_audit_dashboard', 'Orphan shares') },
+				{ id: 'exposure', label: t('share_audit_dashboard', 'Exposure') },
 				{ id: 'settings', label: t('share_audit_dashboard', 'Settings') },
 			]
 		},
 	},
 	methods: {
 		t,
+		selectTab(id) {
+			if (id !== 'shares') {
+				this.sharesPreset = null
+			}
+			this.activeTab = id
+		},
+		onDrilldown(category) {
+			this.sharesPreset = DRILLDOWN_TYPES[category] ?? null
+			this.activeTab = 'shares'
+		},
 		counterFor(id) {
 			if (id === 'alerts') {
 				return this.alertsCount

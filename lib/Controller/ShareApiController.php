@@ -60,6 +60,9 @@ class ShareApiController extends Controller {
         string $types = '',
         string $owner = '',
         string $search = '',
+        string $pathSearch = '',
+        string $ownerSearch = '',
+        string $recipientSearch = '',
         string $hasPassword = '',
         string $hasExpiration = '',
         int $createdSince = 0,
@@ -71,6 +74,9 @@ class ShareApiController extends Controller {
         }
 
         $filters = $this->buildFilters($types, $owner, $search, $hasPassword, $hasExpiration, $createdSince);
+        $filters['pathSearch'] = $pathSearch !== '' ? $pathSearch : null;
+        $filters['ownerSearch'] = $ownerSearch !== '' ? $ownerSearch : null;
+        $filters['recipientSearch'] = $recipientSearch !== '' ? $recipientSearch : null;
 
         return new JSONResponse($this->collector->getShares($filters, $page, $limit, $sort, $sortDir));
     }

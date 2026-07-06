@@ -5,11 +5,53 @@
 				<tr>
 					<th v-for="col in columns"
 						:key="col.key"
-						:class="{ 'sad-th--sortable': col.sortable, 'sad-th--active': sortKey === col.key }"
-						@click="col.sortable && $emit('sort', col.key)">
-						{{ col.label }}
-						<span v-if="col.sortable" class="sad-th__arrow">
-							{{ sortKey === col.key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+						:class="{ 'sad-th--active': sortKey === col.key }">
+						<span class="sad-th__inner">
+							<span class="sad-th__label"
+								:class="{ 'sad-th__label--sortable': col.sortable }"
+								@click="col.sortable && $emit('sort', col.key)">
+								{{ col.label }}
+								<span v-if="col.sortable && sortKey === col.key" class="sad-th__arrow">{{ arrow(col.key) }}</span>
+							</span>
+
+							<NcActions v-if="col.filter"
+								class="sad-th__filter"
+								:class="{ 'sad-th__filter--on': isActive(col) }"
+								force-menu
+								:aria-label="t('share_audit_dashboard', 'Filter')">
+								<template #icon>
+									<span class="sad-funnel" v-html="funnel" />
+								</template>
+
+								<!-- Type: multi-select (buttons act as toggles) -->
+								<template v-if="col.filter === 'types'">
+									<NcActionButton v-for="opt in typeOptions"
+										:key="opt.id"
+										:model-value="f.types.includes(opt.id)"
+										@click="toggleType(opt.id)">
+										{{ opt.label }}
+									</NcActionButton>
+								</template>
+
+								<!-- Text search -->
+								<NcActionInput v-else-if="col.filter === 'search'"
+									:model-value="f[col.field]"
+									:label="col.label"
+									@update:model-value="onSearch(col.field, $event)"
+									@submit="emitFilter">
+									{{ col.label }}
+								</NcActionInput>
+
+								<!-- Tri-state (password / expiration) -->
+								<template v-else>
+									<NcActionButton v-for="opt in col.opts"
+										:key="opt.id"
+										:model-value="f[col.field] === opt.id"
+										@click="setTristate(col.field, opt.id)">
+										{{ opt.label }}
+									</NcActionButton>
+								</template>
+							</NcActions>
 						</span>
 					</th>
 				</tr>
@@ -42,12 +84,18 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import NcActions from '@nextcloud/vue/components/NcActions'
+import NcActionButton from '@nextcloud/vue/components/NcActionButton'
+import NcActionInput from '@nextcloud/vue/components/NcActionInput'
 import NcChip from '@nextcloud/vue/components/NcChip'
-import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
+import { categoryLabel, permissionLabel, formatDate, typeFilterOptions } from '../utils/format.js'
 
 export default {
 	name: 'ShareTable',
 	components: {
+		NcActions,
+		NcActionButton,
+		NcActionInput,
 		NcChip,
 	},
 	props: {
@@ -63,32 +111,114 @@ export default {
 			type: String,
 			default: 'desc',
 		},
+		presetTypes: {
+			type: Array,
+			default: () => [],
+		},
 	},
-	emits: ['sort'],
+	emits: ['sort', 'filter'],
+	data() {
+		return {
+			// Material Design Icons "filter-variant" (three decreasing lines).
+			// eslint-disable-next-line max-len
+			funnel: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6,13H18V11H6M3,6V8H21V6M10,18H14V16H10V18Z"/></svg>',
+			typeOptions: typeFilterOptions(),
+			f: {
+				types: [],
+				pathSearch: '',
+				ownerSearch: '',
+				recipientSearch: '',
+				hasPassword: '',
+				hasExpiration: '',
+			},
+			searchTimer: null,
+		}
+	},
 	computed: {
 		columns() {
+			const pw = [
+				{ id: '', label: t('share_audit_dashboard', 'Any password') },
+				{ id: 'true', label: t('share_audit_dashboard', 'With password') },
+				{ id: 'false', label: t('share_audit_dashboard', 'Without password') },
+			]
+			const exp = [
+				{ id: '', label: t('share_audit_dashboard', 'Any expiration') },
+				{ id: 'true', label: t('share_audit_dashboard', 'With expiration') },
+				{ id: 'false', label: t('share_audit_dashboard', 'Without expiration') },
+			]
 			return [
-				{ key: 'type', label: t('share_audit_dashboard', 'Type'), sortable: true },
-				{ key: 'path', label: t('share_audit_dashboard', 'Path'), sortable: true },
-				{ key: 'owner', label: t('share_audit_dashboard', 'Owner'), sortable: true },
-				{ key: 'recipient', label: t('share_audit_dashboard', 'Recipient'), sortable: true },
+				{ key: 'type', label: t('share_audit_dashboard', 'Type'), sortable: true, filter: 'types' },
+				{ key: 'path', label: t('share_audit_dashboard', 'Path'), sortable: true, filter: 'search', field: 'pathSearch' },
+				{ key: 'owner', label: t('share_audit_dashboard', 'Owner'), sortable: true, filter: 'search', field: 'ownerSearch' },
+				{ key: 'recipient', label: t('share_audit_dashboard', 'Recipient'), sortable: true, filter: 'search', field: 'recipientSearch' },
 				{ key: 'permissions', label: t('share_audit_dashboard', 'Permissions'), sortable: false },
 				{ key: 'created', label: t('share_audit_dashboard', 'Created'), sortable: true },
-				{ key: 'expires', label: t('share_audit_dashboard', 'Expires'), sortable: true },
-				{ key: 'password', label: t('share_audit_dashboard', 'Password'), sortable: true },
+				{ key: 'expires', label: t('share_audit_dashboard', 'Expires'), sortable: true, filter: 'tristate', field: 'hasExpiration', opts: exp },
+				{ key: 'password', label: t('share_audit_dashboard', 'Password'), sortable: true, filter: 'tristate', field: 'hasPassword', opts: pw },
 			]
 		},
+	},
+	created() {
+		if (this.presetTypes.length) {
+			this.f.types = this.typeOptions
+				.filter((opt) => opt.types.some((type) => this.presetTypes.includes(type)))
+				.map((opt) => opt.id)
+		}
 	},
 	methods: {
 		t,
 		categoryLabel,
 		permissionLabel,
 		formatDate,
+		arrow(key) {
+			if (this.sortKey !== key) {
+				return ''
+			}
+			return this.sortDir === 'asc' ? '▲' : '▼'
+		},
 		recipientOf(share) {
 			if (share.recipient) {
 				return share.recipient
 			}
 			return share.category === 'link' ? t('share_audit_dashboard', '(public)') : '—'
+		},
+		isActive(col) {
+			if (col.filter === 'types') {
+				return this.f.types.length > 0
+			}
+			return this.f[col.field] !== ''
+		},
+		toggleType(id) {
+			if (this.f.types.includes(id)) {
+				this.f.types = this.f.types.filter((x) => x !== id)
+			} else {
+				this.f.types.push(id)
+			}
+			this.emitFilter()
+		},
+		onSearch(field, value) {
+			this.f[field] = value
+			clearTimeout(this.searchTimer)
+			this.searchTimer = setTimeout(this.emitFilter, 400)
+		},
+		setTristate(field, value) {
+			this.f[field] = value
+			this.emitFilter()
+		},
+		emitFilter() {
+			const typeMap = Object.fromEntries(this.typeOptions.map((o) => [o.id, o.types]))
+			const types = this.f.types.flatMap((id) => typeMap[id] ?? [])
+
+			const out = {}
+			if (types.length) {
+				out.types = types.join(',')
+			}
+			for (const key of ['pathSearch', 'ownerSearch', 'recipientSearch', 'hasPassword', 'hasExpiration']) {
+				if (this.f[key] !== '' && this.f[key] != null) {
+					out[key] = this.f[key]
+				}
+			}
+			this.$emit('filter', out)
 		},
 	},
 }
@@ -122,7 +252,13 @@ export default {
 	}
 }
 
-.sad-th--sortable {
+.sad-th__inner {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.sad-th__label--sortable {
 	cursor: pointer;
 	user-select: none;
 
@@ -143,6 +279,24 @@ export default {
 
 .sad-th--active .sad-th__arrow {
 	opacity: 1;
+}
+
+.sad-funnel {
+	display: inline-flex;
+	color: var(--color-text-maxcontrast);
+}
+
+// Shrink the NcActions trigger so headers stay compact.
+.sad-th__filter :deep(.action-item__menutoggle),
+.sad-th__filter :deep(button) {
+	min-width: 28px !important;
+	width: 28px;
+	height: 28px !important;
+	min-height: 28px !important;
+}
+
+.sad-th__filter--on .sad-funnel {
+	color: var(--color-primary-element);
 }
 
 .sad-table__path {

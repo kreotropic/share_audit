@@ -1,67 +1,63 @@
 <template>
 	<div>
-		<ShareFilters @update="onFiltersUpdate">
-			<template #trailing>
-				<NcButton :disabled="exporting || total === 0"
-					@click="exportCsv">
-					{{ exporting
-						? t('share_audit_dashboard', 'Exporting…')
-						: t('share_audit_dashboard', 'Export CSV') }}
-				</NcButton>
-			</template>
-		</ShareFilters>
+		<div class="sad-list-toolbar">
+			<NcButton v-if="filtersActive" type="tertiary" @click="clearFilters">
+				{{ t('share_audit_dashboard', 'Clear filters') }}
+			</NcButton>
+			<span class="sad-list-toolbar__info">{{ rangeLabel }}</span>
+			<span class="sad-list-toolbar__spacer" />
+			<NcButton :disabled="exporting || total === 0" @click="exportCsv">
+				{{ exporting
+					? t('share_audit_dashboard', 'Exporting…')
+					: t('share_audit_dashboard', 'Export CSV') }}
+			</NcButton>
+		</div>
 
 		<NcNoteCard v-if="exportError" type="error" class="sad-export-error">
 			{{ exportError }}
 		</NcNoteCard>
 
-		<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
-
-		<NcNoteCard v-else-if="error" type="error">
+		<NcNoteCard v-if="error" type="error">
 			{{ error }}
 		</NcNoteCard>
 
-		<NcEmptyContent v-else-if="items.length === 0"
-			:name="t('share_audit_dashboard', 'No shares found')"
-			:description="t('share_audit_dashboard', 'No shares match the current filters.')">
-			<template #icon>
-				<span class="icon-search" />
-			</template>
-		</NcEmptyContent>
+		<!-- ShareTable stays mounted across loads so the header-filter state
+		     (selected types, searches) is never reset by the loading toggle. -->
+		<ShareTable :key="tableKey"
+			:shares="items"
+			:sort-key="sortKey"
+			:sort-dir="sortDir"
+			:preset-types="activePreset"
+			@sort="onSort"
+			@filter="onFilter" />
 
-		<template v-else>
-			<ShareTable :shares="items"
-				:sort-key="sortKey"
-				:sort-dir="sortDir"
-				@sort="onSort" />
+		<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
 
-			<div class="sad-pagination">
-				<span class="sad-pagination__info">
-					{{ rangeLabel }}
+		<p v-else-if="items.length === 0" class="sad-empty settings-hint">
+			{{ t('share_audit_dashboard', 'No shares match the current filters.') }}
+		</p>
+
+		<div v-else class="sad-pagination">
+			<div class="sad-pagination__controls">
+				<NcButton :disabled="page <= 1" @click="goto(page - 1)">
+					{{ t('share_audit_dashboard', 'Previous') }}
+				</NcButton>
+				<span class="sad-pagination__page">
+					{{ n('share_audit_dashboard', 'Page %n', 'Page %n', page) }} / {{ totalPages }}
 				</span>
-				<div class="sad-pagination__controls">
-					<NcButton :disabled="page <= 1" @click="goto(page - 1)">
-						{{ t('share_audit_dashboard', 'Previous') }}
-					</NcButton>
-					<span class="sad-pagination__page">
-						{{ n('share_audit_dashboard', 'Page %n', 'Page %n', page) }} / {{ totalPages }}
-					</span>
-					<NcButton :disabled="page >= totalPages" @click="goto(page + 1)">
-						{{ t('share_audit_dashboard', 'Next') }}
-					</NcButton>
-				</div>
+				<NcButton :disabled="page >= totalPages" @click="goto(page + 1)">
+					{{ t('share_audit_dashboard', 'Next') }}
+				</NcButton>
 			</div>
-		</template>
+		</div>
 	</div>
 </template>
 
 <script>
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
-import ShareFilters from '../components/ShareFilters.vue'
 import ShareTable from '../components/ShareTable.vue'
 import { fetchShares, exportShares } from '../services/api.js'
 
@@ -69,11 +65,15 @@ export default {
 	name: 'ShareList',
 	components: {
 		NcButton,
-		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
-		ShareFilters,
 		ShareTable,
+	},
+	props: {
+		presetTypes: {
+			type: Array,
+			default: null,
+		},
 	},
 	data() {
 		return {
@@ -83,7 +83,9 @@ export default {
 			total: 0,
 			page: 1,
 			limit: 50,
-			filters: {},
+			filters: this.presetTypes?.length ? { types: this.presetTypes.join(',') } : {},
+			activePreset: this.presetTypes ? [...this.presetTypes] : [],
+			tableKey: 0,
 			sortKey: 'created',
 			sortDir: 'desc',
 			exporting: false,
@@ -93,6 +95,9 @@ export default {
 	computed: {
 		totalPages() {
 			return Math.max(1, Math.ceil(this.total / this.limit))
+		},
+		filtersActive() {
+			return Object.keys(this.filters).length > 0
 		},
 		rangeLabel() {
 			if (this.total === 0) {
@@ -113,9 +118,16 @@ export default {
 	methods: {
 		t,
 		n,
-		onFiltersUpdate(filters) {
+		onFilter(filters) {
 			this.filters = filters
 			this.page = 1
+			this.load()
+		},
+		clearFilters() {
+			this.filters = {}
+			this.activePreset = []
+			this.page = 1
+			this.tableKey++
 			this.load()
 		},
 		goto(page) {
@@ -180,15 +192,37 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.sad-list-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 12px;
+	min-height: 34px;
+}
+
+.sad-list-toolbar__spacer {
+	flex: 1;
+}
+
+.sad-list-toolbar__info {
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+}
+
 .sad-export-error {
 	margin-bottom: 12px;
+}
+
+.sad-empty {
+	padding: 24px 0;
+	text-align: center;
 }
 
 .sad-pagination {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: flex-end;
 	gap: 12px;
 	margin-top: 16px;
 }
@@ -199,7 +233,6 @@ export default {
 	gap: 12px;
 }
 
-.sad-pagination__info,
 .sad-pagination__page {
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
