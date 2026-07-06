@@ -247,6 +247,11 @@ class ShareMapper {
                 $qb->createNamedParameter($filters['owner'])));
         }
 
+        if (!empty($filters['owners'])) {
+            $qb->andWhere($qb->expr()->in('s.uid_owner',
+                $qb->createNamedParameter($filters['owners'], IQueryBuilder::PARAM_STR_ARRAY)));
+        }
+
         if (!empty($filters['search'])) {
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['search']) . '%';
             $qb->andWhere($qb->expr()->orX(

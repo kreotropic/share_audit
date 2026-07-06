@@ -66,6 +66,17 @@
 			<NcNoteCard v-else type="success">
 				{{ t('share_audit_dashboard', 'No insecure public links detected.') }}
 			</NcNoteCard>
+
+			<NcNoteCard v-if="stats.orphanCount > 0"
+				type="warning"
+				class="sad-alerts-note">
+				<span>{{ n('share_audit_dashboard',
+					'%n share is owned by a disabled or deleted account.',
+					'%n shares are owned by disabled or deleted accounts.', stats.orphanCount) }}</span>
+				<NcButton type="secondary" @click="$emit('navigate', 'orphans')">
+					{{ t('share_audit_dashboard', 'Review orphans') }}
+				</NcButton>
+			</NcNoteCard>
 		</template>
 	</div>
 </template>
@@ -92,7 +103,7 @@ export default {
 		TypeBarChart,
 		InternalExternalBar,
 	},
-	emits: ['navigate', 'alerts-count'],
+	emits: ['navigate', 'alerts-count', 'orphan-count'],
 	data() {
 		return {
 			loading: true,
@@ -104,6 +115,7 @@ export default {
 		try {
 			this.stats = await fetchStats()
 			this.$emit('alerts-count', this.stats.alertsCount)
+			this.$emit('orphan-count', this.stats.orphanCount ?? 0)
 		} catch (e) {
 			this.error = t('share_audit_dashboard', 'Could not load share statistics.')
 		} finally {

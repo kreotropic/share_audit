@@ -40,6 +40,62 @@ export async function exportShares(params = {}) {
 }
 
 /**
+ * Set (or auto-generate) a password on a share. Returns { password } with the
+ * plain password when auto-generated.
+ */
+export async function setSharePassword(id, password = '') {
+	const { data } = await axios.post(base('/api/shares/' + id + '/password'),
+		password ? { password } : {})
+	return data
+}
+
+/**
+ * Set a share's expiration to N days from today.
+ */
+export async function setShareExpiration(id, days) {
+	const { data } = await axios.post(base('/api/shares/' + id + '/expiration'), { days })
+	return data
+}
+
+/**
+ * Revoke (delete) a share.
+ */
+export async function revokeShare(id) {
+	const { data } = await axios.delete(base('/api/shares/' + id))
+	return data
+}
+
+/**
+ * Apply one action to many shares at once.
+ *
+ * @param {string} action password | expiration | revoke
+ * @param {number[]} ids share ids
+ * @param {object} params extra params (e.g. { days })
+ */
+export async function bulkShareAction(action, ids, params = {}) {
+	const { data } = await axios.post(base('/api/shares/bulk'), { action, ids, ...params })
+	return data
+}
+
+/**
+ * Fetch the paginated list of orphan shares (owner disabled/deleted).
+ */
+export async function fetchOrphans(params = {}) {
+	const { data } = await axios.get(base('/api/orphans'), { params })
+	return data
+}
+
+/**
+ * Revoke selected orphan shares.
+ *
+ * @param {number[]} ids
+ */
+export async function revokeOrphans(ids) {
+	const { data } = await axios.post(base('/api/orphans/revoke'), { ids })
+	return data
+}
+
+/**
  * Fetch the configurable security-alert rules.
  */
 export async function fetchSettings() {

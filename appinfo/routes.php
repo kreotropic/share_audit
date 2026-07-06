@@ -21,5 +21,13 @@ return [
         // Configurable security-alert rules.
         ['name' => 'shareApi#getSettings', 'url' => '/api/settings', 'verb' => 'GET'],
         ['name' => 'shareApi#saveSettings', 'url' => '/api/settings', 'verb' => 'POST'],
+        // Remediation actions on shares (individual + bulk).
+        ['name' => 'shareAction#setPassword', 'url' => '/api/shares/{id}/password', 'verb' => 'POST'],
+        ['name' => 'shareAction#setExpiration', 'url' => '/api/shares/{id}/expiration', 'verb' => 'POST'],
+        ['name' => 'shareAction#revoke', 'url' => '/api/shares/{id}', 'verb' => 'DELETE'],
+        ['name' => 'shareAction#bulk', 'url' => '/api/shares/bulk', 'verb' => 'POST'],
+        // Orphan shares (owner disabled/deleted).
+        ['name' => 'orphanShare#index', 'url' => '/api/orphans', 'verb' => 'GET'],
+        ['name' => 'orphanShare#revoke', 'url' => '/api/orphans/revoke', 'verb' => 'POST'],
     ],
 ];

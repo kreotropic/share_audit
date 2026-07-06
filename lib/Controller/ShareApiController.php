@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\ReportService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
@@ -31,6 +32,7 @@ class ShareApiController extends Controller {
         private SecurityAnalyzerService $security,
         private ReportService $report,
         private SettingsService $settings,
+        private OrphanShareService $orphanService,
         private IUserSession $userSession,
         private IGroupManager $groupManager,
     ) {
@@ -44,7 +46,9 @@ class ShareApiController extends Controller {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        return new JSONResponse($this->collector->getStats());
+        $stats = $this->collector->getStats();
+        $stats['orphanCount'] = $this->orphanService->countOrphanShares();
+        return new JSONResponse($stats);
     }
 
     /**

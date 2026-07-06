@@ -127,7 +127,7 @@ export default {
 }
 
 .sad-filters__flag {
-	width: 165px;
+	width: 205px;
 }
 
 // NcSelect ships with a wide default min-width; override it so the whole

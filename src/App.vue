@@ -12,8 +12,8 @@
 				@click="activeTab = tab.id">
 				<span class="sad-tab">
 					{{ tab.label }}
-					<NcCounterBubble v-if="tab.id === 'alerts' && alertsCount > 0"
-						:count="alertsCount"
+					<NcCounterBubble v-if="counterFor(tab.id) > 0"
+						:count="counterFor(tab.id)"
 						class="sad-tab__counter" />
 				</span>
 			</NcButton>
@@ -22,10 +22,13 @@
 		<div class="sad-view">
 			<Dashboard v-if="activeTab === 'dashboard'"
 				@navigate="activeTab = $event"
-				@alerts-count="alertsCount = $event" />
+				@alerts-count="alertsCount = $event"
+				@orphan-count="orphanCount = $event" />
 			<ShareList v-else-if="activeTab === 'shares'" />
 			<SecurityAlerts v-else-if="activeTab === 'alerts'"
 				@alerts-count="alertsCount = $event" />
+			<OrphanShares v-else-if="activeTab === 'orphans'"
+				@orphan-count="orphanCount = $event" />
 			<Settings v-else-if="activeTab === 'settings'" @saved="onSettingsSaved" />
 		</div>
 	</div>
@@ -38,6 +41,7 @@ import NcCounterBubble from '@nextcloud/vue/components/NcCounterBubble'
 import Dashboard from './views/Dashboard.vue'
 import ShareList from './views/ShareList.vue'
 import SecurityAlerts from './views/SecurityAlerts.vue'
+import OrphanShares from './views/OrphanShares.vue'
 import Settings from './views/Settings.vue'
 
 export default {
@@ -48,12 +52,14 @@ export default {
 		Dashboard,
 		ShareList,
 		SecurityAlerts,
+		OrphanShares,
 		Settings,
 	},
 	data() {
 		return {
 			activeTab: 'dashboard',
 			alertsCount: 0,
+			orphanCount: 0,
 		}
 	},
 	computed: {
@@ -62,12 +68,22 @@ export default {
 				{ id: 'dashboard', label: t('share_audit_dashboard', 'Dashboard') },
 				{ id: 'shares', label: t('share_audit_dashboard', 'All shares') },
 				{ id: 'alerts', label: t('share_audit_dashboard', 'Security alerts') },
+				{ id: 'orphans', label: t('share_audit_dashboard', 'Orphan shares') },
 				{ id: 'settings', label: t('share_audit_dashboard', 'Settings') },
 			]
 		},
 	},
 	methods: {
 		t,
+		counterFor(id) {
+			if (id === 'alerts') {
+				return this.alertsCount
+			}
+			if (id === 'orphans') {
+				return this.orphanCount
+			}
+			return 0
+		},
 		onSettingsSaved() {
 			// Rules changed → alert badge may be stale. The Dashboard and alerts
 			// views use v-if, so they refetch when reopened; nothing to do here.
