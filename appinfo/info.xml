@@ -5,24 +5,44 @@
     <name>Share Audit Dashboard</name>
     <summary>Visual audit dashboard for all shares across your instance</summary>
     <description><![CDATA[
+See and audit every share on your Nextcloud — in the browser, not the command line.
+
 Share Audit Dashboard gives administrators a single, visual overview of every share on the
-instance: user, group, public link, email, federated, and Talk shares.
+instance (user, group, public link, email, federated, Talk), flags the risky ones, and lets you
+fix them in bulk. Regular users get a personal view to audit and clean up the files they share.
 
-Features:
-- Dashboard with counters and trends per share type
-- Filterable, searchable, server-side paginated list of all shares
-- Security alerts: public links without password or expiration, oversharing, sensitive files exposed publicly
-- Human-readable permissions (no cryptic numbers)
-- CSV export for compliance and auditing
+**For administrators (Settings → Administration → Share Audit):**
+- Dashboard: totals per share type, a 12‑month creation trend, an internal‑vs‑external exposure
+  donut, top sharers, and attention banners for insecure links and orphaned shares.
+- All shares: a filterable, sortable, server‑side paginated table with per‑column header filters
+  and human‑readable permissions. Export the filtered view to CSV.
+- Security alerts: public links with no password, no expiration, or a sensitive file type — fixable
+  individually or in bulk (add a generated password, set an expiration, revoke). Rules configurable.
+- Orphan shares: shares still owned by disabled or deleted accounts, with bulk revoke.
+- Exposure map: internal / external / public reach, a 0‑100 exposure score and the top public sharers.
+- Access lookup: search a user, group or email and see every file they can reach, with revoke‑all.
 
-Unlike the CLI-only sharelisting app, everything is available in the browser for any administrator.
+**For every user (Settings → Personal → My shares audit):**
+- Review the files you share and fix your own risky public links (add password / set expiration /
+  revoke), plus a dashboard widget highlighting the links that need your attention.
+
+Unlike the CLI‑only sharelisting app, everything is available in the browser.
     ]]></description>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <licence>agpl</licence>
     <author mail="ricardo.ferreira@jofebar.com">Ricardo Ferreira</author>
     <namespace>ShareAuditDashboard</namespace>
     <category>monitoring</category>
     <category>security</category>
+    <website>https://github.com/kreotropic/share_audit</website>
+    <bugs>https://github.com/kreotropic/share_audit/issues</bugs>
+    <repository type="git">https://github.com/kreotropic/share_audit.git</repository>
+
+    <screenshot>https://raw.githubusercontent.com/kreotropic/share_audit/master/screenshots/1-dashboard.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/kreotropic/share_audit/master/screenshots/3-security-alerts.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/kreotropic/share_audit/master/screenshots/4-exposure.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/kreotropic/share_audit/master/screenshots/2-all-shares.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/kreotropic/share_audit/master/screenshots/5-access-lookup.png</screenshot>
 
     <dependencies>
         <php min-version="8.1"/>

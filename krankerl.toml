@@ -1,0 +1,9 @@
+# Packaging config for krankerl (https://github.com/ChristophWurst/krankerl).
+# `krankerl package` builds a release tarball, running the build first and
+# excluding everything listed in .nextcloudignore.
+
+[package]
+before_cmds = [
+    "npm ci",
+    "npm run build",
+]
