@@ -7,6 +7,7 @@ namespace OCA\ShareAuditDashboard\Dashboard;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCP\Dashboard\IAPIWidget;
 use OCP\Dashboard\IAPIWidgetV2;
+use OCP\Dashboard\IIconWidget;
 use OCP\Dashboard\Model\WidgetItem;
 use OCP\Dashboard\Model\WidgetItems;
 use OCP\IL10N;
@@ -18,7 +19,7 @@ use OCP\IURLGenerator;
  * so it works for admins and regular users alike. Clicking an item opens the
  * personal "My shares audit" page.
  */
-class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2 {
+class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2, IIconWidget {
 
     public function __construct(
         private IL10N $l10n,
@@ -40,7 +41,11 @@ class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2 {
     }
 
     public function getIconClass(): string {
-        return 'icon-password';
+        return 'icon-category-security';
+    }
+
+    public function getIconUrl(): string {
+        return $this->iconUrl();
     }
 
     public function getUrl(): ?string {
@@ -57,9 +62,7 @@ class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2 {
     public function getItems(string $userId, ?string $since = null, int $limit = 7): array {
         $alerts = array_slice($this->security->getAlerts($userId), 0, $limit);
         $url = $this->personalUrl();
-        $icon = $this->urlGenerator->getAbsoluteURL(
-            $this->urlGenerator->imagePath('share_audit_dashboard', 'app-dark.svg'),
-        );
+        $icon = $this->iconUrl();
 
         return array_map(function (array $alert) use ($url, $icon) {
             return new WidgetItem(
@@ -101,6 +104,12 @@ class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2 {
         return $this->urlGenerator->linkToRouteAbsolute(
             'settings.PersonalSettings.index',
             ['section' => 'share_audit_dashboard'],
+        );
+    }
+
+    private function iconUrl(): string {
+        return $this->urlGenerator->getAbsoluteURL(
+            $this->urlGenerator->imagePath('share_audit_dashboard', 'alert.svg'),
         );
     }
 }
