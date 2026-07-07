@@ -12,10 +12,9 @@
 				@click="selectTab(tab.id)">
 				<span class="sad-tab">
 					{{ tab.label }}
-					<NcCounterBubble v-if="counterFor(tab.id) > 0"
-						:count="counterFor(tab.id)"
-						class="sad-tab__counter"
-						:class="'sad-tab__counter--' + tab.id" />
+					<span v-if="counterFor(tab.id) > 0"
+						class="sad-badge"
+						:class="'sad-badge--' + tab.id">{{ counterFor(tab.id) }}</span>
 				</span>
 			</NcButton>
 		</nav>
@@ -40,7 +39,6 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcCounterBubble from '@nextcloud/vue/components/NcCounterBubble'
 import Dashboard from './views/Dashboard.vue'
 import ShareList from './views/ShareList.vue'
 import SecurityAlerts from './views/SecurityAlerts.vue'
@@ -59,7 +57,6 @@ export default {
 	name: 'App',
 	components: {
 		NcButton,
-		NcCounterBubble,
 		Dashboard,
 		ShareList,
 		SecurityAlerts,
@@ -142,14 +139,24 @@ export default {
 	gap: 6px;
 }
 
-// Severity colours for the tab badges (the counter root carries the class).
-.sad-tab__counter--alerts {
-	background-color: var(--color-error) !important;
-	color: #fff !important;
+// Small, discreet severity pills on the tabs.
+.sad-badge {
+	display: inline-block;
+	min-width: 8px;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: #fff;
+	text-align: center;
 }
 
-.sad-tab__counter--orphans {
-	background-color: var(--color-warning) !important;
-	color: #fff !important;
+.sad-badge--alerts {
+	background-color: #e9322d;
+}
+
+.sad-badge--orphans {
+	background-color: #f0ad4e;
 }
 </style>

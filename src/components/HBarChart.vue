@@ -1,12 +1,12 @@
 <template>
 	<div class="sad-bars">
-		<div v-for="row in computedRows"
+		<div v-for="(row, index) in computedRows"
 			:key="row.key"
 			class="sad-bars__row"
 			:title="`${row.label}: ${row.count}`">
 			<span class="sad-bars__label">{{ row.label }}</span>
 			<div class="sad-bars__track">
-				<div class="sad-bars__fill" :style="{ width: row.width + '%' }" />
+				<div class="sad-bars__fill" :style="fillStyle(row, index)" />
 			</div>
 			<span class="sad-bars__value">{{ row.count }}</span>
 		</div>
@@ -27,12 +27,26 @@ export default {
 			type: Boolean,
 			default: true,
 		},
+		/** Optional per-bar colours (cycled). Empty = single primary colour. */
+		palette: {
+			type: Array,
+			default: () => [],
+		},
 	},
 	computed: {
 		computedRows() {
 			const rows = this.hideZero ? this.rows.filter((r) => r.count > 0) : this.rows
 			const max = Math.max(1, ...rows.map((r) => r.count))
 			return rows.map((r) => ({ ...r, width: Math.round((r.count / max) * 100) }))
+		},
+	},
+	methods: {
+		fillStyle(row, index) {
+			const style = { width: row.width + '%' }
+			if (this.palette.length) {
+				style.background = this.palette[index % this.palette.length]
+			}
+			return style
 		},
 	},
 }

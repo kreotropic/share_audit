@@ -128,16 +128,25 @@ class ShareApiController extends Controller {
     }
 
     /**
-     * GET /api/alerts — security alerts, most severe first.
+     * GET /api/alerts — security alerts, most severe first, paginated.
+     *
+     * The analyzer must evaluate every insecure link to rank by severity and to
+     * compute the category breakdown, so both the total and the breakdown cover
+     * the full set while only one page of items is returned to the browser.
      */
-    public function alerts(): JSONResponse {
+    public function alerts(int $page = 1, int $limit = 25): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        $alerts = $this->security->getAlerts();
+        $all = $this->security->getAlerts();
+        $total = count($all);
+        $offset = max(0, ($page - 1) * $limit);
         return new JSONResponse([
-            'items' => $alerts,
-            'breakdown' => $this->security->countByIssue($alerts),
+            'items' => array_slice($all, $offset, $limit),
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'breakdown' => $this->security->countByIssue($all),
         ]);
     }
 

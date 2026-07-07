@@ -61,12 +61,27 @@
 					@update:selected="toggleSelect(alert.id, $event)"
 					@action="onCardAction" />
 			</ul>
+
+			<div v-if="total > limit" class="sad-pagination">
+				<span class="sad-pagination__range">{{ rangeLabel }}</span>
+				<div class="sad-pagination__controls">
+					<NcButton :disabled="busy || page <= 1" @click="goto(page - 1)">
+						{{ t('share_audit_dashboard', 'Previous') }}
+					</NcButton>
+					<span class="sad-pagination__page">
+						{{ n('share_audit_dashboard', 'Page %n', 'Page %n', page) }} / {{ totalPages }}
+					</span>
+					<NcButton :disabled="busy || page >= totalPages" @click="goto(page + 1)">
+						{{ t('share_audit_dashboard', 'Next') }}
+					</NcButton>
+				</div>
+			</div>
 		</template>
 	</div>
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
+import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -98,6 +113,9 @@ export default {
 			busy: false,
 			items: [],
 			breakdown: {},
+			total: 0,
+			page: 1,
+			limit: 25,
 			selectedIds: [],
 			generatedPasswords: [],
 			notice: null,
@@ -114,24 +132,51 @@ export default {
 		allSelected() {
 			return this.items.length > 0 && this.selectedIds.length === this.items.length
 		},
+		totalPages() {
+			return Math.max(1, Math.ceil(this.total / this.limit))
+		},
+		rangeLabel() {
+			if (this.total === 0) {
+				return ''
+			}
+			const from = (this.page - 1) * this.limit + 1
+			const to = Math.min(this.total, this.page * this.limit)
+			return t('share_audit_dashboard', '{from}–{to} of {total}', { from, to, total: this.total })
+		},
 	},
 	mounted() {
 		this.load()
 	},
 	methods: {
 		t,
+		n,
 		async load() {
 			try {
-				const data = await fetchAlerts()
+				const data = await fetchAlerts({ page: this.page, limit: this.limit })
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
+				this.total = data.total ?? this.items.length
+				// A revoke/expire on the last page can leave it empty — step back.
+				if (this.items.length === 0 && this.page > 1) {
+					this.page = Math.min(this.page - 1, this.totalPages)
+					await this.load()
+					return
+				}
 				this.selectedIds = this.selectedIds.filter((id) => this.items.some((a) => a.id === id))
-				this.$emit('alerts-count', this.items.length)
+				this.$emit('alerts-count', this.total)
 			} catch (e) {
 				this.error = t('share_audit_dashboard', 'Could not load security alerts.')
 			} finally {
 				this.loading = false
 			}
+		},
+		goto(page) {
+			if (page < 1 || page > this.totalPages || page === this.page) {
+				return
+			}
+			this.page = page
+			this.selectedIds = []
+			this.load()
 		},
 		toggleAll(checked) {
 			this.selectedIds = checked ? this.items.map((a) => a.id) : []
@@ -249,5 +294,26 @@ export default {
 
 .sad-action-notice {
 	margin-bottom: 12px;
+}
+
+.sad-pagination {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 16px;
+}
+
+.sad-pagination__controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.sad-pagination__page,
+.sad-pagination__range {
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
 }
 </style>

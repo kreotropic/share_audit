@@ -70,7 +70,13 @@
 						{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}
 					</td>
 					<td>{{ formatDate(share.created) }}</td>
-					<td>{{ share.expiration || '—' }}</td>
+					<td>
+						<span v-if="share.expiration">{{ share.expiration }}</span>
+						<span v-else-if="share.category === 'link'" class="sad-expire-warn">
+							{{ t('share_audit_dashboard', 'None') }}
+						</span>
+						<span v-else>—</span>
+					</td>
 					<td>
 						<span :class="share.hasPassword ? 'sad-yes' : 'sad-no'">
 							{{ share.hasPassword ? t('share_audit_dashboard', 'Yes') : t('share_audit_dashboard', 'No') }}
@@ -312,6 +318,11 @@ export default {
 .sad-table__perms {
 	white-space: normal;
 	min-width: 140px;
+}
+
+.sad-expire-warn {
+	color: #f0ad4e;
+	font-weight: 600;
 }
 
 .sad-no {

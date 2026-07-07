@@ -24,8 +24,8 @@ export async function fetchShares(params = {}) {
 /**
  * Fetch security alerts (links without password/expiration, oversharing, ...).
  */
-export async function fetchAlerts() {
-	const { data } = await axios.get(base('/api/alerts'))
+export async function fetchAlerts(params = {}) {
+	const { data } = await axios.get(base('/api/alerts'), { params })
 	return data
 }
 
