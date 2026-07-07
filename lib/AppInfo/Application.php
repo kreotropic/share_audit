@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\AppInfo;
 
+use OCA\ShareAuditDashboard\Dashboard\MyAlertsWidget;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -25,6 +26,7 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
+        $context->registerDashboardWidget(MyAlertsWidget::class);
     }
 
     public function boot(IBootContext $context): void {

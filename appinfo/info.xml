@@ -29,6 +29,10 @@ Unlike the CLI-only sharelisting app, everything is available in the browser for
         <nextcloud min-version="30" max-version="33"/>
     </dependencies>
 
+    <dashboard>
+        <widget>OCA\ShareAuditDashboard\Dashboard\MyAlertsWidget</widget>
+    </dashboard>
+
     <settings>
         <admin-section>OCA\ShareAuditDashboard\Settings\AdminSection</admin-section>
         <admin>OCA\ShareAuditDashboard\Settings\AdminSettings</admin>
