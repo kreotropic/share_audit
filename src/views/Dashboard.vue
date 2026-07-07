@@ -7,28 +7,61 @@
 		</NcNoteCard>
 
 		<template v-else>
+			<!-- Collapsible attention bar, above the fold -->
+			<div v-if="warningCount > 0" class="sad-alerts">
+				<button type="button" class="sad-alerts__toggle" @click="alertsOpen = !alertsOpen">
+					<span class="sad-alerts__chev" :class="{ 'sad-alerts__chev--open': alertsOpen }">▸</span>
+					{{ n('share_audit_dashboard', '%n item needs attention', '%n items need attention', warningCount) }}
+				</button>
+				<div v-show="alertsOpen" class="sad-alerts__rows">
+					<div v-if="stats.alertsCount > 0" class="sad-alert-row sad-alert-row--error">
+						<span class="sad-alert-row__msg">{{ n('share_audit_dashboard',
+							'%n share needs attention', '%n shares need attention', stats.alertsCount) }}</span>
+						<NcButton type="tertiary" @click="$emit('navigate', 'alerts')">
+							{{ t('share_audit_dashboard', 'Review alerts') }}
+						</NcButton>
+					</div>
+					<div v-if="stats.orphanCount > 0" class="sad-alert-row sad-alert-row--warning">
+						<span class="sad-alert-row__msg">{{ n('share_audit_dashboard',
+							'%n share owned by a disabled or deleted account',
+							'%n shares owned by disabled or deleted accounts', stats.orphanCount) }}</span>
+						<NcButton type="tertiary" @click="$emit('navigate', 'orphans')">
+							{{ t('share_audit_dashboard', 'Review orphans') }}
+						</NcButton>
+					</div>
+				</div>
+			</div>
+
 			<StatsCards :by-type="stats.byType" :total="stats.total" />
 
-			<section class="sad-panel sad-panel--wide">
-				<header class="sad-panel__head">
-					<h3>{{ t('share_audit_dashboard', 'Internal vs external sharing') }}</h3>
-					<span class="sad-panel__sub">{{ t('share_audit_dashboard', 'Where your shared data is exposed') }}</span>
-				</header>
-				<InternalExternalBar :by-type="stats.byType" />
-			</section>
+			<div class="sad-row">
+				<section class="sad-panel sad-row__main">
+					<header class="sad-panel__head">
+						<h3>{{ t('share_audit_dashboard', 'Shares created') }}</h3>
+						<span class="sad-panel__sub">
+							{{ t('share_audit_dashboard', 'Last 12 months') }}
+							· {{ t('share_audit_dashboard', '30d') }}: {{ stats.trend.last30 }}
+							· {{ t('share_audit_dashboard', '90d') }}: {{ stats.trend.last90 }}
+							· {{ t('share_audit_dashboard', '365d') }}: {{ stats.trend.last365 }}
+						</span>
+					</header>
+					<TrendChart :series="stats.trendSeries" :height="150" />
+				</section>
 
-			<section class="sad-panel sad-panel--wide">
-				<header class="sad-panel__head">
-					<h3>{{ t('share_audit_dashboard', 'Shares created') }}</h3>
-					<span class="sad-panel__sub">
-						{{ t('share_audit_dashboard', 'Last 12 months') }}
-						· {{ t('share_audit_dashboard', '30d') }}: {{ stats.trend.last30 }}
-						· {{ t('share_audit_dashboard', '90d') }}: {{ stats.trend.last90 }}
-						· {{ t('share_audit_dashboard', '365d') }}: {{ stats.trend.last365 }}
-					</span>
-				</header>
-				<TrendChart :series="stats.trendSeries" />
-			</section>
+				<section class="sad-panel sad-row__side">
+					<h3>{{ t('share_audit_dashboard', 'Internal vs external') }}</h3>
+					<ExposureDonut :segments="ieSegments"
+						:center-value="externalPct + '%'"
+						:center-label="t('share_audit_dashboard', 'external')" />
+					<ul class="sad-ie-legend">
+						<li v-for="seg in ieSegments" :key="seg.key">
+							<span class="sad-ie-dot" :style="{ background: seg.color }" />
+							<span>{{ seg.label }}</span>
+							<span class="sad-ie-val">{{ seg.value }}</span>
+						</li>
+					</ul>
+				</section>
+			</div>
 
 			<div class="sad-panels">
 				<section class="sad-panel">
@@ -53,30 +86,6 @@
 					</p>
 				</section>
 			</div>
-
-			<NcNoteCard v-if="stats.alertsCount > 0"
-				type="warning"
-				class="sad-alerts-note">
-				<span>{{ n('share_audit_dashboard',
-					'%n share needs attention.', '%n shares need attention.', stats.alertsCount) }}</span>
-				<NcButton type="secondary" @click="$emit('navigate', 'alerts')">
-					{{ t('share_audit_dashboard', 'Review alerts') }}
-				</NcButton>
-			</NcNoteCard>
-			<NcNoteCard v-else type="success">
-				{{ t('share_audit_dashboard', 'No insecure public links detected.') }}
-			</NcNoteCard>
-
-			<NcNoteCard v-if="stats.orphanCount > 0"
-				type="warning"
-				class="sad-alerts-note">
-				<span>{{ n('share_audit_dashboard',
-					'%n share is owned by a disabled or deleted account.',
-					'%n shares are owned by disabled or deleted accounts.', stats.orphanCount) }}</span>
-				<NcButton type="secondary" @click="$emit('navigate', 'orphans')">
-					{{ t('share_audit_dashboard', 'Review orphans') }}
-				</NcButton>
-			</NcNoteCard>
 		</template>
 	</div>
 </template>
@@ -89,7 +98,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import StatsCards from '../components/StatsCards.vue'
 import TrendChart from '../components/TrendChart.vue'
 import TypeBarChart from '../components/TypeBarChart.vue'
-import InternalExternalBar from '../components/InternalExternalBar.vue'
+import ExposureDonut from '../components/ExposureDonut.vue'
 import { fetchStats } from '../services/api.js'
 
 export default {
@@ -101,7 +110,7 @@ export default {
 		StatsCards,
 		TrendChart,
 		TypeBarChart,
-		InternalExternalBar,
+		ExposureDonut,
 	},
 	emits: ['navigate', 'alerts-count', 'orphan-count'],
 	data() {
@@ -109,7 +118,41 @@ export default {
 			loading: true,
 			error: null,
 			stats: null,
+			alertsOpen: true,
 		}
+	},
+	computed: {
+		warningCount() {
+			return (this.stats.alertsCount ?? 0) + (this.stats.orphanCount ?? 0)
+		},
+		buckets() {
+			const b = this.stats.byType
+			return {
+				internal: (b.user ?? 0) + (b.group ?? 0) + (b.talk ?? 0),
+				external: (b.link ?? 0) + (b.email ?? 0) + (b.federated ?? 0),
+				other: b.other ?? 0,
+			}
+		},
+		ieSegments() {
+			const b = this.buckets
+			const labels = {
+				internal: t('share_audit_dashboard', 'Internal'),
+				external: t('share_audit_dashboard', 'External'),
+				other: t('share_audit_dashboard', 'Other'),
+			}
+			const colors = {
+				internal: 'var(--color-success)',
+				external: 'var(--color-warning)',
+				other: 'var(--color-text-maxcontrast)',
+			}
+			return Object.entries(b)
+				.filter(([, v]) => v > 0)
+				.map(([key, value]) => ({ key, label: labels[key], value, color: colors[key] }))
+		},
+		externalPct() {
+			const total = this.buckets.internal + this.buckets.external + this.buckets.other
+			return total ? Math.round((this.buckets.external / total) * 100) : 0
+		},
 	},
 	async mounted() {
 		try {
@@ -130,19 +173,99 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.sad-alerts {
+	margin-bottom: 12px;
+}
+
+.sad-alerts__toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: none;
+	border: none;
+	padding: 4px 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--color-main-text);
+	cursor: pointer;
+}
+
+.sad-alerts__chev {
+	display: inline-block;
+	transition: transform 0.15s ease;
+	color: var(--color-text-maxcontrast);
+}
+
+.sad-alerts__chev--open {
+	transform: rotate(90deg);
+}
+
+.sad-alerts__rows {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.sad-alert-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 7px 12px;
+	border-radius: var(--border-radius, 6px);
+	background: var(--color-background-hover);
+	border-left: 3px solid var(--color-border);
+}
+
+.sad-alert-row--error {
+	border-left-color: var(--color-error);
+}
+
+.sad-alert-row--warning {
+	border-left-color: var(--color-warning);
+}
+
+.sad-alert-row--error .sad-alert-row__msg {
+	color: var(--color-error-text, var(--color-error));
+}
+
+.sad-alert-row__msg {
+	flex: 1;
+	font-size: 13px;
+}
+
 .sad-panel {
-	padding: 16px;
+	padding: 12px 14px;
 	border-radius: var(--border-radius-large, 12px);
 	border: 1px solid var(--color-border);
 
 	h3 {
-		margin: 0 0 12px;
+		margin: 0 0 8px;
 		font-size: 15px;
 	}
 }
 
-.sad-panel--wide {
-	margin: 20px 0;
+.sad-row {
+	display: grid;
+	grid-template-columns: 3fr 1fr;
+	gap: 12px;
+	margin: 10px 0;
+}
+
+@media (max-width: 820px) {
+	.sad-row {
+		grid-template-columns: 1fr;
+	}
+}
+
+.sad-row__side {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+
+	h3 {
+		align-self: flex-start;
+	}
 }
 
 .sad-panel__head {
@@ -162,11 +285,36 @@ export default {
 	font-size: 12px;
 }
 
+.sad-ie-legend {
+	width: 100%;
+	margin-top: 8px;
+}
+
+.sad-ie-legend li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 3px 0;
+	font-size: 13px;
+}
+
+.sad-ie-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 3px;
+	flex-shrink: 0;
+}
+
+.sad-ie-val {
+	margin-left: auto;
+	font-weight: 600;
+}
+
 .sad-panels {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-	gap: 16px;
-	margin-bottom: 20px;
+	gap: 12px;
+	margin-bottom: 10px;
 }
 
 .sad-top li {
@@ -190,12 +338,5 @@ export default {
 	font-size: 12px;
 	font-weight: normal;
 	margin-left: 6px;
-}
-
-.sad-alerts-note {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	justify-content: space-between;
 }
 </style>

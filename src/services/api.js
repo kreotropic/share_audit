@@ -78,6 +78,30 @@ export async function bulkShareAction(action, ids, params = {}) {
 }
 
 /**
+ * Autocomplete recipients (users / groups / emails) matching a query.
+ */
+export async function searchRecipients(q) {
+	const { data } = await axios.get(base('/api/recipients/search'), { params: { q } })
+	return data.items
+}
+
+/**
+ * Every share granting access to a recipient.
+ */
+export async function recipientShares(shareWith, shareType) {
+	const { data } = await axios.get(base('/api/recipients/shares'), { params: { shareWith, shareType } })
+	return data
+}
+
+/**
+ * Revoke every share to a recipient.
+ */
+export async function revokeRecipientAll(shareWith, shareType) {
+	const { data } = await axios.post(base('/api/recipients/revoke-all'), { shareWith, shareType })
+	return data
+}
+
+/**
  * Fetch the exposure overview (counts per category, score, top users).
  */
 export async function fetchExposure() {

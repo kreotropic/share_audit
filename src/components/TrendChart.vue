@@ -1,8 +1,9 @@
 <template>
-	<div class="sad-chart">
+	<div ref="root" class="sad-chart">
 		<svg ref="svg"
 			class="sad-trend"
-			:viewBox="`0 0 ${W} ${H}`"
+			:style="{ height: height + 'px' }"
+			:viewBox="`0 0 ${W} ${height}`"
 			preserveAspectRatio="none"
 			role="img"
 			:aria-label="t('share_audit_dashboard', 'Shares created per month over the last 12 months')"
@@ -25,7 +26,7 @@
 				<text v-for="p in geo.points"
 					:key="p.label"
 					:x="p.x"
-					:y="H - 8"
+					:y="height - 8"
 					text-anchor="middle">{{ p.month }}</text>
 			</g>
 
@@ -40,7 +41,7 @@
 				:x="padL"
 				:y="padT"
 				:width="W - padL - padR"
-				:height="H - padT - padB" />
+				:height="height - padT - padB" />
 		</svg>
 
 		<div v-if="hovered" class="sad-chart__tip" :style="tipStyle">
@@ -60,16 +61,20 @@ export default {
 			type: Array,
 			required: true,
 		},
+		height: {
+			type: Number,
+			default: 200,
+		},
 	},
 	data() {
 		return {
 			W: 720,
-			H: 240,
 			padL: 34,
 			padR: 12,
 			padT: 16,
 			padB: 26,
 			hoverIndex: null,
+			resizeObserver: null,
 		}
 	},
 	computed: {
@@ -82,8 +87,8 @@ export default {
 		geo() {
 			const n = this.series.length
 			const plotW = this.W - this.padL - this.padR
-			const plotH = this.H - this.padT - this.padB
-			const baselineY = this.H - this.padB
+			const plotH = this.height - this.padT - this.padB
+			const baselineY = this.height - this.padB
 			const stepX = n > 1 ? plotW / (n - 1) : 0
 			const xFor = (i) => this.padL + i * stepX
 			const yFor = (v) => baselineY - (v / this.yMax) * plotH
@@ -122,15 +127,29 @@ export default {
 			}
 			// Position tooltip as a percentage of the chart width/height.
 			const left = (this.hovered.x / this.W) * 100
-			const top = (this.hovered.y / this.H) * 100
+			const top = (this.hovered.y / this.height) * 100
 			return {
 				left: `${left}%`,
 				top: `${top}%`,
 			}
 		},
 	},
+	mounted() {
+		this.measure()
+		this.resizeObserver = new ResizeObserver(() => this.measure())
+		this.resizeObserver.observe(this.$refs.root)
+	},
+	beforeUnmount() {
+		this.resizeObserver?.disconnect()
+	},
 	methods: {
 		t,
+		measure() {
+			const width = this.$refs.root?.clientWidth
+			if (width) {
+				this.W = width
+			}
+		},
 		onMove(event) {
 			const svg = this.$refs.svg
 			const rect = svg.getBoundingClientRect()
@@ -154,7 +173,6 @@ export default {
 
 .sad-trend {
 	width: 100%;
-	height: 240px;
 	overflow: visible;
 }
 

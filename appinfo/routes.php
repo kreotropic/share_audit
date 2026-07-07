@@ -31,5 +31,9 @@ return [
         ['name' => 'orphanShare#revoke', 'url' => '/api/orphans/revoke', 'verb' => 'POST'],
         // Exposure map (internal / external / public + score).
         ['name' => 'exposure#overview', 'url' => '/api/exposure', 'verb' => 'GET'],
+        // Reverse drill-down by recipient.
+        ['name' => 'recipient#search', 'url' => '/api/recipients/search', 'verb' => 'GET'],
+        ['name' => 'recipient#shares', 'url' => '/api/recipients/shares', 'verb' => 'GET'],
+        ['name' => 'recipient#revokeAll', 'url' => '/api/recipients/revoke-all', 'verb' => 'POST'],
     ],
 ];

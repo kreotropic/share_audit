@@ -14,7 +14,8 @@
 					{{ tab.label }}
 					<NcCounterBubble v-if="counterFor(tab.id) > 0"
 						:count="counterFor(tab.id)"
-						class="sad-tab__counter" />
+						class="sad-tab__counter"
+						:class="'sad-tab__counter--' + tab.id" />
 				</span>
 			</NcButton>
 		</nav>
@@ -30,6 +31,7 @@
 			<OrphanShares v-else-if="activeTab === 'orphans'"
 				@orphan-count="orphanCount = $event" />
 			<ExposureMap v-else-if="activeTab === 'exposure'" @drilldown="onDrilldown" />
+			<RecipientDrilldown v-else-if="activeTab === 'recipients'" />
 			<Settings v-else-if="activeTab === 'settings'" @saved="onSettingsSaved" />
 		</div>
 	</div>
@@ -44,6 +46,7 @@ import ShareList from './views/ShareList.vue'
 import SecurityAlerts from './views/SecurityAlerts.vue'
 import OrphanShares from './views/OrphanShares.vue'
 import ExposureMap from './views/ExposureMap.vue'
+import RecipientDrilldown from './views/RecipientDrilldown.vue'
 import Settings from './views/Settings.vue'
 
 const DRILLDOWN_TYPES = {
@@ -62,6 +65,7 @@ export default {
 		SecurityAlerts,
 		OrphanShares,
 		ExposureMap,
+		RecipientDrilldown,
 		Settings,
 	},
 	data() {
@@ -80,6 +84,7 @@ export default {
 				{ id: 'alerts', label: t('share_audit_dashboard', 'Security alerts') },
 				{ id: 'orphans', label: t('share_audit_dashboard', 'Orphan shares') },
 				{ id: 'exposure', label: t('share_audit_dashboard', 'Exposure') },
+				{ id: 'recipients', label: t('share_audit_dashboard', 'Access lookup') },
 				{ id: 'settings', label: t('share_audit_dashboard', 'Settings') },
 			]
 		},
@@ -135,5 +140,16 @@ export default {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+}
+
+// Severity colours for the tab badges (the counter root carries the class).
+.sad-tab__counter--alerts {
+	background-color: var(--color-error) !important;
+	color: #fff !important;
+}
+
+.sad-tab__counter--orphans {
+	background-color: var(--color-warning) !important;
+	color: #fff !important;
 }
 </style>

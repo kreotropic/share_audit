@@ -276,6 +276,16 @@ class ShareMapper {
                 $qb->createNamedParameter($filters['owners'], IQueryBuilder::PARAM_STR_ARRAY)));
         }
 
+        if (!empty($filters['shareWith'])) {
+            $qb->andWhere($qb->expr()->eq('s.share_with',
+                $qb->createNamedParameter($filters['shareWith'])));
+        }
+
+        if (isset($filters['shareType'])) {
+            $qb->andWhere($qb->expr()->eq('s.share_type',
+                $qb->createNamedParameter((int)$filters['shareType'], IQueryBuilder::PARAM_INT)));
+        }
+
         if (!empty($filters['search'])) {
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['search']) . '%';
             $qb->andWhere($qb->expr()->orX(

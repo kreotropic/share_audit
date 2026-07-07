@@ -247,8 +247,12 @@ export default {
 		font-weight: 600;
 	}
 
-	tbody tr:hover {
+	tbody tr:nth-child(even) {
 		background-color: var(--color-background-hover);
+	}
+
+	tbody tr:hover {
+		background-color: var(--color-background-dark);
 	}
 }
 

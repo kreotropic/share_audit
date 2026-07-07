@@ -1,0 +1,335 @@
+<template>
+	<div class="sad-recipient">
+		<p class="settings-hint">
+			{{ t('share_audit_dashboard', 'Search a user, group or email to see every file and folder they can reach.') }}
+		</p>
+
+		<NcTextField class="sad-recipient__search"
+			v-model="query"
+			:label="t('share_audit_dashboard', 'Search user, group or email')"
+			@update:model-value="onSearch" />
+
+		<!-- Autocomplete results -->
+		<ul v-if="!selected && results.length" class="sad-recipient__results">
+			<li v-for="r in results"
+				:key="r.shareType + ':' + r.shareWith"
+				class="sad-recipient__result"
+				@click="select(r)">
+				<NcChip :text="categoryLabel(r.category)" :no-close="true" />
+				<span class="sad-recipient__name">{{ r.label }}</span>
+				<span v-if="r.label !== r.shareWith" class="sad-recipient__id">{{ r.shareWith }}</span>
+				<span class="sad-recipient__count">
+					{{ n('share_audit_dashboard', '%n share', '%n shares', r.count) }}
+				</span>
+			</li>
+		</ul>
+
+		<p v-else-if="!selected && searched && query.length >= 2 && !loading" class="settings-hint sad-recipient__empty">
+			{{ t('share_audit_dashboard', 'No recipient matches “{query}”.', { query }) }}
+		</p>
+
+		<!-- Selected recipient detail -->
+		<template v-if="selected">
+			<div class="sad-recipient__head">
+				<NcButton type="tertiary" @click="clearSelection">
+					{{ t('share_audit_dashboard', '← Back') }}
+				</NcButton>
+				<h3 class="sad-recipient__title">
+					<NcChip :text="categoryLabel(selected.category)" :no-close="true" />
+					{{ selected.label }}
+					<span class="sad-recipient__has">
+						{{ n('share_audit_dashboard', 'has access to %n item', 'has access to %n items', total) }}
+					</span>
+				</h3>
+				<span class="sad-recipient__spacer" />
+				<template v-if="total > 0">
+					<template v-if="!confirming">
+						<NcButton type="error" :disabled="revoking" @click="confirming = true">
+							{{ t('share_audit_dashboard', 'Revoke all access') }}
+						</NcButton>
+					</template>
+					<template v-else>
+						<span class="sad-recipient__confirm">
+							{{ n('share_audit_dashboard', 'Revoke %n share?', 'Revoke %n shares?', total) }}
+						</span>
+						<NcButton type="error" :disabled="revoking" @click="revokeAll">
+							{{ t('share_audit_dashboard', 'Confirm') }}
+						</NcButton>
+						<NcButton type="tertiary" :disabled="revoking" @click="confirming = false">
+							{{ t('share_audit_dashboard', 'Cancel') }}
+						</NcButton>
+					</template>
+				</template>
+			</div>
+
+			<NcNoteCard v-if="notice" :type="notice.type" class="sad-recipient__notice">
+				{{ notice.message }}
+			</NcNoteCard>
+
+			<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
+
+			<div v-else-if="items.length" class="sad-table-wrapper">
+				<table class="sad-table">
+					<thead>
+						<tr>
+							<th>{{ t('share_audit_dashboard', 'Path') }}</th>
+							<th>{{ t('share_audit_dashboard', 'Shared by') }}</th>
+							<th>{{ t('share_audit_dashboard', 'Permissions') }}</th>
+							<th>{{ t('share_audit_dashboard', 'Created') }}</th>
+							<th>{{ t('share_audit_dashboard', 'Expires') }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr v-for="share in items" :key="share.id">
+							<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
+							<td>{{ share.owner }}</td>
+							<td class="sad-table__perms">
+								{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}
+							</td>
+							<td>{{ formatDate(share.created) }}</td>
+							<td>
+								<span v-if="share.expiration">{{ share.expiration }}</span>
+								<span v-else class="sad-recipient__warn">{{ t('share_audit_dashboard', 'never') }}</span>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</template>
+	</div>
+</template>
+
+<script>
+import { translate as t, translatePlural as n } from '@nextcloud/l10n'
+import NcButton from '@nextcloud/vue/components/NcButton'
+import NcChip from '@nextcloud/vue/components/NcChip'
+import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
+import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
+import { searchRecipients, recipientShares, revokeRecipientAll } from '../services/api.js'
+
+export default {
+	name: 'RecipientDrilldown',
+	components: {
+		NcButton,
+		NcChip,
+		NcLoadingIcon,
+		NcNoteCard,
+		NcTextField,
+	},
+	data() {
+		return {
+			query: '',
+			results: [],
+			searched: false,
+			selected: null,
+			items: [],
+			total: 0,
+			loading: false,
+			revoking: false,
+			confirming: false,
+			notice: null,
+			searchTimer: null,
+		}
+	},
+	methods: {
+		t,
+		n,
+		categoryLabel,
+		permissionLabel,
+		formatDate,
+		onSearch() {
+			clearTimeout(this.searchTimer)
+			this.selected = null
+			if (this.query.trim().length < 2) {
+				this.results = []
+				this.searched = false
+				return
+			}
+			this.searchTimer = setTimeout(this.runSearch, 350)
+		},
+		async runSearch() {
+			try {
+				this.results = await searchRecipients(this.query.trim())
+				this.searched = true
+			} catch (e) {
+				this.results = []
+			}
+		},
+		async select(recipient) {
+			this.selected = recipient
+			this.confirming = false
+			this.notice = null
+			this.loading = true
+			try {
+				const data = await recipientShares(recipient.shareWith, recipient.shareType)
+				this.items = data.items
+				this.total = data.total
+			} catch (e) {
+				this.notice = { type: 'error', message: t('share_audit_dashboard', 'Could not load access for this recipient.') }
+			} finally {
+				this.loading = false
+			}
+		},
+		clearSelection() {
+			this.selected = null
+			this.items = []
+			this.total = 0
+			this.confirming = false
+			this.notice = null
+		},
+		async revokeAll() {
+			this.revoking = true
+			try {
+				const res = await revokeRecipientAll(this.selected.shareWith, this.selected.shareType)
+				this.notice = {
+					type: 'success',
+					message: n('share_audit_dashboard', 'Revoked %n share.', 'Revoked %n shares.', res.deleted),
+				}
+				this.items = []
+				this.total = 0
+				this.confirming = false
+				// Refresh the autocomplete so the recipient disappears if empty.
+				if (this.query.trim().length >= 2) {
+					this.runSearch()
+				}
+			} catch (e) {
+				this.notice = { type: 'error', message: t('share_audit_dashboard', 'Could not revoke access.') }
+			} finally {
+				this.revoking = false
+			}
+		},
+	},
+}
+</script>
+
+<style scoped lang="scss">
+.sad-recipient__search {
+	max-width: 420px;
+	margin-bottom: 16px;
+}
+
+.sad-recipient__results {
+	max-width: 620px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large, 12px);
+	overflow: hidden;
+}
+
+.sad-recipient__result {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	cursor: pointer;
+	border-bottom: 1px solid var(--color-border);
+
+	&:last-child {
+		border-bottom: none;
+	}
+
+	&:hover {
+		background: var(--color-background-hover);
+	}
+}
+
+.sad-recipient__name {
+	font-weight: 500;
+}
+
+.sad-recipient__id,
+.sad-recipient__count {
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
+}
+
+.sad-recipient__count {
+	margin-left: auto;
+}
+
+.sad-recipient__empty {
+	margin-top: 12px;
+}
+
+.sad-recipient__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin: 8px 0 16px;
+}
+
+.sad-recipient__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	font-size: 16px;
+}
+
+.sad-recipient__has {
+	color: var(--color-text-maxcontrast);
+	font-weight: normal;
+	font-size: 14px;
+}
+
+.sad-recipient__spacer {
+	flex: 1;
+}
+
+.sad-recipient__confirm {
+	font-weight: 600;
+}
+
+.sad-recipient__notice {
+	margin-bottom: 12px;
+}
+
+.sad-recipient__warn {
+	color: var(--color-warning-text, var(--color-warning));
+	font-weight: 600;
+}
+
+.sad-table-wrapper {
+	overflow-x: auto;
+}
+
+.sad-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+
+	th,
+	td {
+		text-align: left;
+		padding: 8px 10px;
+		border-bottom: 1px solid var(--color-border);
+		white-space: nowrap;
+	}
+
+	th {
+		color: var(--color-text-maxcontrast);
+		font-weight: 600;
+	}
+
+	tbody tr:nth-child(even) {
+		background-color: var(--color-background-hover);
+	}
+
+	tbody tr:hover {
+		background-color: var(--color-background-dark);
+	}
+}
+
+.sad-table__path {
+	max-width: 320px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.sad-table__perms {
+	white-space: normal;
+	min-width: 140px;
+}
+</style>
