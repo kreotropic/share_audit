@@ -43,12 +43,19 @@
 			<!-- My alerts -->
 			<section v-if="alerts.length" class="sad-personal__block">
 				<h3>{{ t('share_audit_dashboard', 'Your links that need attention') }}</h3>
+				<BulkActionBar :count="selectedIds.length"
+					:all-selected="allSelected"
+					:busy="busy"
+					@bulk="onBulk"
+					@toggle-all="toggleAll"
+					@clear="selectedIds = []" />
 				<ul class="sad-alerts">
 					<AlertCard v-for="alert in alerts"
 						:key="alert.id"
 						:alert="alert"
 						:busy="busy"
-						:selected="false"
+						:selected="selectedIds.includes(alert.id)"
+						@update:selected="toggleSelect(alert.id, $event)"
 						@action="onAction" />
 				</ul>
 			</section>
@@ -95,12 +102,13 @@
 </template>
 
 <script>
-import { translate as t } from '@nextcloud/l10n'
+import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcChip from '@nextcloud/vue/components/NcChip'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AlertCard from './components/AlertCard.vue'
+import BulkActionBar from './components/BulkActionBar.vue'
 import { categoryLabel, permissionLabel, formatDate } from './utils/format.js'
 import {
 	fetchMySummary, fetchMyShares, fetchMyAlerts,
@@ -115,6 +123,7 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		AlertCard,
+		BulkActionBar,
 	},
 	data() {
 		return {
@@ -124,18 +133,70 @@ export default {
 			summary: { total: 0, alertsCount: 0 },
 			alerts: [],
 			shares: [],
+			selectedIds: [],
 			generatedPasswords: [],
 			notice: null,
 		}
+	},
+	computed: {
+		allSelected() {
+			return this.alerts.length > 0 && this.selectedIds.length === this.alerts.length
+		},
 	},
 	async mounted() {
 		await this.loadAll()
 	},
 	methods: {
 		t,
+		n,
 		categoryLabel,
 		permissionLabel,
 		formatDate,
+		toggleSelect(id, checked) {
+			if (checked) {
+				if (!this.selectedIds.includes(id)) {
+					this.selectedIds.push(id)
+				}
+			} else {
+				this.selectedIds = this.selectedIds.filter((x) => x !== id)
+			}
+		},
+		toggleAll(checked) {
+			this.selectedIds = checked ? this.alerts.map((a) => a.id) : []
+		},
+		async onBulk({ action, days }) {
+			if (!this.selectedIds.length) {
+				return
+			}
+			const idToPath = Object.fromEntries(this.alerts.map((a) => [a.id, a.path]))
+			const ids = [...this.selectedIds]
+			this.busy = true
+			this.notice = null
+			let ok = 0
+			let failed = 0
+			for (const id of ids) {
+				try {
+					if (action === 'password') {
+						const res = await setMySharePassword(id)
+						this.generatedPasswords.push({ path: idToPath[id] ?? ('#' + id), password: res.password })
+					} else if (action === 'expiration') {
+						await setMyShareExpiration(id, days)
+					} else if (action === 'revoke') {
+						await revokeMyShare(id)
+					}
+					ok++
+				} catch (e) {
+					failed++
+				}
+			}
+			this.notice = {
+				type: failed ? 'warning' : 'success',
+				message: t('share_audit_dashboard', '{ok} of {total} shares updated.', { ok, total: ids.length }),
+			}
+			this.selectedIds = []
+			await this.refresh()
+			this.busy = false
+		},
 		recipientOf(share) {
 			if (share.recipient) {
 				return share.recipient
@@ -170,6 +231,7 @@ export default {
 			this.summary = summary
 			this.alerts = alerts.items
 			this.shares = shares.items
+			this.selectedIds = this.selectedIds.filter((id) => this.alerts.some((a) => a.id === id))
 		},
 		async onAction({ type, id, days, path }) {
 			this.busy = true
