@@ -89,7 +89,7 @@ export default {
 }
 
 .sad-donut__track {
-	stroke: var(--color-background-dark);
+	stroke: #e5e7eb;
 }
 
 .sad-donut__value {

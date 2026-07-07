@@ -25,7 +25,7 @@
 						<span class="sad-alert-row__msg">{{ n('share_audit_dashboard',
 							'%n share owned by a disabled or deleted account',
 							'%n shares owned by disabled or deleted accounts', stats.orphanCount) }}</span>
-						<NcButton type="tertiary" @click="$emit('navigate', 'orphans')">
+						<NcButton type="tertiary" @click="$emit('navigate', 'lookup')">
 							{{ t('share_audit_dashboard', 'Review orphans') }}
 						</NcButton>
 					</div>
@@ -86,6 +86,11 @@
 					</p>
 				</section>
 			</div>
+
+			<section class="sad-exposure-section">
+				<h3 class="sad-section-title">{{ t('share_audit_dashboard', 'Exposure') }}</h3>
+				<ExposureMap @drilldown="$emit('drilldown', $event)" />
+			</section>
 		</template>
 	</div>
 </template>
@@ -99,6 +104,7 @@ import StatsCards from '../components/StatsCards.vue'
 import TrendChart from '../components/TrendChart.vue'
 import TypeBarChart from '../components/TypeBarChart.vue'
 import ExposureDonut from '../components/ExposureDonut.vue'
+import ExposureMap from './ExposureMap.vue'
 import { fetchStats } from '../services/api.js'
 
 export default {
@@ -111,8 +117,9 @@ export default {
 		TrendChart,
 		TypeBarChart,
 		ExposureDonut,
+		ExposureMap,
 	},
-	emits: ['navigate', 'alerts-count', 'orphan-count'],
+	emits: ['navigate', 'alerts-count', 'orphan-count', 'drilldown'],
 	data() {
 		return {
 			loading: true,
@@ -141,9 +148,9 @@ export default {
 				other: t('share_audit_dashboard', 'Other'),
 			}
 			const colors = {
-				internal: 'var(--color-success)',
-				external: 'var(--color-warning)',
-				other: 'var(--color-text-maxcontrast)',
+				internal: '#2a9d8f',
+				external: '#e76f51',
+				other: '#6b7280',
 			}
 			return Object.entries(b)
 				.filter(([, v]) => v > 0)
@@ -315,6 +322,17 @@ export default {
 	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 	gap: 12px;
 	margin-bottom: 10px;
+}
+
+.sad-exposure-section {
+	margin-top: 24px;
+	padding-top: 16px;
+	border-top: 1px solid var(--color-border);
+}
+
+.sad-section-title {
+	margin: 0 0 4px;
+	font-size: 17px;
 }
 
 .sad-top li {

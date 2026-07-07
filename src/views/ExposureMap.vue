@@ -7,23 +7,23 @@
 		</NcNoteCard>
 
 		<template v-else>
-			<p class="settings-hint">
-				{{ t('share_audit_dashboard', 'How far your shared data reaches: internal, external, or public.') }}
-			</p>
-
 			<div class="sad-exposure">
 				<section class="sad-panel sad-exposure__score">
 					<ExposureDonut :segments="segments"
 						:center-value="overview.score"
 						:center-label="t('share_audit_dashboard', 'score')" />
-					<div class="sad-exposure__level">
-						<span class="sad-exposure__badge" :class="'sad-exposure__badge--' + overview.level">
-							{{ levelLabel }}
-						</span>
-						<p class="settings-hint">
-							{{ t('share_audit_dashboard', '0 = everything internal, 100 = everything public.') }}
-						</p>
-					</div>
+					<span class="sad-exposure__badge" :class="'sad-exposure__badge--' + overview.level">
+						{{ levelLabel }}
+					</span>
+					<ul class="sad-exposure__legend">
+						<li v-for="seg in segments" :key="seg.key">
+							<span class="sad-exposure__dot" :style="{ background: seg.color }" />
+							<span>{{ seg.label }}</span>
+						</li>
+					</ul>
+					<p class="settings-hint sad-exposure__hint">
+						{{ t('share_audit_dashboard', '0 = everything internal, 100 = everything public.') }}
+					</p>
 				</section>
 
 				<section class="sad-panel sad-exposure__breakdown">
@@ -89,9 +89,9 @@ export default {
 		segments() {
 			const c = this.overview.counts
 			return [
-				{ key: 'internal', label: t('share_audit_dashboard', 'Internal'), value: c.internal, color: 'var(--color-success)' },
-				{ key: 'external', label: t('share_audit_dashboard', 'External'), value: c.external, color: 'var(--color-warning)' },
-				{ key: 'public', label: t('share_audit_dashboard', 'Public'), value: c.public, color: 'var(--color-error)' },
+				{ key: 'internal', label: t('share_audit_dashboard', 'Internal'), value: c.internal, color: '#2a9d8f' },
+				{ key: 'external', label: t('share_audit_dashboard', 'External'), value: c.external, color: '#e76f51' },
+				{ key: 'public', label: t('share_audit_dashboard', 'Public'), value: c.public, color: '#c1121f' },
 			]
 		},
 		levelLabel() {
@@ -143,8 +143,9 @@ export default {
 
 .sad-exposure__score {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	gap: 16px;
+	gap: 10px;
 }
 
 .sad-exposure__badge {
@@ -152,20 +153,42 @@ export default {
 	font-weight: 600;
 	padding: 3px 10px;
 	border-radius: var(--border-radius, 6px);
-	color: var(--color-primary-element-text, #fff);
-	margin-bottom: 6px;
+	color: #fff;
+	border: 1px solid transparent;
 }
 
 .sad-exposure__badge--low {
-	background: var(--color-success);
+	background: #2a9d8f;
 }
 
 .sad-exposure__badge--medium {
-	background: var(--color-warning);
+	background: #fef3c7;
+	color: #92400e;
+	border-color: #fcd34d;
 }
 
 .sad-exposure__badge--high {
-	background: var(--color-error);
+	background: #c1121f;
+}
+
+.sad-exposure__legend {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 6px 16px;
+	margin-top: 2px;
+}
+
+.sad-exposure__legend li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+}
+
+.sad-exposure__hint {
+	text-align: center;
+	margin: 0;
 }
 
 .sad-exposure__row {
@@ -188,7 +211,7 @@ export default {
 
 .sad-exposure__track {
 	height: 16px;
-	background: var(--color-background-hover);
+	background: #f3f4f6;
 	border-radius: var(--border-radius, 6px);
 	overflow: hidden;
 }
