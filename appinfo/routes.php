@@ -31,6 +31,13 @@ return [
         ['name' => 'orphanShare#revoke', 'url' => '/api/orphans/revoke', 'verb' => 'POST'],
         // Exposure map (internal / external / public + score).
         ['name' => 'exposure#overview', 'url' => '/api/exposure', 'verb' => 'GET'],
+        // Personal (per-user) view: audit and fix your own shares.
+        ['name' => 'personal#summary', 'url' => '/api/my/summary', 'verb' => 'GET'],
+        ['name' => 'personal#shares', 'url' => '/api/my/shares', 'verb' => 'GET'],
+        ['name' => 'personal#alerts', 'url' => '/api/my/alerts', 'verb' => 'GET'],
+        ['name' => 'personal#setPassword', 'url' => '/api/my/shares/{id}/password', 'verb' => 'POST'],
+        ['name' => 'personal#setExpiration', 'url' => '/api/my/shares/{id}/expiration', 'verb' => 'POST'],
+        ['name' => 'personal#revoke', 'url' => '/api/my/shares/{id}', 'verb' => 'DELETE'],
         // Reverse drill-down by recipient.
         ['name' => 'recipient#search', 'url' => '/api/recipients/search', 'verb' => 'GET'],
         ['name' => 'recipient#shares', 'url' => '/api/recipients/shares', 'verb' => 'GET'],

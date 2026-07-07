@@ -220,7 +220,7 @@ class ShareMapper {
      *
      * @return array<int, array<string, mixed>>
      */
-    public function findInsecureLinks(): array {
+    public function findInsecureLinks(?string $owner = null): array {
         $qb = $this->db->getQueryBuilder();
         $qb->select(
             's.id', 's.share_type', 's.uid_owner', 's.uid_initiator',
@@ -237,6 +237,10 @@ class ShareMapper {
                 $qb->expr()->isNull('s.expiration'),
             ))
             ->orderBy('s.stime', 'DESC');
+
+        if ($owner !== null) {
+            $qb->andWhere($qb->expr()->eq('s.uid_owner', $qb->createNamedParameter($owner)));
+        }
 
         $result = $qb->executeQuery();
         $rows = $result->fetchAll();

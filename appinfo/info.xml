@@ -32,5 +32,7 @@ Unlike the CLI-only sharelisting app, everything is available in the browser for
     <settings>
         <admin-section>OCA\ShareAuditDashboard\Settings\AdminSection</admin-section>
         <admin>OCA\ShareAuditDashboard\Settings\AdminSettings</admin>
+        <personal-section>OCA\ShareAuditDashboard\Settings\PersonalSection</personal-section>
+        <personal>OCA\ShareAuditDashboard\Settings\PersonalSettings</personal>
     </settings>
 </info>

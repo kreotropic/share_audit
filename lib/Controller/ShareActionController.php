@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
-use OCA\ShareAuditDashboard\Service\PasswordGeneratorService;
+use OCA\ShareAuditDashboard\Service\ShareRemediationService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUserSession;
-use OCP\Share\IManager;
-use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -28,8 +26,7 @@ class ShareActionController extends Controller {
     public function __construct(
         string $appName,
         IRequest $request,
-        private IManager $shareManager,
-        private PasswordGeneratorService $passwordGenerator,
+        private ShareRemediationService $remediation,
         private IUserSession $userSession,
         private IGroupManager $groupManager,
         private LoggerInterface $logger,
@@ -45,8 +42,7 @@ class ShareActionController extends Controller {
             return $guard;
         }
         try {
-            $result = $this->applyPassword($id, $password);
-            return new JSONResponse($result);
+            return new JSONResponse($this->remediation->applyPassword($id, $password));
         } catch (\Throwable $e) {
             return $this->fail($id, $e);
         }
@@ -60,7 +56,7 @@ class ShareActionController extends Controller {
             return $guard;
         }
         try {
-            return new JSONResponse($this->applyExpiration($id, $days));
+            return new JSONResponse($this->remediation->applyExpiration($id, $days));
         } catch (\Throwable $e) {
             return $this->fail($id, $e);
         }
@@ -74,7 +70,7 @@ class ShareActionController extends Controller {
             return $guard;
         }
         try {
-            return new JSONResponse($this->applyRevoke($id));
+            return new JSONResponse($this->remediation->revoke($id));
         } catch (\Throwable $e) {
             return $this->fail($id, $e);
         }
@@ -95,9 +91,9 @@ class ShareActionController extends Controller {
             $id = (int)$rawId;
             try {
                 $results[] = match ($action) {
-                    'password' => $this->applyPassword($id, ''),
-                    'expiration' => $this->applyExpiration($id, $days),
-                    'revoke' => $this->applyRevoke($id),
+                    'password' => $this->remediation->applyPassword($id, ''),
+                    'expiration' => $this->remediation->applyExpiration($id, $days),
+                    'revoke' => $this->remediation->revoke($id),
                     default => throw new \InvalidArgumentException('Unknown action: ' . $action),
                 };
             } catch (\Throwable $e) {
@@ -113,46 +109,6 @@ class ShareActionController extends Controller {
             'failed' => count($results) - $ok,
             'results' => $results,
         ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function applyPassword(int $id, string $password): array {
-        $share = $this->loadShare($id);
-        $plain = $password !== '' ? $password : $this->passwordGenerator->generate();
-        $share->setPassword($plain);
-        $this->shareManager->updateShare($share);
-        return ['id' => $id, 'success' => true, 'action' => 'password', 'password' => $plain];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function applyExpiration(int $id, int $days): array {
-        $days = max(1, $days);
-        $date = (new \DateTime('today'))->modify('+' . $days . ' days');
-        $share = $this->loadShare($id);
-        $share->setExpirationDate($date);
-        $this->shareManager->updateShare($share);
-        return ['id' => $id, 'success' => true, 'action' => 'expiration', 'expiration' => $date->format('Y-m-d')];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function applyRevoke(int $id): array {
-        $share = $this->loadShare($id);
-        $this->shareManager->deleteShare($share);
-        return ['id' => $id, 'success' => true, 'action' => 'revoke'];
-    }
-
-    /**
-     * Load a share by its numeric oc_share id. Alerts only cover public links,
-     * which are always served by the default ("ocinternal") provider.
-     */
-    private function loadShare(int $id): IShare {
-        return $this->shareManager->getShareById('ocinternal:' . $id);
     }
 
     private function fail(int $id, \Throwable $e): JSONResponse {

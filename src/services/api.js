@@ -101,6 +101,38 @@ export async function revokeRecipientAll(shareWith, shareType) {
 	return data
 }
 
+// --- Personal (per-user) view ---
+
+export async function fetchMySummary() {
+	const { data } = await axios.get(base('/api/my/summary'))
+	return data
+}
+
+export async function fetchMyShares(params = {}) {
+	const { data } = await axios.get(base('/api/my/shares'), { params })
+	return data
+}
+
+export async function fetchMyAlerts() {
+	const { data } = await axios.get(base('/api/my/alerts'))
+	return data
+}
+
+export async function setMySharePassword(id, password = '') {
+	const { data } = await axios.post(base('/api/my/shares/' + id + '/password'), password ? { password } : {})
+	return data
+}
+
+export async function setMyShareExpiration(id, days) {
+	const { data } = await axios.post(base('/api/my/shares/' + id + '/expiration'), { days })
+	return data
+}
+
+export async function revokeMyShare(id) {
+	const { data } = await axios.delete(base('/api/my/shares/' + id))
+	return data
+}
+
 /**
  * Fetch the exposure overview (counts per category, score, top users).
  */

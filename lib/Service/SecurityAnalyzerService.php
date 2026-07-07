@@ -23,18 +23,19 @@ class SecurityAnalyzerService {
      * Number of shares flagged as insecure (used for dashboard badges).
      * Counts actual alerts so it honours the configurable rule toggles.
      */
-    public function countAlerts(): int {
-        return count($this->getAlerts());
+    public function countAlerts(?string $owner = null): int {
+        return count($this->getAlerts($owner));
     }
 
     /**
-     * Full list of security alerts, most severe first.
+     * Full list of security alerts, most severe first. Scoped to a single owner
+     * when $owner is given (used by the personal view).
      *
      * @return array<int, array<string, mixed>>
      */
-    public function getAlerts(): array {
+    public function getAlerts(?string $owner = null): array {
         $alerts = [];
-        foreach ($this->mapper->findInsecureLinks() as $row) {
+        foreach ($this->mapper->findInsecureLinks($owner) as $row) {
             $issues = $this->issuesFor($row);
             if ($issues === []) {
                 continue;
