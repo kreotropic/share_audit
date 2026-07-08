@@ -6,16 +6,10 @@
 			{{ error }}
 		</NcNoteCard>
 
-		<NcEmptyContent v-else-if="items.length === 0"
-			:name="t('share_audit_dashboard', 'All clear')"
-			:description="t('share_audit_dashboard', 'No insecure public links were found.')">
-			<template #icon>
-				<span class="icon-checkmark" />
-			</template>
-		</NcEmptyContent>
-
+		<!-- Generated passwords and the last action's notice render regardless of
+		     whether any insecure links are still left: fixing the very last one
+		     must not sweep away the password you just generated for it. -->
 		<template v-else>
-			<!-- Generated passwords (must be copied before they are lost) -->
 			<NcNoteCard v-if="generatedPasswords.length" type="success" class="sad-pw-panel">
 				<div class="sad-pw-panel__title">
 					{{ t('share_audit_dashboard', 'Generated passwords — copy them now, they are not shown again:') }}
@@ -40,50 +34,60 @@
 				{{ notice.message }}
 			</NcNoteCard>
 
-			<section class="sad-alerts-breakdown">
-				<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
-				<HBarChart :rows="breakdownRows" track-color="var(--sad-track)" label-width="180px" />
-			</section>
-
-			<BulkActionBar :count="selectedIds.length"
-				:all-selected="allSelected"
-				:busy="busy"
-				@bulk="onBulk"
-				@toggle-all="toggleAll"
-				@clear="selectedIds = []">
-				<template #trailing>
-					<PageSizeSelect v-model="pageSize"
-						:options="pageSizeOptions"
-						:width="120"
-						:disabled="busy"
-						:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
+			<NcEmptyContent v-if="items.length === 0"
+				:name="t('share_audit_dashboard', 'All clear')"
+				:description="t('share_audit_dashboard', 'No insecure public links were found.')">
+				<template #icon>
+					<span class="icon-checkmark" />
 				</template>
-			</BulkActionBar>
+			</NcEmptyContent>
 
-			<ul class="sad-alerts">
-				<AlertCard v-for="alert in items"
-					:key="alert.id"
-					:alert="alert"
+			<template v-else>
+				<section class="sad-alerts-breakdown">
+					<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
+					<HBarChart :rows="breakdownRows" track-color="var(--sad-track)" label-width="180px" />
+				</section>
+
+				<BulkActionBar :count="selectedIds.length"
+					:all-selected="allSelected"
 					:busy="busy"
-					:selected="selectedIds.includes(alert.id)"
-					@update:selected="toggleSelect(alert.id, $event)"
-					@action="onCardAction" />
-			</ul>
+					@bulk="onBulk"
+					@toggle-all="toggleAll"
+					@clear="selectedIds = []">
+					<template #trailing>
+						<PageSizeSelect v-model="pageSize"
+							:options="pageSizeOptions"
+							:width="120"
+							:disabled="busy"
+							:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
+					</template>
+				</BulkActionBar>
 
-			<div v-if="!isAll && total > apiLimit" class="sad-pagination">
-				<span class="sad-pagination__range">{{ rangeLabel }}</span>
-				<div class="sad-pagination__controls">
-					<NcButton :disabled="busy || page <= 1" @click="goto(page - 1)">
-						{{ t('share_audit_dashboard', 'Previous') }}
-					</NcButton>
-					<span class="sad-pagination__page">
-						{{ n('share_audit_dashboard', 'Page %n', 'Page %n', page) }} / {{ totalPages }}
-					</span>
-					<NcButton :disabled="busy || page >= totalPages" @click="goto(page + 1)">
-						{{ t('share_audit_dashboard', 'Next') }}
-					</NcButton>
+				<ul class="sad-alerts">
+					<AlertCard v-for="alert in items"
+						:key="alert.id"
+						:alert="alert"
+						:busy="busy"
+						:selected="selectedIds.includes(alert.id)"
+						@update:selected="toggleSelect(alert.id, $event)"
+						@action="onCardAction" />
+				</ul>
+
+				<div v-if="!isAll && total > apiLimit" class="sad-pagination">
+					<span class="sad-pagination__range">{{ rangeLabel }}</span>
+					<div class="sad-pagination__controls">
+						<NcButton :disabled="busy || page <= 1" @click="goto(page - 1)">
+							{{ t('share_audit_dashboard', 'Previous') }}
+						</NcButton>
+						<span class="sad-pagination__page">
+							{{ n('share_audit_dashboard', 'Page %n', 'Page %n', page) }} / {{ totalPages }}
+						</span>
+						<NcButton :disabled="busy || page >= totalPages" @click="goto(page + 1)">
+							{{ t('share_audit_dashboard', 'Next') }}
+						</NcButton>
+					</div>
 				</div>
-			</div>
+			</template>
 		</template>
 	</div>
 </template>
