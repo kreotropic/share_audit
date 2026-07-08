@@ -153,12 +153,12 @@ export default {
 	font-weight: 600;
 	padding: 3px 10px;
 	border-radius: var(--border-radius, 6px);
-	color: #fff;
+	color: var(--sad-ink-on-solid);
 	border: 1px solid transparent;
 }
 
 .sad-exposure__badge--low {
-	background: var(--sad-internal);
+	background: var(--sad-info);
 }
 
 .sad-exposure__badge--medium {

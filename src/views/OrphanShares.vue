@@ -311,7 +311,7 @@ export default {
 	padding: 1px 6px;
 	margin-left: 6px;
 	border-radius: var(--border-radius, 6px);
-	color: var(--color-primary-element-text, #fff);
+	color: var(--sad-ink-on-solid);
 }
 
 .sad-owner__status--disabled {

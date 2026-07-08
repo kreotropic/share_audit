@@ -8,92 +8,132 @@
 }
 
 /*
- * Chart, badge and status palette — the single source of truth.
+ * Chart, badge and chip palette — the single source of truth.
  *
- * These are brand colours, so they cannot come from Nextcloud's theme
- * variables. They are declared once here and re-declared with lighter hues for
- * the dark themes, where the darkest reds/greys would otherwise disappear
- * against a dark surface. Neutrals (tracks, rings) map straight onto Nextcloud
- * theme variables so they follow the theme for free.
+ * Nextcloud's theme only exposes semantic UI colours (primary, error, warning,
+ * background, text); it has no categorical palette for share types or alert
+ * categories. So a handful of brand hues have to be literal. They are declared
+ * exactly once, as --sad-src-*, and everything else is derived:
  *
- * Consume them with var(--sad-*) — including from JS, by passing the string
+ *   • Dark themes desaturate each hue by mixing it toward a neutral that is
+ *     itself derived from the theme (--sad-neutral). No second set of hexes.
+ *   • Tracks and chip surfaces are mixed from the theme's own background/text,
+ *     so they follow light, dark and high-contrast for free.
+ *   • Chips use a "soft" pattern (tinted surface + saturated ink). Because
+ *     --color-main-text flips from near-black to near-white with the theme, a
+ *     single formula produces a readable chip in both.
+ *
+ * Consume with var(--sad-*), including from JS by passing the string
  * "var(--sad-…)" as an inline style value. Note that var() does NOT resolve in
- * SVG presentation attributes (stroke="…"), only in CSS, so bind via :style.
+ * SVG presentation attributes (stroke="…"), only in CSS — bind via :style.
  */
 body {
-	/* Share types */
-	--sad-type-user: #0082c9;
-	--sad-type-group: #5c7a99;
-	--sad-type-link: #e76f51;
-	--sad-type-email: #2a9d8f;
-	--sad-type-federated: #7d5ba6;
-	--sad-type-talk: #3d9970;
-	--sad-type-other: #6b7280;
+	/* The only literal colours in the app. */
+	--sad-src-blue: #0082c9;
+	--sad-src-slate: #5c7a99;
+	--sad-src-coral: #e76f51;
+	--sad-src-teal: #2a9d8f;
+	--sad-src-purple: #7d5ba6;
+	--sad-src-green: #3d9970;
+	--sad-src-grey: #6b7280;
+	--sad-src-amber: #f59e0b;
+	--sad-src-red: #c1121f;
 
-	/* Severity */
-	--sad-critical: #c1121f;
-	--sad-warning: #f59e0b;
-	--sad-warning-on: #663d00; /* text drawn on --sad-warning */
-	--sad-info: #2a9d8f;
+	/* A mid-grey pulled from the current theme; mixing toward it desaturates. */
+	--sad-neutral: color-mix(in srgb, var(--color-main-text) 50%, var(--color-main-background));
+
+	/* Light: the hues as authored. */
+	--sad-hue-blue: var(--sad-src-blue);
+	--sad-hue-slate: var(--sad-src-slate);
+	--sad-hue-coral: var(--sad-src-coral);
+	--sad-hue-teal: var(--sad-src-teal);
+	--sad-hue-purple: var(--sad-src-purple);
+	--sad-hue-green: var(--sad-src-green);
+	--sad-hue-grey: var(--sad-src-grey);
+	--sad-hue-amber: var(--sad-src-amber);
+	--sad-hue-red: var(--sad-src-red);
+
+	/* Share types */
+	--sad-type-user: var(--sad-hue-blue);
+	--sad-type-group: var(--sad-hue-slate);
+	--sad-type-link: var(--sad-hue-coral);
+	--sad-type-email: var(--sad-hue-teal);
+	--sad-type-federated: var(--sad-hue-purple);
+	--sad-type-talk: var(--sad-hue-green);
+	--sad-type-other: var(--sad-hue-grey);
+
+	/*
+	 * Ink for solid brand-coloured badges. It must NOT be
+	 * --color-primary-element-text: Nextcloud's dark theme resolves that to
+	 * black, which lands black-on-dark-red (3.4:1) on the CRITICAL badge.
+	 */
+	--sad-ink-on-solid: #fff;
+
+	/* Severity (solid badges) */
+	--sad-critical: var(--sad-hue-red);
+	--sad-warning: var(--sad-hue-amber);
+	--sad-info: color-mix(in srgb, var(--sad-hue-teal) 82%, #000);
+	/* Amber is light in every theme, so its ink must stay dark in every theme. */
+	--sad-warning-on: color-mix(in srgb, var(--sad-hue-amber) 22%, #000);
 
 	/* Exposure reach */
-	--sad-internal: #2a9d8f;
-	--sad-external: #e76f51;
-	--sad-public: #c1121f;
+	--sad-internal: var(--sad-hue-teal);
+	--sad-external: var(--sad-hue-coral);
+	--sad-public: var(--sad-hue-red);
 
-	/* Alert categories (aliases, so they follow the dark overrides too) */
-	--sad-alert-no-password: var(--sad-external);
-	--sad-alert-no-expiration: var(--sad-warning);
-	--sad-alert-sensitive: var(--sad-critical);
+	/* Alert categories */
+	--sad-alert-no-password: var(--sad-hue-coral);
+	--sad-alert-no-expiration: var(--sad-hue-amber);
+	--sad-alert-sensitive: var(--sad-hue-red);
 
-	/* Soft amber chip (e.g. "Medium exposure") */
-	--sad-soft-warning-bg: #fef3c7;
-	--sad-soft-warning-fg: #92400e;
-	--sad-soft-warning-border: #fcd34d;
+	/* Bar track: derived from the theme, subtle in light. */
+	--sad-track: color-mix(in srgb, var(--color-main-text) 8%, var(--color-main-background));
 
-	/* Neutrals follow the Nextcloud theme */
-	--sad-track: var(--color-background-dark);
+	/* Soft chip for "Medium exposure". */
+	--sad-soft-warning-bg: color-mix(in srgb, var(--sad-hue-amber) 14%, var(--color-main-background));
+	--sad-soft-warning-fg: color-mix(in srgb, var(--sad-hue-amber) 58%, var(--color-main-text));
+	--sad-soft-warning-border: color-mix(in srgb, var(--sad-hue-amber) 38%, var(--color-main-background));
 }
 
-/* Explicit dark themes. */
+/*
+ * Dark themes: desaturate the hues (they read as garish against a dark
+ * surface) and lift the bar track so bars stay legible. Both are derived —
+ * there is deliberately no second table of hex values here.
+ */
 body[data-theme-dark],
 body[data-theme-dark-highcontrast] {
-	--sad-type-user: #3a9fd8;
-	--sad-type-group: #8fa8c0;
-	--sad-type-email: #35b8a8;
-	--sad-type-federated: #a37fd0;
-	--sad-type-talk: #4fbf8c;
-	--sad-type-other: #9ca3af;
+	--sad-hue-blue: color-mix(in srgb, var(--sad-src-blue) 74%, var(--sad-neutral));
+	--sad-hue-slate: color-mix(in srgb, var(--sad-src-slate) 74%, var(--sad-neutral));
+	--sad-hue-coral: color-mix(in srgb, var(--sad-src-coral) 74%, var(--sad-neutral));
+	--sad-hue-teal: color-mix(in srgb, var(--sad-src-teal) 74%, var(--sad-neutral));
+	--sad-hue-purple: color-mix(in srgb, var(--sad-src-purple) 74%, var(--sad-neutral));
+	--sad-hue-green: color-mix(in srgb, var(--sad-src-green) 74%, var(--sad-neutral));
+	--sad-hue-grey: color-mix(in srgb, var(--sad-src-grey) 74%, var(--sad-neutral));
+	--sad-hue-amber: color-mix(in srgb, var(--sad-src-amber) 74%, var(--sad-neutral));
+	--sad-hue-red: color-mix(in srgb, var(--sad-src-red) 74%, var(--sad-neutral));
 
-	--sad-critical: #e5484d;
-	--sad-info: #35b8a8;
+	/* White ink needs a slightly lighter red than the desaturated hue gives. */
+	--sad-critical: color-mix(in srgb, var(--sad-src-red) 62%, var(--sad-neutral));
+	--sad-info: color-mix(in srgb, var(--sad-hue-teal) 88%, #000);
 
-	--sad-internal: #35b8a8;
-	--sad-public: #e5484d;
-
-	--sad-soft-warning-bg: rgba(245, 158, 11, 0.18);
-	--sad-soft-warning-fg: #fcd34d;
-	--sad-soft-warning-border: rgba(245, 158, 11, 0.45);
+	--sad-track: color-mix(in srgb, var(--color-main-text) 16%, var(--color-main-background));
 }
 
-/* "Follow system" theme, when the system asks for dark. */
 @media (prefers-color-scheme: dark) {
 	body[data-theme-default] {
-		--sad-type-user: #3a9fd8;
-		--sad-type-group: #8fa8c0;
-		--sad-type-email: #35b8a8;
-		--sad-type-federated: #a37fd0;
-		--sad-type-talk: #4fbf8c;
-		--sad-type-other: #9ca3af;
+		--sad-hue-blue: color-mix(in srgb, var(--sad-src-blue) 74%, var(--sad-neutral));
+		--sad-hue-slate: color-mix(in srgb, var(--sad-src-slate) 74%, var(--sad-neutral));
+		--sad-hue-coral: color-mix(in srgb, var(--sad-src-coral) 74%, var(--sad-neutral));
+		--sad-hue-teal: color-mix(in srgb, var(--sad-src-teal) 74%, var(--sad-neutral));
+		--sad-hue-purple: color-mix(in srgb, var(--sad-src-purple) 74%, var(--sad-neutral));
+		--sad-hue-green: color-mix(in srgb, var(--sad-src-green) 74%, var(--sad-neutral));
+		--sad-hue-grey: color-mix(in srgb, var(--sad-src-grey) 74%, var(--sad-neutral));
+		--sad-hue-amber: color-mix(in srgb, var(--sad-src-amber) 74%, var(--sad-neutral));
+		--sad-hue-red: color-mix(in srgb, var(--sad-src-red) 74%, var(--sad-neutral));
 
-		--sad-critical: #e5484d;
-		--sad-info: #35b8a8;
+		--sad-critical: color-mix(in srgb, var(--sad-src-red) 62%, var(--sad-neutral));
+		--sad-info: color-mix(in srgb, var(--sad-hue-teal) 88%, #000);
 
-		--sad-internal: #35b8a8;
-		--sad-public: #e5484d;
-
-		--sad-soft-warning-bg: rgba(245, 158, 11, 0.18);
-		--sad-soft-warning-fg: #fcd34d;
-		--sad-soft-warning-border: rgba(245, 158, 11, 0.45);
+		--sad-track: color-mix(in srgb, var(--color-main-text) 16%, var(--color-main-background));
 	}
 }

@@ -164,7 +164,7 @@ export default {
 	text-transform: uppercase;
 	padding: 2px 8px;
 	border-radius: var(--border-radius, 6px);
-	color: var(--color-primary-element-text, #fff);
+	color: var(--sad-ink-on-solid);
 }
 
 // Severity colours match the dashboard chart palette. Amber is light, so its
@@ -182,25 +182,33 @@ export default {
 	background-color: var(--sad-info);
 }
 
-// Issue tags coloured by category, matching the "Alerts by category" chart.
+// Issue tags, hued per category to match the "Alerts by category" chart.
+//
+// "Soft" pattern: a tinted surface with saturated ink of the same hue. Solid
+// fills with white text failed WCAG AA (white on coral is only 3.1:1). Because
+// --color-main-text flips from near-black to near-white with the theme, one
+// formula yields a readable chip in both light and dark.
+//
 // (NcChip forwards our class to its .nc-chip root, whose default background
 // needs !important to override.)
 .sad-alert__chip {
-	color: #fff !important;
-	background-color: var(--sad-type-other) !important;
+	--chip: var(--sad-type-other);
+
+	background-color: color-mix(in srgb, var(--chip) 14%, var(--color-main-background)) !important;
+	color: color-mix(in srgb, var(--chip) 50%, var(--color-main-text)) !important;
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip) 32%, var(--color-main-background));
 }
 
 .sad-alert__chip--no_password {
-	background-color: var(--sad-alert-no-password) !important;
+	--chip: var(--sad-alert-no-password);
 }
 
 .sad-alert__chip--no_expiration {
-	background-color: var(--sad-alert-no-expiration) !important;
-	color: var(--sad-warning-on) !important;
+	--chip: var(--sad-alert-no-expiration);
 }
 
 .sad-alert__chip--sensitive_file {
-	background-color: var(--sad-alert-sensitive) !important;
+	--chip: var(--sad-alert-sensitive);
 }
 
 .sad-alert__name {
