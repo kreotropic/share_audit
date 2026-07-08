@@ -13,7 +13,7 @@
 					<span class="sad-alert__name" :title="alert.path">{{ fileName }}</span>
 					<NcChip v-for="issue in alert.issues"
 						:key="issue.code"
-						class="sad-alert__chip"
+						:class="['sad-alert__chip', 'sad-alert__chip--' + issue.code]"
 						:text="issueLabel(issue.code)"
 						:no-close="true" />
 				</div>
@@ -136,11 +136,11 @@ export default {
 }
 
 .sad-alert--critical {
-	border-left-color: var(--color-error);
+	border-left-color: #c1121f;
 }
 
 .sad-alert--warning {
-	border-left-color: var(--color-warning);
+	border-left-color: #f59e0b;
 }
 
 .sad-alert__main {
@@ -167,16 +167,40 @@ export default {
 	color: var(--color-primary-element-text, #fff);
 }
 
+// Severity colours match the dashboard chart palette. Amber is light, so its
+// badge uses dark text; the darker colours keep white text.
 .sad-alert__badge--critical {
-	background-color: var(--color-error);
+	background-color: #c1121f;
 }
 
 .sad-alert__badge--warning {
-	background-color: var(--color-warning);
+	background-color: #f59e0b;
+	color: #663d00;
 }
 
 .sad-alert__badge--info {
-	background-color: var(--color-primary-element);
+	background-color: #2a9d8f;
+}
+
+// Issue tags coloured by category, matching the "Alerts by category" chart.
+// (NcChip forwards our class to its .nc-chip root, whose default background
+// needs !important to override.)
+.sad-alert__chip {
+	color: #fff !important;
+	background-color: #6b7280 !important;
+}
+
+.sad-alert__chip--no_password {
+	background-color: #e76f51 !important;
+}
+
+.sad-alert__chip--no_expiration {
+	background-color: #f59e0b !important;
+	color: #663d00 !important;
+}
+
+.sad-alert__chip--sensitive_file {
+	background-color: #c1121f !important;
 }
 
 .sad-alert__name {

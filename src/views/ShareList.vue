@@ -4,7 +4,6 @@
 			<NcButton v-if="filtersActive" type="tertiary" @click="clearFilters">
 				{{ t('share_audit_dashboard', 'Clear filters') }}
 			</NcButton>
-			<span class="sad-list-toolbar__info">{{ rangeLabel }}</span>
 
 			<div class="sad-list-toolbar__right">
 				<NcButton :disabled="exporting || total === 0" @click="exportCsv">
@@ -15,7 +14,7 @@
 
 				<PageSizeSelect v-model="pageSize"
 					:options="pageSizeOptions"
-					:width="100"
+					:width="110"
 					:disabled="loading"
 					:aria-label="t('share_audit_dashboard', 'Shares per page')" />
 			</div>
@@ -46,6 +45,7 @@
 		</p>
 
 		<div v-else class="sad-pagination">
+			<span class="sad-pagination__range">{{ rangeLabel }}</span>
 			<div class="sad-pagination__controls">
 				<NcButton :disabled="page <= 1" @click="goto(page - 1)">
 					{{ t('share_audit_dashboard', 'Previous') }}
@@ -93,8 +93,6 @@ export default {
 			total: 0,
 			page: 1,
 			pageSizeOptions: [
-				{ id: 5, label: '5' },
-				{ id: 15, label: '15' },
 				{ id: 25, label: '25' },
 				{ id: 50, label: '50' },
 				{ id: 100, label: '100' },
@@ -158,6 +156,9 @@ export default {
 			this.load()
 		},
 		goto(page) {
+			if (page < 1 || page > this.totalPages || page === this.page) {
+				return
+			}
 			this.page = page
 			this.load()
 		},
@@ -234,11 +235,6 @@ export default {
 	margin-left: auto;
 }
 
-.sad-list-toolbar__info {
-	color: var(--color-text-maxcontrast);
-	font-size: 13px;
-}
-
 .sad-export-error {
 	margin-bottom: 12px;
 }
@@ -252,7 +248,7 @@ export default {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	justify-content: flex-end;
+	justify-content: space-between;
 	gap: 12px;
 	margin-top: 16px;
 }
@@ -263,7 +259,8 @@ export default {
 	gap: 12px;
 }
 
-.sad-pagination__page {
+.sad-pagination__page,
+.sad-pagination__range {
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
 }

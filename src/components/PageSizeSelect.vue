@@ -78,8 +78,10 @@ export default {
 	}
 
 	&__select {
-		width: var(--sad-pagesize-width, 120px);
-		min-width: var(--sad-pagesize-width, 120px);
+		// !important beats NcSelect's own ".v-select.select { min-width: 260px }"
+		// (equal specificity), which would otherwise leave dead space inside.
+		width: var(--sad-pagesize-width, 120px) !important;
+		min-width: var(--sad-pagesize-width, 120px) !important;
 
 		:deep(.vs__dropdown-toggle),
 		:deep(.vs__dropdown-menu) {
