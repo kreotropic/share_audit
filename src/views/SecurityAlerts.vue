@@ -42,7 +42,7 @@
 
 			<section class="sad-alerts-breakdown">
 				<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
-				<HBarChart :rows="breakdownRows" track-color="#f3f4f6" />
+				<HBarChart :rows="breakdownRows" track-color="#f3f4f6" label-width="180px" />
 			</section>
 
 			<BulkActionBar :count="selectedIds.length"

@@ -1,5 +1,5 @@
 <template>
-	<div class="sad-bars">
+	<div class="sad-bars" :style="{ '--sad-label-w': labelWidth }">
 		<div v-for="(row, index) in computedRows"
 			:key="row.key"
 			class="sad-bars__row"
@@ -37,6 +37,11 @@ export default {
 			type: String,
 			default: '',
 		},
+		/** Width of the label column (CSS length). Widen to avoid truncation. */
+		labelWidth: {
+			type: String,
+			default: '120px',
+		},
 	},
 	computed: {
 		computedRows() {
@@ -72,7 +77,7 @@ export default {
 
 .sad-bars__row {
 	display: grid;
-	grid-template-columns: 120px 1fr 32px;
+	grid-template-columns: var(--sad-label-w, 120px) 1fr 32px;
 	align-items: center;
 	gap: 8px;
 }

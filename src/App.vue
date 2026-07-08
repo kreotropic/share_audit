@@ -6,23 +6,27 @@
 		</p>
 
 		<nav class="sad-tabs">
-			<NcButton v-for="tab in tabs"
+			<div v-for="tab in tabs"
 				:key="tab.id"
-				:type="activeTab === tab.id ? 'primary' : 'tertiary'"
-				@click="selectTab(tab.id)">
-				<span class="sad-tab">
-					{{ tab.label }}
-					<span v-if="counterFor(tab.id) > 0"
-						class="sad-badge"
-						:class="'sad-badge--' + tab.id">{{ counterFor(tab.id) }}</span>
-				</span>
-			</NcButton>
+				class="sad-tab-wrap"
+				:class="{ 'sad-tab-wrap--active': activeTab === tab.id }">
+				<NcButton :type="activeTab === tab.id ? 'primary' : 'tertiary'"
+					@click="selectTab(tab.id)">
+					<span class="sad-tab">
+						{{ tab.label }}
+						<span v-if="counterFor(tab.id) > 0"
+							class="sad-badge"
+							:class="'sad-badge--' + tab.id">{{ counterFor(tab.id) }}</span>
+					</span>
+				</NcButton>
+			</div>
 		</nav>
 
 		<div class="sad-view">
 			<Dashboard v-if="activeTab === 'dashboard'"
 				@navigate="selectTab($event)"
 				@drilldown="onDrilldown"
+				@open-shares="onOpenShares"
 				@alerts-count="alertsCount = $event"
 				@orphan-count="orphanCount = $event" />
 			<ShareList v-else-if="activeTab === 'shares'" :preset-types="sharesPreset" />
@@ -91,6 +95,12 @@ export default {
 			this.sharesPreset = DRILLDOWN_TYPES[category] ?? null
 			this.activeTab = 'shares'
 		},
+		// A dashboard stat card was clicked: open All shares filtered to its
+		// share types (null = the "Total" card → no filter).
+		onOpenShares(types) {
+			this.sharesPreset = types
+			this.activeTab = 'shares'
+		},
 		counterFor(id) {
 			if (id === 'alerts') {
 				return this.alertsCount
@@ -120,6 +130,23 @@ export default {
 	margin: 16px 0;
 	border-bottom: 1px solid var(--color-border);
 	padding-bottom: 8px;
+}
+
+.sad-tab-wrap {
+	position: relative;
+	display: inline-flex;
+}
+
+// Accent bar under the selected tab, sitting on the tab strip's bottom line.
+.sad-tab-wrap--active::after {
+	content: '';
+	position: absolute;
+	left: 6px;
+	right: 6px;
+	bottom: -9px;
+	height: 3px;
+	border-radius: 3px 3px 0 0;
+	background-color: var(--color-primary-element);
 }
 
 .sad-view {

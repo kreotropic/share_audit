@@ -32,7 +32,9 @@
 				</div>
 			</div>
 
-			<StatsCards :by-type="stats.byType" :total="stats.total" />
+			<StatsCards :by-type="stats.byType"
+				:total="stats.total"
+				@select="$emit('open-shares', $event)" />
 
 			<div class="sad-row">
 				<section class="sad-panel sad-row__main">
@@ -119,7 +121,7 @@ export default {
 		ExposureDonut,
 		ExposureMap,
 	},
-	emits: ['navigate', 'alerts-count', 'orphan-count', 'drilldown'],
+	emits: ['navigate', 'alerts-count', 'orphan-count', 'drilldown', 'open-shares'],
 	data() {
 		return {
 			loading: true,

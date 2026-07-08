@@ -3,7 +3,12 @@
 		<div v-for="card in cards"
 			:key="card.key"
 			class="sad-card"
-			:class="'sad-card--' + card.key">
+			:class="['sad-card--' + card.key, { 'sad-card--clickable': card.clickable }]"
+			:role="card.clickable ? 'button' : null"
+			:tabindex="card.clickable ? 0 : null"
+			@click="card.clickable && onSelect(card)"
+			@keydown.enter="card.clickable && onSelect(card)"
+			@keydown.space.prevent="card.clickable && onSelect(card)">
 			<span class="sad-card__icon" v-html="card.icon" />
 			<span class="sad-card__body">
 				<span class="sad-card__count">{{ card.count }}</span>
@@ -15,7 +20,10 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { categoryLabel } from '../utils/format.js'
+import { categoryLabel, typeFilterOptions } from '../utils/format.js'
+
+// category id -> raw share_type integers the ShareList filter understands.
+const TYPE_MAP = Object.fromEntries(typeFilterOptions().map((o) => [o.id, o.types]))
 
 // Small Material Design Icons paths, keyed by card.
 const ICONS = {
@@ -43,14 +51,18 @@ export default {
 			default: 0,
 		},
 	},
+	emits: ['select'],
 	computed: {
 		cards() {
 			const order = ['user', 'group', 'link', 'email', 'federated', 'talk', 'other']
+			// "Total" opens the full list (no type filter).
 			const cards = [{
 				key: 'total',
 				label: t('share_audit_dashboard', 'Total shares'),
 				count: this.total,
 				icon: svg(ICONS.total),
+				types: null,
+				clickable: true,
 			}]
 			for (const key of order) {
 				const count = this.byType[key] ?? 0
@@ -58,9 +70,23 @@ export default {
 				if (count === 0) {
 					continue
 				}
-				cards.push({ key, label: categoryLabel(key), count, icon: svg(ICONS[key]) })
+				// Only categories with a known type mapping can be filtered.
+				const types = TYPE_MAP[key] ?? null
+				cards.push({
+					key,
+					label: categoryLabel(key),
+					count,
+					icon: svg(ICONS[key]),
+					types,
+					clickable: types !== null,
+				})
 			}
 			return cards
+		},
+	},
+	methods: {
+		onSelect(card) {
+			this.$emit('select', card.types)
 		},
 	},
 }
@@ -88,6 +114,18 @@ export default {
 
 .sad-card--total {
 	background-color: var(--color-primary-element-light, var(--color-background-dark));
+}
+
+.sad-card--clickable {
+	cursor: pointer;
+	transition: background-color 0.1s ease, box-shadow 0.1s ease;
+
+	&:hover,
+	&:focus-visible {
+		background-color: var(--color-background-dark);
+		box-shadow: 0 0 0 2px var(--color-primary-element);
+		outline: none;
+	}
 }
 
 .sad-card__icon {
