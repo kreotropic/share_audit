@@ -1,9 +1,12 @@
 <template>
 	<div class="sad-app">
-		<h2>{{ t('share_audit_dashboard', 'Share Audit Dashboard') }}</h2>
-		<p class="settings-hint">
-			{{ t('share_audit_dashboard', 'Overview and audit of every share on this instance.') }}
-		</p>
+		<div class="sad-header">
+			<h2 class="sad-header__title">{{ t('share_audit_dashboard', 'Share Audit Dashboard') }}</h2>
+			<span class="sad-header__sep" aria-hidden="true">·</span>
+			<p class="sad-header__sub">
+				{{ t('share_audit_dashboard', 'Overview and audit of every share on this instance.') }}
+			</p>
+		</div>
 
 		<nav class="sad-tabs">
 			<div v-for="tab in tabs"
@@ -121,6 +124,30 @@ export default {
 <style scoped lang="scss">
 .sad-app {
 	width: 100%;
+}
+
+// Title and subtitle share a baseline, separated by a middot.
+.sad-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.sad-header__title {
+	margin: 0;
+}
+
+.sad-header__sep,
+.sad-header__sub {
+	color: var(--color-text-maxcontrast);
+	font-weight: normal;
+}
+
+.sad-header__sub {
+	margin: 0;
+	// Nextcloud caps <p> in settings at 900px, which forces a needless wrap.
+	max-width: none;
 }
 
 .sad-tabs {

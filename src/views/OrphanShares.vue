@@ -1,8 +1,12 @@
 <template>
 	<div>
-		<p class="settings-hint">
-			{{ t('share_audit_dashboard', 'Shares whose owner is a disabled or deleted account. These keep granting access after the person is gone.') }}
-		</p>
+		<div class="sad-section-head">
+			<h3 class="sad-section-title">{{ t('share_audit_dashboard', 'Orphan shares') }}</h3>
+			<span class="sad-section-sep" aria-hidden="true">·</span>
+			<p class="sad-section-sub">
+				{{ t('share_audit_dashboard', 'Shares whose owner is a disabled or deleted account. These keep granting access after the person is gone.') }}
+			</p>
+		</div>
 
 		<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
 
@@ -272,6 +276,32 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// Title and subtitle share a baseline, separated by a middot.
+.sad-section-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.sad-section-title {
+	margin: 0;
+	font-size: 17px;
+}
+
+.sad-section-sep,
+.sad-section-sub {
+	color: var(--color-text-maxcontrast);
+	font-weight: normal;
+}
+
+.sad-section-sub {
+	margin: 0;
+	// Nextcloud caps <p> in settings at 900px, which forces a needless wrap.
+	max-width: none;
+}
+
 .sad-orphan-bar {
 	display: flex;
 	align-items: center;

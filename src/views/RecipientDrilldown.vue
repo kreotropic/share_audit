@@ -1,13 +1,19 @@
 <template>
 	<div class="sad-recipient">
-		<p class="settings-hint">
-			{{ t('share_audit_dashboard', 'Search a user, group or email to see every file and folder they can reach.') }}
-		</p>
+		<div class="sad-section-head">
+			<h3 class="sad-section-title">{{ t('share_audit_dashboard', 'Access lookup') }}</h3>
 
-		<NcTextField class="sad-recipient__search"
-			v-model="query"
-			:label="t('share_audit_dashboard', 'Search user, group or email')"
-			@update:model-value="onSearch" />
+			<NcTextField v-model="query"
+				class="sad-recipient__search"
+				:label="t('share_audit_dashboard', 'Search user, group or email')"
+				:label-outside="true"
+				:placeholder="t('share_audit_dashboard', 'Search user, group or email to see what they can reach…')"
+				@update:model-value="onSearch">
+				<template #icon>
+					<span class="sad-recipient__search-icon" v-html="magnify" />
+				</template>
+			</NcTextField>
+		</div>
 
 		<!-- Autocomplete results -->
 		<ul v-if="!selected && results.length" class="sad-recipient__results">
@@ -68,7 +74,17 @@
 
 			<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
 
-			<div v-else-if="items.length" class="sad-table-wrapper">
+			<!-- The backend caps the listing; never let the count imply we showed
+			     everything, or an offboarding audit would silently miss shares. -->
+			<NcNoteCard v-if="!loading && total > items.length"
+				type="warning"
+				class="sad-recipient__truncated">
+				{{ t('share_audit_dashboard',
+					'Showing the first {shown} of {total} shares. Narrow your search to see the rest.',
+					{ shown: items.length, total }) }}
+			</NcNoteCard>
+
+			<div v-if="!loading && items.length" class="sad-table-wrapper">
 				<table class="sad-table">
 					<thead>
 						<tr>
@@ -120,6 +136,9 @@ export default {
 	},
 	data() {
 		return {
+			// Material Design Icons "magnify".
+			// eslint-disable-next-line max-len
+			magnify: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/></svg>',
 			query: '',
 			results: [],
 			searched: false,
@@ -205,6 +224,36 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// Title and search field share one row.
+.sad-section-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.sad-section-title {
+	margin: 0;
+	font-size: 17px;
+}
+
+.sad-recipient__search {
+	width: 350px;
+	max-width: 100%;
+	margin: 0;
+}
+
+.sad-recipient__search-icon {
+	display: inline-flex;
+	color: var(--color-text-maxcontrast);
+}
+
+.sad-recipient__truncated {
+	margin-bottom: 12px;
+}
+
 .sad-recipient__search {
 	max-width: 420px;
 	margin-bottom: 16px;

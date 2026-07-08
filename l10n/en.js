@@ -91,7 +91,6 @@ OC.L10N.register(
     "_Page %n_::_Page %n_" : ["Page %n", "Page %n"],
     "Could not load security alerts." : "Could not load security alerts.",
     "The bulk action could not be completed." : "The bulk action could not be completed.",
-    "Search a user, group or email to see every file and folder they can reach." : "Search a user, group or email to see every file and folder they can reach.",
     "Search user, group or email" : "Search user, group or email",
     "_%n share_::_%n shares_" : ["%n share", "%n shares"],
     "No recipient matches “{query}”." : "No recipient matches “{query}”.",
@@ -165,6 +164,8 @@ OC.L10N.register(
     "All" : "All",
     "Shares per page" : "Shares per page",
     "Items per page" : "Items per page",
-    "Lookup & Orphans" : "Lookup & Orphans"
+    "Lookup & Orphans" : "Lookup & Orphans",
+    "Search user, group or email to see what they can reach…" : "Search user, group or email to see what they can reach…",
+    "Showing the first {shown} of {total} shares. Narrow your search to see the rest." : "Showing the first {shown} of {total} shares. Narrow your search to see the rest."
 },
 "nplurals=2; plural=(n != 1);");
