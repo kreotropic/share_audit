@@ -10,29 +10,35 @@
 			</span>
 		</div>
 
-		<div v-if="count" class="sad-bulkbar__actions">
-			<NcButton :disabled="busy" @click="$emit('bulk', { action: 'password' })">
-				{{ t('share_audit_dashboard', 'Add password') }}
-			</NcButton>
+		<div class="sad-bulkbar__right">
+			<div v-if="count" class="sad-bulkbar__actions">
+				<NcButton :disabled="busy" @click="$emit('bulk', { action: 'password' })">
+					{{ t('share_audit_dashboard', 'Add password') }}
+				</NcButton>
 
-			<div class="sad-bulkbar__expiry">
-				<NcSelect v-model="days"
-					class="sad-bulkbar__days"
-					:options="dayOptions"
-					:clearable="false"
-					:aria-label-combobox="t('share_audit_dashboard', 'Days')" />
-				<NcButton :disabled="busy" @click="$emit('bulk', { action: 'expiration', days: days.id })">
-					{{ t('share_audit_dashboard', 'Set expiry') }}
+				<div class="sad-bulkbar__expiry">
+					<NcSelect v-model="days"
+						class="sad-bulkbar__days"
+						:options="dayOptions"
+						:clearable="false"
+						:append-to-body="false"
+						:aria-label-combobox="t('share_audit_dashboard', 'Days')" />
+					<NcButton :disabled="busy" @click="$emit('bulk', { action: 'expiration', days: days.id })">
+						{{ t('share_audit_dashboard', 'Set expiry') }}
+					</NcButton>
+				</div>
+
+				<NcButton type="error" :disabled="busy" @click="$emit('bulk', { action: 'revoke' })">
+					{{ t('share_audit_dashboard', 'Revoke all') }}
+				</NcButton>
+
+				<NcButton type="tertiary" :disabled="busy" @click="$emit('clear')">
+					{{ t('share_audit_dashboard', 'Clear selection') }}
 				</NcButton>
 			</div>
 
-			<NcButton type="error" :disabled="busy" @click="$emit('bulk', { action: 'revoke' })">
-				{{ t('share_audit_dashboard', 'Revoke all') }}
-			</NcButton>
-
-			<NcButton type="tertiary" :disabled="busy" @click="$emit('clear')">
-				{{ t('share_audit_dashboard', 'Clear selection') }}
-			</NcButton>
+			<!-- Optional trailing controls (e.g. a page-size selector), flush right -->
+			<slot name="trailing" />
 		</div>
 	</div>
 </template>
@@ -111,6 +117,14 @@ export default {
 	font-weight: 600;
 }
 
+.sad-bulkbar__right {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin-left: auto;
+}
+
 .sad-bulkbar__actions {
 	display: flex;
 	flex-wrap: wrap;
@@ -127,6 +141,14 @@ export default {
 .sad-bulkbar__days {
 	width: 140px;
 	min-width: 140px;
+
+	// NcSelect's dropdown defaults to a ~260px min-width, which makes the open
+	// menu far wider than the toggle. Pin both to the same width.
+	:deep(.vs__dropdown-toggle),
+	:deep(.vs__dropdown-menu) {
+		width: 140px;
+		min-width: 140px;
+	}
 }
 
 .sad-bulkbar :deep(.v-select) {

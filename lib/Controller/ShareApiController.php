@@ -133,6 +133,9 @@ class ShareApiController extends Controller {
      * The analyzer must evaluate every insecure link to rank by severity and to
      * compute the category breakdown, so both the total and the breakdown cover
      * the full set while only one page of items is returned to the browser.
+     *
+     * A $limit of 0 (or less) returns every alert on a single page, so the
+     * "select all" bulk action can span the whole set.
      */
     public function alerts(int $page = 1, int $limit = 25): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
@@ -142,7 +145,7 @@ class ShareApiController extends Controller {
         $total = count($all);
         $offset = max(0, ($page - 1) * $limit);
         return new JSONResponse([
-            'items' => array_slice($all, $offset, $limit),
+            'items' => $limit > 0 ? array_slice($all, $offset, $limit) : $all,
             'total' => $total,
             'page' => $page,
             'limit' => $limit,

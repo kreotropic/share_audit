@@ -50,7 +50,15 @@
 				:busy="busy"
 				@bulk="onBulk"
 				@toggle-all="toggleAll"
-				@clear="selectedIds = []" />
+				@clear="selectedIds = []">
+				<template #trailing>
+					<PageSizeSelect v-model="pageSize"
+						:options="pageSizeOptions"
+						:width="120"
+						:disabled="busy"
+						:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
+				</template>
+			</BulkActionBar>
 
 			<ul class="sad-alerts">
 				<AlertCard v-for="alert in items"
@@ -62,7 +70,7 @@
 					@action="onCardAction" />
 			</ul>
 
-			<div v-if="total > limit" class="sad-pagination">
+			<div v-if="!isAll && total > apiLimit" class="sad-pagination">
 				<span class="sad-pagination__range">{{ rangeLabel }}</span>
 				<div class="sad-pagination__controls">
 					<NcButton :disabled="busy || page <= 1" @click="goto(page - 1)">
@@ -89,6 +97,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AlertCard from '../components/AlertCard.vue'
 import BulkActionBar from '../components/BulkActionBar.vue'
 import HBarChart from '../components/HBarChart.vue'
+import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { issueLabel } from '../utils/format.js'
 import {
 	fetchAlerts, setSharePassword, setShareExpiration, revokeShare, bulkShareAction,
@@ -104,6 +113,7 @@ export default {
 		AlertCard,
 		BulkActionBar,
 		HBarChart,
+		PageSizeSelect,
 	},
 	emits: ['alerts-count'],
 	data() {
@@ -115,7 +125,14 @@ export default {
 			breakdown: {},
 			total: 0,
 			page: 1,
-			limit: 25,
+			pageSizeOptions: [
+				{ id: 5, label: '5' },
+				{ id: 15, label: '15' },
+				{ id: 25, label: '25' },
+				{ id: 50, label: '50' },
+				{ id: 'all', label: t('share_audit_dashboard', 'All') },
+			],
+			pageSize: { id: 25, label: '25' },
 			selectedIds: [],
 			generatedPasswords: [],
 			notice: null,
@@ -132,16 +149,34 @@ export default {
 		allSelected() {
 			return this.items.length > 0 && this.selectedIds.length === this.items.length
 		},
+		isAll() {
+			return this.pageSize.id === 'all'
+		},
+		// Numeric limit sent to the API; 0 means "return every alert".
+		apiLimit() {
+			return this.isAll ? 0 : this.pageSize.id
+		},
 		totalPages() {
-			return Math.max(1, Math.ceil(this.total / this.limit))
+			if (this.isAll) {
+				return 1
+			}
+			return Math.max(1, Math.ceil(this.total / this.apiLimit))
 		},
 		rangeLabel() {
 			if (this.total === 0) {
 				return ''
 			}
-			const from = (this.page - 1) * this.limit + 1
-			const to = Math.min(this.total, this.page * this.limit)
+			const from = this.isAll ? 1 : (this.page - 1) * this.apiLimit + 1
+			const to = this.isAll ? this.total : Math.min(this.total, this.page * this.apiLimit)
 			return t('share_audit_dashboard', '{from}–{to} of {total}', { from, to, total: this.total })
+		},
+	},
+	watch: {
+		// A different page size invalidates the current page and selection.
+		'pageSize.id'() {
+			this.page = 1
+			this.selectedIds = []
+			this.load()
 		},
 	},
 	mounted() {
@@ -152,7 +187,7 @@ export default {
 		n,
 		async load() {
 			try {
-				const data = await fetchAlerts({ page: this.page, limit: this.limit })
+				const data = await fetchAlerts({ page: this.page, limit: this.apiLimit })
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
 				this.total = data.total ?? this.items.length

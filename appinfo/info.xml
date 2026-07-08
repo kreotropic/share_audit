@@ -28,7 +28,7 @@ fix them in bulk. Regular users get a personal view to audit and clean up the fi
 
 Unlike the CLI‑only sharelisting app, everything is available in the browser.
     ]]></description>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
     <licence>agpl</licence>
     <author mail="ricardo.ferreira@jofebar.com">Ricardo Ferreira</author>
     <namespace>ShareAuditDashboard</namespace>

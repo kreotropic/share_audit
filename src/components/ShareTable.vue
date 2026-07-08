@@ -233,6 +233,9 @@ export default {
 <style scoped lang="scss">
 .sad-table-wrapper {
 	overflow-x: auto;
+	// Reserve the scrollbar gutter so the bar toggling as the table width
+	// changes (opening filters, filtering rows) no longer nudges the layout.
+	scrollbar-gutter: stable;
 }
 
 .sad-table {

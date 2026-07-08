@@ -252,6 +252,17 @@ export default {
 	margin: 10px 0;
 }
 
+.sad-row__main {
+	display: flex;
+	flex-direction: column;
+}
+
+// Let the trend chart grow to fill the card height (matches the donut column).
+.sad-row__main :deep(.sad-chart) {
+	flex: 1;
+	min-height: 150px;
+}
+
 @media (max-width: 820px) {
 	.sad-row {
 		grid-template-columns: 1fr;

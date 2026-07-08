@@ -5,12 +5,20 @@
 				{{ t('share_audit_dashboard', 'Clear filters') }}
 			</NcButton>
 			<span class="sad-list-toolbar__info">{{ rangeLabel }}</span>
-			<span class="sad-list-toolbar__spacer" />
-			<NcButton :disabled="exporting || total === 0" @click="exportCsv">
-				{{ exporting
-					? t('share_audit_dashboard', 'Exporting…')
-					: t('share_audit_dashboard', 'Export CSV') }}
-			</NcButton>
+
+			<div class="sad-list-toolbar__right">
+				<NcButton :disabled="exporting || total === 0" @click="exportCsv">
+					{{ exporting
+						? t('share_audit_dashboard', 'Exporting…')
+						: t('share_audit_dashboard', 'Export CSV') }}
+				</NcButton>
+
+				<PageSizeSelect v-model="pageSize"
+					:options="pageSizeOptions"
+					:width="100"
+					:disabled="loading"
+					:aria-label="t('share_audit_dashboard', 'Shares per page')" />
+			</div>
 		</div>
 
 		<NcNoteCard v-if="exportError" type="error" class="sad-export-error">
@@ -58,6 +66,7 @@ import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import PageSizeSelect from '../components/PageSizeSelect.vue'
 import ShareTable from '../components/ShareTable.vue'
 import { fetchShares, exportShares } from '../services/api.js'
 
@@ -67,6 +76,7 @@ export default {
 		NcButton,
 		NcLoadingIcon,
 		NcNoteCard,
+		PageSizeSelect,
 		ShareTable,
 	},
 	props: {
@@ -82,7 +92,14 @@ export default {
 			items: [],
 			total: 0,
 			page: 1,
-			limit: 50,
+			pageSizeOptions: [
+				{ id: 5, label: '5' },
+				{ id: 15, label: '15' },
+				{ id: 25, label: '25' },
+				{ id: 50, label: '50' },
+				{ id: 100, label: '100' },
+			],
+			pageSize: { id: 50, label: '50' },
 			filters: this.presetTypes?.length ? { types: this.presetTypes.join(',') } : {},
 			activePreset: this.presetTypes ? [...this.presetTypes] : [],
 			tableKey: 0,
@@ -93,8 +110,11 @@ export default {
 		}
 	},
 	computed: {
+		apiLimit() {
+			return this.pageSize.id
+		},
 		totalPages() {
-			return Math.max(1, Math.ceil(this.total / this.limit))
+			return Math.max(1, Math.ceil(this.total / this.apiLimit))
 		},
 		filtersActive() {
 			return Object.keys(this.filters).length > 0
@@ -103,13 +123,20 @@ export default {
 			if (this.total === 0) {
 				return ''
 			}
-			const from = (this.page - 1) * this.limit + 1
-			const to = Math.min(this.total, this.page * this.limit)
+			const from = (this.page - 1) * this.apiLimit + 1
+			const to = Math.min(this.total, this.page * this.apiLimit)
 			return t('share_audit_dashboard', '{from}–{to} of {total}', {
 				from,
 				to,
 				total: this.total,
 			})
+		},
+	},
+	watch: {
+		// A different page size invalidates the current page.
+		'pageSize.id'() {
+			this.page = 1
+			this.load()
 		},
 	},
 	mounted() {
@@ -174,7 +201,7 @@ export default {
 			try {
 				const data = await fetchShares({
 					page: this.page,
-					limit: this.limit,
+					limit: this.apiLimit,
 					sort: this.sortKey,
 					sortDir: this.sortDir,
 					...this.filters,
@@ -200,8 +227,11 @@ export default {
 	min-height: 34px;
 }
 
-.sad-list-toolbar__spacer {
-	flex: 1;
+.sad-list-toolbar__right {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-left: auto;
 }
 
 .sad-list-toolbar__info {

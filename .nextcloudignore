@@ -1,7 +1,9 @@
 node_modules
 src
 tests
+build
 screenshots
+l10n/*.bak
 .git
 .gitignore
 .nextcloudignore

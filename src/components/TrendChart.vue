@@ -2,8 +2,8 @@
 	<div ref="root" class="sad-chart">
 		<svg ref="svg"
 			class="sad-trend"
-			:style="{ height: height + 'px' }"
-			:viewBox="`0 0 ${W} ${height}`"
+			:style="{ height: h + 'px' }"
+			:viewBox="`0 0 ${W} ${h}`"
 			preserveAspectRatio="none"
 			role="img"
 			:aria-label="t('share_audit_dashboard', 'Shares created per month over the last 12 months')"
@@ -26,7 +26,7 @@
 				<text v-for="p in geo.points"
 					:key="p.label"
 					:x="p.x"
-					:y="height - 8"
+					:y="h - 8"
 					text-anchor="middle">{{ p.month }}</text>
 			</g>
 
@@ -41,7 +41,7 @@
 				:x="padL"
 				:y="padT"
 				:width="W - padL - padR"
-				:height="height - padT - padB" />
+				:height="h - padT - padB" />
 		</svg>
 
 		<div v-if="hovered" class="sad-chart__tip" :style="tipStyle">
@@ -69,6 +69,7 @@ export default {
 	data() {
 		return {
 			W: 720,
+			measuredHeight: null,
 			padL: 34,
 			padR: 12,
 			padT: 16,
@@ -78,6 +79,10 @@ export default {
 		}
 	},
 	computed: {
+		// Fill the container's height when measured; fall back to the prop.
+		h() {
+			return this.measuredHeight || this.height
+		},
 		yMax() {
 			const max = Math.max(1, ...this.series.map((s) => s.count))
 			// Round up to a readable ceiling.
@@ -87,8 +92,8 @@ export default {
 		geo() {
 			const n = this.series.length
 			const plotW = this.W - this.padL - this.padR
-			const plotH = this.height - this.padT - this.padB
-			const baselineY = this.height - this.padB
+			const plotH = this.h - this.padT - this.padB
+			const baselineY = this.h - this.padB
 			const stepX = n > 1 ? plotW / (n - 1) : 0
 			const xFor = (i) => this.padL + i * stepX
 			const yFor = (v) => baselineY - (v / this.yMax) * plotH
@@ -127,7 +132,7 @@ export default {
 			}
 			// Position tooltip as a percentage of the chart width/height.
 			const left = (this.hovered.x / this.W) * 100
-			const top = (this.hovered.y / this.height) * 100
+			const top = (this.hovered.y / this.h) * 100
 			return {
 				left: `${left}%`,
 				top: `${top}%`,
@@ -145,9 +150,16 @@ export default {
 	methods: {
 		t,
 		measure() {
-			const width = this.$refs.root?.clientWidth
-			if (width) {
-				this.W = width
+			const root = this.$refs.root
+			if (!root) {
+				return
+			}
+			if (root.clientWidth) {
+				this.W = root.clientWidth
+			}
+			// Fill the card when it is taller than the fallback height.
+			if (root.clientHeight) {
+				this.measuredHeight = Math.max(this.height, root.clientHeight)
 			}
 		},
 		onMove(event) {
@@ -169,10 +181,12 @@ export default {
 .sad-chart {
 	position: relative;
 	width: 100%;
+	height: 100%;
 }
 
 .sad-trend {
 	width: 100%;
+	display: block;
 	overflow: visible;
 }
 
