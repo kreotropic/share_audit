@@ -8,15 +8,16 @@ import { categoryLabel } from '../utils/format.js'
 
 const ORDER = ['user', 'group', 'link', 'email', 'federated', 'talk', 'other']
 
-// Distinct colour per share type.
+// Distinct colour per share type. Values live in css/admin.css so they can
+// swap for dark themes; var() resolves fine inside an inline style value.
 const COLORS = {
-	user: '#0082c9', // Nextcloud blue
-	group: '#5c7a99', // blue-grey
-	link: '#e76f51', // orange (external/risk)
-	email: '#2a9d8f', // teal
-	federated: '#7d5ba6', // purple
-	talk: '#3d9970', // green
-	other: '#6b7280', // grey
+	user: 'var(--sad-type-user)',
+	group: 'var(--sad-type-group)',
+	link: 'var(--sad-type-link)',
+	email: 'var(--sad-type-email)',
+	federated: 'var(--sad-type-federated)',
+	talk: 'var(--sad-type-talk)',
+	other: 'var(--sad-type-other)',
 }
 
 export default {

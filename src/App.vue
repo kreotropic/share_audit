@@ -173,10 +173,10 @@ export default {
 }
 
 .sad-badge--alerts {
-	background-color: #e9322d;
+	background-color: var(--sad-critical);
 }
 
 .sad-badge--lookup {
-	background-color: #6b7280;
+	background-color: var(--sad-type-other);
 }
 </style>

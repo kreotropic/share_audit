@@ -136,11 +136,11 @@ export default {
 }
 
 .sad-alert--critical {
-	border-left-color: #c1121f;
+	border-left-color: var(--sad-critical);
 }
 
 .sad-alert--warning {
-	border-left-color: #f59e0b;
+	border-left-color: var(--sad-warning);
 }
 
 .sad-alert__main {
@@ -170,16 +170,16 @@ export default {
 // Severity colours match the dashboard chart palette. Amber is light, so its
 // badge uses dark text; the darker colours keep white text.
 .sad-alert__badge--critical {
-	background-color: #c1121f;
+	background-color: var(--sad-critical);
 }
 
 .sad-alert__badge--warning {
-	background-color: #f59e0b;
-	color: #663d00;
+	background-color: var(--sad-warning);
+	color: var(--sad-warning-on);
 }
 
 .sad-alert__badge--info {
-	background-color: #2a9d8f;
+	background-color: var(--sad-info);
 }
 
 // Issue tags coloured by category, matching the "Alerts by category" chart.
@@ -187,20 +187,20 @@ export default {
 // needs !important to override.)
 .sad-alert__chip {
 	color: #fff !important;
-	background-color: #6b7280 !important;
+	background-color: var(--sad-type-other) !important;
 }
 
 .sad-alert__chip--no_password {
-	background-color: #e76f51 !important;
+	background-color: var(--sad-alert-no-password) !important;
 }
 
 .sad-alert__chip--no_expiration {
-	background-color: #f59e0b !important;
-	color: #663d00 !important;
+	background-color: var(--sad-alert-no-expiration) !important;
+	color: var(--sad-warning-on) !important;
 }
 
 .sad-alert__chip--sensitive_file {
-	background-color: #c1121f !important;
+	background-color: var(--sad-alert-sensitive) !important;
 }
 
 .sad-alert__name {

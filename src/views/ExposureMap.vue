@@ -89,9 +89,9 @@ export default {
 		segments() {
 			const c = this.overview.counts
 			return [
-				{ key: 'internal', label: t('share_audit_dashboard', 'Internal'), value: c.internal, color: '#2a9d8f' },
-				{ key: 'external', label: t('share_audit_dashboard', 'External'), value: c.external, color: '#e76f51' },
-				{ key: 'public', label: t('share_audit_dashboard', 'Public'), value: c.public, color: '#c1121f' },
+				{ key: 'internal', label: t('share_audit_dashboard', 'Internal'), value: c.internal, color: 'var(--sad-internal)' },
+				{ key: 'external', label: t('share_audit_dashboard', 'External'), value: c.external, color: 'var(--sad-external)' },
+				{ key: 'public', label: t('share_audit_dashboard', 'Public'), value: c.public, color: 'var(--sad-public)' },
 			]
 		},
 		levelLabel() {
@@ -158,17 +158,17 @@ export default {
 }
 
 .sad-exposure__badge--low {
-	background: #2a9d8f;
+	background: var(--sad-internal);
 }
 
 .sad-exposure__badge--medium {
-	background: #fef3c7;
-	color: #92400e;
-	border-color: #fcd34d;
+	background: var(--sad-soft-warning-bg);
+	color: var(--sad-soft-warning-fg);
+	border-color: var(--sad-soft-warning-border);
 }
 
 .sad-exposure__badge--high {
-	background: #c1121f;
+	background: var(--sad-public);
 }
 
 .sad-exposure__legend {
@@ -211,7 +211,7 @@ export default {
 
 .sad-exposure__track {
 	height: 16px;
-	background: #f3f4f6;
+	background: var(--sad-track);
 	border-radius: var(--border-radius, 6px);
 	overflow: hidden;
 }

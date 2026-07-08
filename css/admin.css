@@ -6,3 +6,94 @@
 	padding: 20px 0;
 	color: var(--color-text-maxcontrast);
 }
+
+/*
+ * Chart, badge and status palette — the single source of truth.
+ *
+ * These are brand colours, so they cannot come from Nextcloud's theme
+ * variables. They are declared once here and re-declared with lighter hues for
+ * the dark themes, where the darkest reds/greys would otherwise disappear
+ * against a dark surface. Neutrals (tracks, rings) map straight onto Nextcloud
+ * theme variables so they follow the theme for free.
+ *
+ * Consume them with var(--sad-*) — including from JS, by passing the string
+ * "var(--sad-…)" as an inline style value. Note that var() does NOT resolve in
+ * SVG presentation attributes (stroke="…"), only in CSS, so bind via :style.
+ */
+body {
+	/* Share types */
+	--sad-type-user: #0082c9;
+	--sad-type-group: #5c7a99;
+	--sad-type-link: #e76f51;
+	--sad-type-email: #2a9d8f;
+	--sad-type-federated: #7d5ba6;
+	--sad-type-talk: #3d9970;
+	--sad-type-other: #6b7280;
+
+	/* Severity */
+	--sad-critical: #c1121f;
+	--sad-warning: #f59e0b;
+	--sad-warning-on: #663d00; /* text drawn on --sad-warning */
+	--sad-info: #2a9d8f;
+
+	/* Exposure reach */
+	--sad-internal: #2a9d8f;
+	--sad-external: #e76f51;
+	--sad-public: #c1121f;
+
+	/* Alert categories (aliases, so they follow the dark overrides too) */
+	--sad-alert-no-password: var(--sad-external);
+	--sad-alert-no-expiration: var(--sad-warning);
+	--sad-alert-sensitive: var(--sad-critical);
+
+	/* Soft amber chip (e.g. "Medium exposure") */
+	--sad-soft-warning-bg: #fef3c7;
+	--sad-soft-warning-fg: #92400e;
+	--sad-soft-warning-border: #fcd34d;
+
+	/* Neutrals follow the Nextcloud theme */
+	--sad-track: var(--color-background-dark);
+}
+
+/* Explicit dark themes. */
+body[data-theme-dark],
+body[data-theme-dark-highcontrast] {
+	--sad-type-user: #3a9fd8;
+	--sad-type-group: #8fa8c0;
+	--sad-type-email: #35b8a8;
+	--sad-type-federated: #a37fd0;
+	--sad-type-talk: #4fbf8c;
+	--sad-type-other: #9ca3af;
+
+	--sad-critical: #e5484d;
+	--sad-info: #35b8a8;
+
+	--sad-internal: #35b8a8;
+	--sad-public: #e5484d;
+
+	--sad-soft-warning-bg: rgba(245, 158, 11, 0.18);
+	--sad-soft-warning-fg: #fcd34d;
+	--sad-soft-warning-border: rgba(245, 158, 11, 0.45);
+}
+
+/* "Follow system" theme, when the system asks for dark. */
+@media (prefers-color-scheme: dark) {
+	body[data-theme-default] {
+		--sad-type-user: #3a9fd8;
+		--sad-type-group: #8fa8c0;
+		--sad-type-email: #35b8a8;
+		--sad-type-federated: #a37fd0;
+		--sad-type-talk: #4fbf8c;
+		--sad-type-other: #9ca3af;
+
+		--sad-critical: #e5484d;
+		--sad-info: #35b8a8;
+
+		--sad-internal: #35b8a8;
+		--sad-public: #e5484d;
+
+		--sad-soft-warning-bg: rgba(245, 158, 11, 0.18);
+		--sad-soft-warning-fg: #fcd34d;
+		--sad-soft-warning-border: rgba(245, 158, 11, 0.45);
+	}
+}

@@ -315,12 +315,12 @@ export default {
 }
 
 .sad-owner__status--disabled {
-	background-color: #f59e0b;
-	color: #663d00;
+	background-color: var(--sad-warning);
+	color: var(--sad-warning-on);
 }
 
 .sad-owner__status--deleted {
-	background-color: #c1121f;
+	background-color: var(--sad-critical);
 }
 
 .sad-pagination {

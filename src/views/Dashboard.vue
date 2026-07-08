@@ -150,9 +150,9 @@ export default {
 				other: t('share_audit_dashboard', 'Other'),
 			}
 			const colors = {
-				internal: '#2a9d8f',
-				external: '#e76f51',
-				other: '#6b7280',
+				internal: 'var(--sad-internal)',
+				external: 'var(--sad-external)',
+				other: 'var(--sad-type-other)',
 			}
 			return Object.entries(b)
 				.filter(([, v]) => v > 0)

@@ -8,7 +8,7 @@
 					cx="60"
 					cy="60"
 					:r="radius"
-					:stroke="arc.color"
+					:style="{ stroke: arc.color }"
 					:stroke-dasharray="arc.dash"
 					:stroke-dashoffset="arc.offset" />
 			</g>
@@ -89,7 +89,7 @@ export default {
 }
 
 .sad-donut__track {
-	stroke: #e5e7eb;
+	stroke: var(--sad-track);
 }
 
 .sad-donut__value {

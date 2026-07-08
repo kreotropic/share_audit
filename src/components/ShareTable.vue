@@ -324,7 +324,7 @@ export default {
 }
 
 .sad-expire-warn {
-	color: #f0ad4e;
+	color: var(--sad-warning);
 	font-weight: 600;
 }
 
