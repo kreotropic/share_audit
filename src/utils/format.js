@@ -24,11 +24,15 @@ export function categoryLabel(category) {
 /**
  * Filter options for the share-type selector. Each option maps a category to
  * the raw share_type integers the backend understands.
+ *
+ * 'group' includes both type 1 (Group) and type 7 (Circle): the backend
+ * buckets circles with groups (see ShareCollectorService::CATEGORY_BY_TYPE),
+ * since both are internal, defined-membership recipients.
  */
 export function typeFilterOptions() {
 	return [
 		{ id: 'user', label: categoryLabel('user'), types: [0] },
-		{ id: 'group', label: categoryLabel('group'), types: [1] },
+		{ id: 'group', label: categoryLabel('group'), types: [1, 7] },
 		{ id: 'link', label: categoryLabel('link'), types: [3] },
 		{ id: 'email', label: categoryLabel('email'), types: [4] },
 		{ id: 'federated', label: categoryLabel('federated'), types: [6, 9] },

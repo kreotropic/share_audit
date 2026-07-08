@@ -1,5 +1,10 @@
 # Share Audit Dashboard — Roadmap
 
+#URGENTE#
+
+quando adiciono palavra passe a todos a view passa imediatamente a sem avisos e não deixa ver a password
+
+
 ## Estado atual (v0.2.1)
 
 **Fases 1–3 concluídas.** A app está funcionalmente completa para lançamento na

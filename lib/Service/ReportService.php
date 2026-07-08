@@ -15,32 +15,44 @@ class ReportService {
 
     private const HEADERS = [
         'Type', 'Path', 'Owner', 'Initiator', 'Recipient',
-        'Permissions', 'Created', 'Expires', 'Password', 'Token',
+        'Permissions', 'Created', 'Expires', 'Password',
     ];
 
     /**
      * Render normalized share rows as a CSV document.
      *
+     * The Token column is opt-in: a public link's token is a bare credential
+     * (anyone holding it can open the share without logging in), so it is
+     * only written when the caller explicitly asks for it — the export UI
+     * must warn the admin before setting this.
+     *
      * @param array<int, array<string, mixed>> $rows rows from ShareCollectorService
      * @return string the full CSV payload (with BOM)
      */
-    public function buildCsv(array $rows): string {
+    public function buildCsv(array $rows, bool $includeTokens = false): string {
         $fh = fopen('php://temp', 'r+');
-        fputcsv($fh, self::HEADERS);
+        $headers = self::HEADERS;
+        if ($includeTokens) {
+            $headers[] = 'Token';
+        }
+        fputcsv($fh, $headers);
 
         foreach ($rows as $row) {
-            fputcsv($fh, [
-                $row['category'] ?? '',
-                $row['path'] ?? '',
-                $row['owner'] ?? '',
-                $row['initiator'] ?? '',
-                $this->recipient($row),
+            $line = [
+                $this->cell($row['category'] ?? ''),
+                $this->cell($row['path'] ?? ''),
+                $this->cell($row['owner'] ?? ''),
+                $this->cell($row['initiator'] ?? ''),
+                $this->cell($this->recipient($row)),
                 implode(' + ', $row['permissionLabels'] ?? []),
                 !empty($row['created']) ? date('Y-m-d H:i', (int)$row['created']) : '',
                 $row['expiration'] ?? '',
                 !empty($row['hasPassword']) ? 'yes' : 'no',
-                $row['token'] ?? '',
-            ]);
+            ];
+            if ($includeTokens) {
+                $line[] = $this->cell($row['token'] ?? '');
+            }
+            fputcsv($fh, $line);
         }
 
         rewind($fh);
@@ -59,5 +71,15 @@ class ReportService {
             return $recipient;
         }
         return ($row['category'] ?? '') === 'link' ? '(public)' : '';
+    }
+
+    /**
+     * Neutralize spreadsheet formula injection: a cell whose value starts
+     * with a character a spreadsheet app treats as a formula prefix
+     * (=, +, -, @, tab, CR) gets a leading apostrophe, which forces it to be
+     * read as plain text instead of executed when the CSV is opened.
+     */
+    private function cell(string $value): string {
+        return preg_match('/^[=+\-@\t\r]/', $value) ? "'" . $value : $value;
     }
 }

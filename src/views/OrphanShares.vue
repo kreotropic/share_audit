@@ -125,6 +125,10 @@ import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
 import { fetchOrphans, revokeOrphans } from '../services/api.js'
 
+// Must match OrphanShareController::MAX_IDS — larger selections are split
+// into sequential requests instead of one huge revoke call.
+const BULK_CHUNK_SIZE = 500
+
 export default {
 	name: 'OrphanShares',
 	components: {
@@ -254,14 +258,19 @@ export default {
 			this.revoking = true
 			this.notice = null
 			try {
-				const res = await revokeOrphans(this.selectedIds)
+				let deleted = 0
+				for (let i = 0; i < this.selectedIds.length; i += BULK_CHUNK_SIZE) {
+					const chunk = this.selectedIds.slice(i, i + BULK_CHUNK_SIZE)
+					const res = await revokeOrphans(chunk)
+					deleted += res.deleted
+				}
 				this.notice = {
 					type: 'success',
-					message: n('share_audit_dashboard', 'Revoked %n share.', 'Revoked %n shares.', res.deleted),
+					message: n('share_audit_dashboard', 'Revoked %n share.', 'Revoked %n shares.', deleted),
 				}
 				this.confirming = false
 				this.selectedIds = []
-				if (this.page > 1 && this.items.length === res.deleted) {
+				if (this.page > 1 && this.items.length === deleted) {
 					this.page -= 1
 				}
 				await this.load()

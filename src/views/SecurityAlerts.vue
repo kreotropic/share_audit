@@ -103,6 +103,11 @@ import {
 	fetchAlerts, setSharePassword, setShareExpiration, revokeShare, bulkShareAction,
 } from '../services/api.js'
 
+// Must match ShareActionController::BULK_MAX_IDS — larger selections ("Select
+// all" with limit=0) are split into sequential requests instead of one huge
+// bulk call.
+const BULK_CHUNK_SIZE = 500
+
 export default {
 	name: 'SecurityAlerts',
 	components: {
@@ -264,17 +269,26 @@ export default {
 			this.busy = true
 			this.notice = null
 			try {
-				const data = await bulkShareAction(action, this.selectedIds, days ? { days } : {})
-				if (action === 'password') {
-					for (const r of data.results) {
-						if (r.success && r.password) {
-							this.generatedPasswords.push({ path: idToPath[r.id] ?? ('#' + r.id), password: r.password })
+				let succeeded = 0
+				let failed = 0
+				let total = 0
+				for (let i = 0; i < this.selectedIds.length; i += BULK_CHUNK_SIZE) {
+					const chunk = this.selectedIds.slice(i, i + BULK_CHUNK_SIZE)
+					const data = await bulkShareAction(action, chunk, days ? { days } : {})
+					succeeded += data.succeeded
+					failed += data.failed
+					total += data.total
+					if (action === 'password') {
+						for (const r of data.results) {
+							if (r.success && r.password) {
+								this.generatedPasswords.push({ path: idToPath[r.id] ?? ('#' + r.id), password: r.password })
+							}
 						}
 					}
 				}
 				this.notice = {
-					type: data.failed ? 'warning' : 'success',
-					message: t('share_audit_dashboard', '{ok} of {total} shares updated.', { ok: data.succeeded, total: data.total }),
+					type: failed ? 'warning' : 'success',
+					message: t('share_audit_dashboard', '{ok} of {total} shares updated.', { ok: succeeded, total }),
 				}
 				this.selectedIds = []
 				await this.load()

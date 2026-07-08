@@ -1,18 +1,25 @@
 <template>
 	<div class="sad-table-wrapper">
 		<table class="sad-table">
+			<caption class="hidden-visually">
+				{{ t('share_audit_dashboard', 'All shares, sortable and filterable by column.') }}
+			</caption>
 			<thead>
 				<tr>
 					<th v-for="col in columns"
 						:key="col.key"
+						scope="col"
+						:aria-sort="ariaSort(col)"
 						:class="{ 'sad-th--active': sortKey === col.key }">
 						<span class="sad-th__inner">
-							<span class="sad-th__label"
-								:class="{ 'sad-th__label--sortable': col.sortable }"
-								@click="col.sortable && $emit('sort', col.key)">
+							<button v-if="col.sortable"
+								type="button"
+								class="sad-th__label sad-th__label--sortable"
+								@click="$emit('sort', col.key)">
 								{{ col.label }}
-								<span v-if="col.sortable && sortKey === col.key" class="sad-th__arrow">{{ arrow(col.key) }}</span>
-							</span>
+								<span v-if="sortKey === col.key" class="sad-th__arrow" aria-hidden="true">{{ arrow(col.key) }}</span>
+							</button>
+							<span v-else class="sad-th__label">{{ col.label }}</span>
 
 							<NcActions v-if="col.filter"
 								class="sad-th__filter"
@@ -182,6 +189,15 @@ export default {
 			}
 			return this.sortDir === 'asc' ? '▲' : '▼'
 		},
+		ariaSort(col) {
+			if (!col.sortable) {
+				return null
+			}
+			if (this.sortKey !== col.key) {
+				return 'none'
+			}
+			return this.sortDir === 'asc' ? 'ascending' : 'descending'
+		},
 		recipientOf(share) {
 			if (share.recipient) {
 				return share.recipient
@@ -271,12 +287,29 @@ export default {
 	gap: 2px;
 }
 
+.sad-th__label {
+	display: inline-flex;
+	align-items: center;
+}
+
 .sad-th__label--sortable {
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	font: inherit;
+	color: inherit;
 	cursor: pointer;
 	user-select: none;
 
 	&:hover {
 		color: var(--color-main-text);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--color-primary-element);
+		outline-offset: 2px;
+		border-radius: var(--border-radius, 4px);
 	}
 }
 

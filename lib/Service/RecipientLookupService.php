@@ -25,9 +25,11 @@ class RecipientLookupService {
         IShare::TYPE_ROOM,
     ];
 
+    /** Same 'circle' → 'group' bucketing as ShareCollectorService::CATEGORY_BY_TYPE. */
     private const CATEGORY = [
         IShare::TYPE_USER => 'user',
         IShare::TYPE_GROUP => 'group',
+        IShare::TYPE_CIRCLE => 'group',
         IShare::TYPE_EMAIL => 'email',
         IShare::TYPE_REMOTE => 'federated',
         IShare::TYPE_REMOTE_GROUP => 'federated',
@@ -40,6 +42,7 @@ class RecipientLookupService {
         private IGroupManager $groupManager,
         private ShareMapper $mapper,
         private ShareCollectorService $collector,
+        private ShareDeletionService $deletion,
     ) {
     }
 
@@ -105,34 +108,26 @@ class RecipientLookupService {
     }
 
     /**
-     * Revoke every share to this recipient (and internal child rows).
+     * Revoke every share to this recipient. Goes through IShareManager (see
+     * ShareDeletionService) so federated unshare, ShareDeletedEvent and
+     * provider cleanup all run, instead of a raw DELETE.
      *
      * @return int number of top-level shares revoked
      */
     public function revokeAll(string $shareWith, int $shareType): int {
-        // Collect the matching top-level ids first (for child cleanup).
         $qb = $this->db->getQueryBuilder();
-        $qb->select('id')->from('share')
+        $qb->select('id', 'share_type')->from('share')
             ->where($qb->expr()->eq('share_with', $qb->createNamedParameter($shareWith)))
             ->andWhere($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)));
         $result = $qb->executeQuery();
-        $ids = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+        $rows = $result->fetchAll();
         $result->closeCursor();
 
-        if ($ids === []) {
+        if ($rows === []) {
             return 0;
         }
 
-        $children = $this->db->getQueryBuilder();
-        $children->delete('share')
-            ->where($children->expr()->in('parent',
-                $children->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
-        $children->executeStatement();
-
-        $del = $this->db->getQueryBuilder();
-        $del->delete('share')
-            ->where($del->expr()->in('id', $del->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
-        return $del->executeStatement();
+        return $this->deletion->deleteRows($rows);
     }
 
     private function displayName(string $shareWith, int $shareType): string {

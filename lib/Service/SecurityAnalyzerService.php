@@ -28,8 +28,9 @@ class SecurityAnalyzerService {
     }
 
     /**
-     * Full list of security alerts, most severe first. Scoped to a single owner
-     * when $owner is given (used by the personal view).
+     * Full list of security alerts, most severe first. When $owner is given
+     * (personal view), scoped to links this user owns OR initiated — see
+     * ShareMapper::findInsecureLinks().
      *
      * @return array<int, array<string, mixed>>
      */

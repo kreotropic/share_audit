@@ -6,6 +6,10 @@
 			</NcButton>
 
 			<div class="sad-list-toolbar__right">
+				<NcCheckboxRadioSwitch v-model="includeTokens" type="checkbox">
+					{{ t('share_audit_dashboard', 'Include link tokens') }}
+				</NcCheckboxRadioSwitch>
+
 				<NcButton :disabled="exporting || total === 0" @click="exportCsv">
 					{{ exporting
 						? t('share_audit_dashboard', 'Exporting…')
@@ -19,6 +23,11 @@
 					:aria-label="t('share_audit_dashboard', 'Shares per page')" />
 			</div>
 		</div>
+
+		<NcNoteCard v-if="includeTokens" type="warning" class="sad-export-warn">
+			{{ t('share_audit_dashboard',
+				'This file will contain public link tokens — bare credentials that let anyone open the linked file without logging in. Handle it accordingly.') }}
+		</NcNoteCard>
 
 		<NcNoteCard v-if="exportError" type="error" class="sad-export-error">
 			{{ exportError }}
@@ -64,6 +73,7 @@
 <script>
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
@@ -74,6 +84,7 @@ export default {
 	name: 'ShareList',
 	components: {
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcNoteCard,
 		PageSizeSelect,
@@ -105,6 +116,7 @@ export default {
 			sortDir: 'desc',
 			exporting: false,
 			exportError: null,
+			includeTokens: false,
 		}
 	},
 	computed: {
@@ -176,7 +188,12 @@ export default {
 			this.exporting = true
 			this.exportError = null
 			try {
-				const res = await exportShares({ ...this.filters })
+				const res = await exportShares({
+					...this.filters,
+					sort: this.sortKey,
+					sortDir: this.sortDir,
+					includeTokens: this.includeTokens,
+				})
 				const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
 				const disposition = res.headers['content-disposition'] || ''
 				const match = disposition.match(/filename="?([^";]+)"?/)
@@ -235,6 +252,7 @@ export default {
 	margin-left: auto;
 }
 
+.sad-export-warn,
 .sad-export-error {
 	margin-bottom: 12px;
 }

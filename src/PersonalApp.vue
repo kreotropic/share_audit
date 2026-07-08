@@ -63,6 +63,13 @@
 			<!-- My shares -->
 			<section class="sad-personal__block">
 				<h3>{{ t('share_audit_dashboard', 'All your shares') }}</h3>
+				<NcNoteCard v-if="sharesTotal > shares.length"
+					type="warning"
+					class="sad-personal__truncated">
+					{{ t('share_audit_dashboard',
+						'Showing the first {shown} of {total} shares.',
+						{ shown: shares.length, total: sharesTotal }) }}
+				</NcNoteCard>
 				<p v-if="shares.length === 0" class="settings-hint">
 					{{ t('share_audit_dashboard', 'You have not shared anything.') }}
 				</p>
@@ -133,6 +140,7 @@ export default {
 			summary: { total: 0, alertsCount: 0 },
 			alerts: [],
 			shares: [],
+			sharesTotal: 0,
 			selectedIds: [],
 			generatedPasswords: [],
 			notice: null,
@@ -216,6 +224,7 @@ export default {
 				this.summary = summary
 				this.alerts = alerts.items
 				this.shares = shares.items
+				this.sharesTotal = shares.total
 			} catch (e) {
 				this.error = t('share_audit_dashboard', 'Could not load your shares.')
 			} finally {
@@ -231,6 +240,7 @@ export default {
 			this.summary = summary
 			this.alerts = alerts.items
 			this.shares = shares.items
+			this.sharesTotal = shares.total
 			this.selectedIds = this.selectedIds.filter((id) => this.alerts.some((a) => a.id === id))
 		},
 		async onAction({ type, id, days, path }) {
@@ -309,7 +319,8 @@ export default {
 	gap: 10px;
 }
 
-.sad-personal__notice {
+.sad-personal__notice,
+.sad-personal__truncated {
 	margin-bottom: 12px;
 }
 

@@ -14,6 +14,7 @@ use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
+use Psr\Log\LoggerInterface;
 
 /**
  * Per-user API: any logged-in account can audit and fix THEIR OWN shares.
@@ -21,6 +22,9 @@ use OCP\IUserSession;
  * that the target share belongs to the caller.
  */
 class PersonalController extends Controller {
+
+    /** @see ShareActionController::GENERIC_ERROR */
+    private const GENERIC_ERROR = 'The action could not be completed.';
 
     public function __construct(
         string $appName,
@@ -30,12 +34,17 @@ class PersonalController extends Controller {
         private ShareRemediationService $remediation,
         private ShareMapper $mapper,
         private IUserSession $userSession,
+        private LoggerInterface $logger,
     ) {
         parent::__construct($appName, $request);
     }
 
     /**
      * GET /api/my/summary — counts of the user's own shares and insecure links.
+     *
+     * "Own" means owner OR initiator: a user who shares a link on a folder
+     * someone else owns is still the one who created that exposure and must
+     * be able to see and fix it.
      */
     #[NoAdminRequired]
     public function summary(): JSONResponse {
@@ -44,13 +53,13 @@ class PersonalController extends Controller {
             return $this->unauthenticated();
         }
         return new JSONResponse([
-            'total' => $this->mapper->countShares(['owner' => $uid]),
+            'total' => $this->mapper->countShares(['ownerOrInitiator' => $uid]),
             'alertsCount' => $this->security->countAlerts($uid),
         ]);
     }
 
     /**
-     * GET /api/my/shares — the user's own shares, paginated.
+     * GET /api/my/shares — the user's own shares (owner or initiator), paginated.
      */
     #[NoAdminRequired]
     public function shares(int $page = 1, int $limit = 50): JSONResponse {
@@ -58,7 +67,7 @@ class PersonalController extends Controller {
         if ($uid === null) {
             return $this->unauthenticated();
         }
-        return new JSONResponse($this->collector->getShares(['owner' => $uid], $page, $limit));
+        return new JSONResponse($this->collector->getShares(['ownerOrInitiator' => $uid], $page, $limit));
     }
 
     /**
@@ -106,13 +115,14 @@ class PersonalController extends Controller {
             return $this->unauthenticated();
         }
         try {
-            if ($this->remediation->ownerOf($id) !== $uid) {
+            if (!$this->remediation->isAccessibleBy($id, $uid)) {
                 return new JSONResponse(['message' => 'Not your share'], Http::STATUS_FORBIDDEN);
             }
             return new JSONResponse($action());
         } catch (\Throwable $e) {
+            $this->logger->warning('Personal share action failed', ['id' => $id, 'exception' => $e]);
             return new JSONResponse(
-                ['id' => $id, 'success' => false, 'error' => $e->getMessage()],
+                ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR],
                 Http::STATUS_BAD_REQUEST,
             );
         }

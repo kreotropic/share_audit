@@ -15,10 +15,17 @@ use OCP\Share\IShare;
  */
 class ShareCollectorService {
 
-    /** Category buckets used by the dashboard cards, keyed by raw share_type. */
+    /**
+     * Category buckets used by the dashboard cards, keyed by raw share_type.
+     * Circles are internal, group-like recipients (a defined set of members
+     * within the instance) — bucketed with 'group' rather than 'other', for
+     * consistency with ExposureMapService::CATEGORY, which already treats
+     * TYPE_CIRCLE as 'internal' alongside TYPE_GROUP.
+     */
     private const CATEGORY_BY_TYPE = [
         IShare::TYPE_USER => 'user',
         IShare::TYPE_GROUP => 'group',
+        IShare::TYPE_CIRCLE => 'group',
         IShare::TYPE_LINK => 'link',
         IShare::TYPE_EMAIL => 'email',
         IShare::TYPE_REMOTE => 'federated',
@@ -52,13 +59,11 @@ class ShareCollectorService {
 
         $now = time();
         return [
-            'total' => $this->mapper->countTotal(),
+            // Same filter as countByType(), so the total is just the sum of
+            // its buckets — no need for a separate COUNT(*) round trip.
+            'total' => array_sum($rawCounts),
             'byType' => $byType,
-            'trend' => [
-                'last30' => $this->mapper->countCreatedSince($now - 30 * 86400),
-                'last90' => $this->mapper->countCreatedSince($now - 90 * 86400),
-                'last365' => $this->mapper->countCreatedSince($now - 365 * 86400),
-            ],
+            'trend' => $this->mapper->countRecentBuckets($now - 30 * 86400, $now - 90 * 86400, $now - 365 * 86400),
             'trendSeries' => $this->monthlyTrend(12),
             'topOwners' => $this->enrichOwners($this->mapper->topOwners(5)),
             'alertsCount' => $this->security->countAlerts(),
@@ -81,20 +86,30 @@ class ShareCollectorService {
 
     /**
      * Shares created per calendar month for the last $months months (oldest
-     * first), for the dashboard trend chart.
+     * first), for the dashboard trend chart. Buckets in PHP from a single
+     * query instead of issuing one COUNT per month.
      *
      * @return array<int, array{label: string, count: int}>
      */
     private function monthlyTrend(int $months): array {
-        $series = [];
         $firstOfThisMonth = new \DateTimeImmutable('first day of this month midnight');
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $start = $firstOfThisMonth->sub(new \DateInterval('P' . $i . 'M'));
-            $end = $start->add(new \DateInterval('P1M'));
-            $series[] = [
-                'label' => $start->format('Y-m'),
-                'count' => $this->mapper->countCreatedBetween($start->getTimestamp(), $end->getTimestamp()),
-            ];
+        $start = $firstOfThisMonth->sub(new \DateInterval('P' . ($months - 1) . 'M'));
+
+        $counts = [];
+        for ($i = 0; $i < $months; $i++) {
+            $counts[$start->add(new \DateInterval('P' . $i . 'M'))->format('Y-m')] = 0;
+        }
+
+        foreach ($this->mapper->findCreatedTimestampsSince($start->getTimestamp()) as $stime) {
+            $label = date('Y-m', $stime);
+            if (isset($counts[$label])) {
+                $counts[$label]++;
+            }
+        }
+
+        $series = [];
+        foreach ($counts as $label => $count) {
+            $series[] = ['label' => $label, 'count' => $count];
         }
         return $series;
     }
@@ -121,28 +136,39 @@ class ShareCollectorService {
     }
 
     /**
-     * All shares matching the filters, normalized, for export. Unpaginated but
-     * capped to avoid unbounded memory use on very large instances.
+     * All shares matching the filters, normalized, for export — same filters
+     * and sort as getShares() so "Export CSV" always matches what's on
+     * screen. Unpaginated but capped to avoid unbounded memory use on very
+     * large instances.
      *
      * @param array $filters normalized filters (see ShareMapper::applyFilters)
-     * @return array<int, array<string, mixed>>
      */
-    public function getAllForExport(array $filters, int $max = 100000): array {
-        $rows = $this->mapper->findShares($filters, $max, 0);
-        return array_map([$this, 'normalizeRow'], $rows);
+    public function getAllForExport(
+        array $filters,
+        bool $includeTokens = false,
+        string $sort = 'created',
+        string $dir = 'desc',
+        int $max = 100000,
+    ): array {
+        $rows = $this->mapper->findShares($filters, $max, 0, $sort, $dir);
+        return array_map(fn (array $row) => $this->normalizeRow($row, $includeTokens), $rows);
     }
 
     /**
      * Turn a raw DB row into a presentation-ready share record.
      *
+     * The token (a bare credential for public links) is only included when
+     * explicitly requested by a caller that actually needs it — never in the
+     * general-purpose listings (share list, orphans, recipient lookup).
+     *
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    public function normalizeRow(array $row): array {
+    public function normalizeRow(array $row, bool $includeToken = false): array {
         $type = (int)$row['share_type'];
         $permissions = (int)$row['permissions'];
 
-        return [
+        $share = [
             'id' => (int)$row['id'],
             'type' => $type,
             'typeLabel' => $this->typeLabel($type),
@@ -158,9 +184,12 @@ class ShareCollectorService {
             'expiration' => $this->normalizeExpiration($row['expiration'] ?? null),
             'hasPassword' => !empty($row['password']),
             'hasExpiration' => !empty($row['expiration']),
-            'token' => $row['token'] ?? null,
             'name' => $row['share_name'] ?? null,
         ];
+        if ($includeToken) {
+            $share['token'] = $row['token'] ?? null;
+        }
+        return $share;
     }
 
     /**

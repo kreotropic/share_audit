@@ -23,6 +23,16 @@ use Psr\Log\LoggerInterface;
  */
 class ShareActionController extends Controller {
 
+    /**
+     * Client-facing message for any failed action. The real exception is
+     * always logged server-side (see fail() / bulk()) — never echoed back,
+     * since it can carry internal details (paths, driver errors, ...).
+     */
+    private const GENERIC_ERROR = 'The action could not be completed.';
+
+    /** Max ids accepted by bulk() in one request; see bulk() docblock. */
+    private const BULK_MAX_IDS = 500;
+
     public function __construct(
         string $appName,
         IRequest $request,
@@ -79,11 +89,23 @@ class ShareActionController extends Controller {
     /**
      * POST /api/shares/bulk — apply one action to many shares.
      *
+     * Capped at BULK_MAX_IDS per request: each id is a synchronous
+     * IShareManager call inside this one HTTP request, so an unbounded
+     * "select all" on a large instance could otherwise tie up a PHP worker
+     * for minutes. The frontend splits larger selections into sequential
+     * requests instead.
+     *
      * @param int[] $ids
      */
     public function bulk(string $action, array $ids = [], int $days = 30): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
+        }
+        if (count($ids) > self::BULK_MAX_IDS) {
+            return new JSONResponse(
+                ['message' => 'Too many ids in one request (max ' . self::BULK_MAX_IDS . ').'],
+                Http::STATUS_BAD_REQUEST,
+            );
         }
 
         $results = [];
@@ -97,7 +119,8 @@ class ShareActionController extends Controller {
                     default => throw new \InvalidArgumentException('Unknown action: ' . $action),
                 };
             } catch (\Throwable $e) {
-                $results[] = ['id' => $id, 'success' => false, 'error' => $e->getMessage()];
+                $this->logger->warning('Bulk share action failed', ['id' => $id, 'action' => $action, 'exception' => $e]);
+                $results[] = ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR];
             }
         }
 
@@ -114,7 +137,7 @@ class ShareActionController extends Controller {
     private function fail(int $id, \Throwable $e): JSONResponse {
         $this->logger->warning('Share action failed', ['id' => $id, 'exception' => $e]);
         return new JSONResponse(
-            ['id' => $id, 'success' => false, 'error' => $e->getMessage()],
+            ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR],
             Http::STATUS_BAD_REQUEST,
         );
     }

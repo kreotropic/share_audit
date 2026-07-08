@@ -53,10 +53,14 @@ class ShareRemediationService {
     }
 
     /**
-     * The uid that owns the shared item, for ownership checks.
+     * Whether $uid is allowed to manage share $id: either the owner of the
+     * shared item, or the person who created this particular share (native
+     * Nextcloud semantics — a share's owner and its creator can differ when
+     * one is shared on a folder someone else owns).
      */
-    public function ownerOf(int $id): string {
-        return $this->loadShare($id)->getShareOwner();
+    public function isAccessibleBy(int $id, string $uid): bool {
+        $share = $this->loadShare($id);
+        return $share->getShareOwner() === $uid || $share->getSharedBy() === $uid;
     }
 
     /**

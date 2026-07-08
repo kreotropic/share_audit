@@ -17,6 +17,15 @@ use OCP\IUserSession;
  */
 class OrphanShareController extends Controller {
 
+    /**
+     * Max ids accepted by revoke() in one request. Since H1, each id is a
+     * synchronous IShareManager call (provider lookup + delete), so this
+     * mirrors ShareActionController::BULK_MAX_IDS for the same reason: an
+     * unbounded "select all" could otherwise tie up a PHP worker for a long
+     * time. The frontend splits larger selections into sequential requests.
+     */
+    private const MAX_IDS = 500;
+
     public function __construct(
         string $appName,
         IRequest $request,
@@ -47,6 +56,12 @@ class OrphanShareController extends Controller {
     public function revoke(array $ids = []): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
+        }
+        if (count($ids) > self::MAX_IDS) {
+            return new JSONResponse(
+                ['message' => 'Too many ids in one request (max ' . self::MAX_IDS . ').'],
+                Http::STATUS_BAD_REQUEST,
+            );
         }
         $deleted = $this->orphanService->revoke($ids);
         return new JSONResponse(['deleted' => $deleted]);

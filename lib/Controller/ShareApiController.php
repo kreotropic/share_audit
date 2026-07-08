@@ -82,23 +82,39 @@ class ShareApiController extends Controller {
     }
 
     /**
-     * GET /api/export — CSV of the filtered share list (same filters as index).
+     * GET /api/export — CSV of the filtered share list (same filters, column
+     * search and sort as index(), so the export always matches what the
+     * admin is looking at on screen).
+     *
+     * Tokens (bare credentials for public links) are omitted unless
+     * $includeTokens is explicitly set — the frontend must warn the admin
+     * before turning this on.
      */
     public function export(
         string $types = '',
         string $owner = '',
         string $search = '',
+        string $pathSearch = '',
+        string $ownerSearch = '',
+        string $recipientSearch = '',
         string $hasPassword = '',
         string $hasExpiration = '',
         int $createdSince = 0,
+        string $sort = 'created',
+        string $sortDir = 'desc',
+        bool $includeTokens = false,
     ): DataDownloadResponse|JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
 
         $filters = $this->buildFilters($types, $owner, $search, $hasPassword, $hasExpiration, $createdSince);
-        $rows = $this->collector->getAllForExport($filters);
-        $csv = $this->report->buildCsv($rows);
+        $filters['pathSearch'] = $pathSearch !== '' ? $pathSearch : null;
+        $filters['ownerSearch'] = $ownerSearch !== '' ? $ownerSearch : null;
+        $filters['recipientSearch'] = $recipientSearch !== '' ? $recipientSearch : null;
+
+        $rows = $this->collector->getAllForExport($filters, $includeTokens, $sort, $sortDir);
+        $csv = $this->report->buildCsv($rows, $includeTokens);
         $filename = 'share-audit-' . date('Y-m-d') . '.csv';
 
         return new DataDownloadResponse($csv, $filename, 'text/csv; charset=UTF-8');

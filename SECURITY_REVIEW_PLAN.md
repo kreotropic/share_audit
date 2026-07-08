@@ -12,7 +12,7 @@ o porquê, a correção proposta e critério de "feito".
 
 ## HIGH
 
-### [ ] H1 — Revogações em massa contornam o `IShareManager`
+### [x] H1 — Revogações em massa contornam o `IShareManager`
 
 **Onde:** `lib/Service/OrphanShareService.php:120-139` (`revoke()`),
 `lib/Service/RecipientLookupService.php:112-136` (`revokeAll()`)
@@ -74,7 +74,7 @@ Notas de implementação:
 
 ---
 
-### [ ] H2 — `POST /api/orphans/revoke` aceita qualquer ID sem validar que é órfã
+### [x] H2 — `POST /api/orphans/revoke` aceita qualquer ID sem validar que é órfã
 
 **Onde:** `lib/Controller/OrphanShareController.php:47-53` (`revoke()`)
 
@@ -101,7 +101,7 @@ Só os IDs que sobrevivem a este filtro passam para a lógica do H1.
 
 ---
 
-### [ ] H3 — `/api/stats` faz ~20 queries + N+1 no user backend, sem cache
+### [x] H3 — `/api/stats` faz ~20 queries + N+1 no user backend, sem cache
 
 **Onde:** `lib/Service/ShareCollectorService.php:41-66`,
 `lib/Service/OrphanShareService.php:34-57` (`getOrphanOwners()`),
@@ -131,7 +131,7 @@ no ecrã de entrada da app (dashboard/stats).
 
 ## MEDIUM
 
-### [ ] M1 — Injeção de fórmulas no CSV (CSV injection)
+### [x] M1 — Injeção de fórmulas no CSV (CSV injection)
 
 **Onde:** `lib/Service/ReportService.php:31-43` (`buildCsv()`)
 
@@ -149,7 +149,7 @@ initiator, recipient) antes do `fputcsv`.
 
 ---
 
-### [ ] M2 — Export CSV ignora filtros de coluna e ordenação
+### [x] M2 — Export CSV ignora filtros de coluna e ordenação
 
 **Onde:** `lib/Controller/ShareApiController.php:87-105` (`export()`) vs
 `src/.../ShareList.vue:179` (frontend envia `pathSearch`/`ownerSearch`/`recipientSearch`)
@@ -161,7 +161,7 @@ exporte exatamente a vista filtrada apresentada ao admin.
 
 ---
 
-### [ ] M3 — Tokens de links públicos expostos no CSV e na API
+### [x] M3 — Tokens de links públicos expostos no CSV e na API
 
 **Onde:** `lib/Service/ReportService.php:16-19` (coluna `Token` no CSV),
 `lib/Service/ShareCollectorService.php:161`
@@ -174,7 +174,7 @@ exporte exatamente a vista filtrada apresentada ao admin.
 
 ---
 
-### [ ] M4 — Vista pessoal cega a partilhas iniciadas pelo utilizador em ficheiros de terceiros
+### [x] M4 — Vista pessoal cega a partilhas iniciadas pelo utilizador em ficheiros de terceiros
 
 **Onde:** `lib/Controller/PersonalController.php:56-73`,
 `lib/Db/ShareMapper.php:223-249` (`ownerOf()`)
@@ -190,7 +190,7 @@ público numa pasta partilhada por A, a linha fica com `uid_owner = A`,
 
 ---
 
-### [ ] M5 — Vista pessoal trunca silenciosamente a 200 partilhas
+### [x] M5 — Vista pessoal trunca silenciosamente a 200 partilhas
 
 **Onde:** `src/.../PersonalApp.vue:214` (`fetchMyShares({ limit: 200 })`)
 
@@ -200,7 +200,7 @@ ou, no mínimo, mostrar o aviso "showing X of Y" já usado no
 
 ---
 
-### [ ] M6 — Mensagens de exceção internas devolvidas ao cliente
+### [x] M6 — Mensagens de exceção internas devolvidas ao cliente
 
 **Onde:** `lib/Controller/ShareActionController.php:100,117`,
 `lib/Controller/PersonalController.php:115`
@@ -211,7 +211,7 @@ traduzível — nunca `$e->getMessage()` diretamente na resposta JSON.
 
 ---
 
-### [ ] M7 — Bulk sem limite + "All" nos alertas = pedidos potencialmente enormes
+### [x] M7 — Bulk sem limite + "All" nos alertas = pedidos potencialmente enormes
 
 **Onde:** `lib/Controller/ShareActionController.php:84-112` (`bulk()`),
 `lib/Controller/ShareApiController.php:140-154`
@@ -225,7 +225,7 @@ traduzível — nunca `$e->getMessage()` diretamente na resposta JSON.
 
 ---
 
-### [ ] M8 — Acessibilidade: ordenação inacessível por teclado
+### [x] M8 — Acessibilidade: ordenação inacessível por teclado
 
 **Onde:** `src/.../ShareTable.vue:10-15`
 
@@ -235,7 +235,7 @@ Adicionar `<caption>` à tabela.
 
 ---
 
-### [ ] M9 — Categoria "circle" inconsistente em três sítios
+### [x] M9 — Categoria "circle" inconsistente em três sítios
 
 **Onde:** `ShareCollectorService::CATEGORY_BY_TYPE` (sem `TYPE_CIRCLE` → cai
 em "other"), `ExposureMapService::CATEGORY` (classifica como "internal"),
