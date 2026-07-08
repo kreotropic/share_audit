@@ -5,7 +5,7 @@
 			class="sad-bars__row"
 			:title="`${row.label}: ${row.count}`">
 			<span class="sad-bars__label">{{ row.label }}</span>
-			<div class="sad-bars__track">
+			<div class="sad-bars__track" :style="trackStyle">
 				<div class="sad-bars__fill" :style="fillStyle(row, index)" />
 			</div>
 			<span class="sad-bars__value">{{ row.count }}</span>
@@ -32,6 +32,11 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+		/** Optional track (bar background) colour. Empty = theme default. */
+		trackColor: {
+			type: String,
+			default: '',
+		},
 	},
 	computed: {
 		computedRows() {
@@ -39,11 +44,17 @@ export default {
 			const max = Math.max(1, ...rows.map((r) => r.count))
 			return rows.map((r) => ({ ...r, width: Math.round((r.count / max) * 100) }))
 		},
+		trackStyle() {
+			return this.trackColor ? { background: this.trackColor } : null
+		},
 	},
 	methods: {
 		fillStyle(row, index) {
 			const style = { width: row.width + '%' }
-			if (this.palette.length) {
+			// A per-row colour wins; otherwise cycle the optional palette.
+			if (row.color) {
+				style.background = row.color
+			} else if (this.palette.length) {
 				style.background = this.palette[index % this.palette.length]
 			}
 			return style

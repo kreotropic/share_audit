@@ -42,7 +42,7 @@
 
 			<section class="sad-alerts-breakdown">
 				<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
-				<HBarChart :rows="breakdownRows" />
+				<HBarChart :rows="breakdownRows" track-color="#f3f4f6" />
 			</section>
 
 			<BulkActionBar :count="selectedIds.length"
@@ -140,10 +140,17 @@ export default {
 	},
 	computed: {
 		breakdownRows() {
+			// Distinct colour per alert category (consistent across the app).
+			const colors = {
+				no_password: '#e76f51',
+				no_expiration: '#f59e0b',
+				sensitive_file: '#c1121f',
+			}
 			return Object.entries(this.breakdown).map(([key, count]) => ({
 				key,
 				label: issueLabel(key),
 				count,
+				color: colors[key] ?? '#6b7280',
 			}))
 		},
 		allSelected() {

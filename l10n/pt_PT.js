@@ -164,6 +164,7 @@ OC.L10N.register(
     "Alerts per page" : "Alertas por página",
     "All" : "Todos",
     "Shares per page" : "Partilhas por página",
-    "Items per page" : "Itens por página"
+    "Items per page" : "Itens por página",
+    "Lookup & Orphans" : "Pesquisa e órfãs"
 },
 "nplurals=2; plural=(n != 1);");
