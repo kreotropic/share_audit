@@ -71,11 +71,15 @@ class OrphanShareService {
      * Paginated list of orphan shares, normalized and annotated with the
      * owner's status.
      *
+     * A $limit of 0 (or less) returns every orphan on a single page, so the
+     * "select all" bulk revoke can span the whole set rather than one page.
+     *
      * @return array{items: array<int, array<string, mixed>>, total: int, page: int, limit: int}
      */
     public function getOrphanShares(int $page, int $limit): array {
         $page = max(1, $page);
-        $limit = max(1, min(500, $limit));
+        $all = $limit <= 0;
+        $limit = $all ? 0 : max(1, min(500, $limit));
         $statuses = $this->getOrphanOwners();
         $owners = array_keys($statuses);
 
@@ -84,7 +88,13 @@ class OrphanShareService {
         }
 
         $filters = ['owners' => $owners];
-        $rows = $this->mapper->findShares($filters, $limit, ($page - 1) * $limit);
+        $total = $this->mapper->countShares($filters);
+
+        $rows = $this->mapper->findShares(
+            $filters,
+            $all ? max(1, $total) : $limit,
+            $all ? 0 : ($page - 1) * $limit,
+        );
         $items = array_map(function (array $row) use ($statuses) {
             $share = $this->collector->normalizeRow($row);
             $share['ownerStatus'] = $statuses[$share['owner']] ?? 'unknown';
@@ -93,7 +103,7 @@ class OrphanShareService {
 
         return [
             'items' => $items,
-            'total' => $this->mapper->countShares($filters),
+            'total' => $total,
             'page' => $page,
             'limit' => $limit,
         ];

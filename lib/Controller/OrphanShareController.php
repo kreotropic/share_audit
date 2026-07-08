@@ -29,8 +29,10 @@ class OrphanShareController extends Controller {
 
     /**
      * GET /api/orphans — paginated list of orphan shares.
+     *
+     * A $limit of 0 (or less) returns every orphan on a single page.
      */
-    public function index(int $page = 1, int $limit = 50): JSONResponse {
+    public function index(int $page = 1, int $limit = 25): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }

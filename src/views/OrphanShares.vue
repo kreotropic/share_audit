@@ -49,6 +49,11 @@
 						</NcButton>
 					</template>
 				</template>
+
+				<PageSizeSelect v-model="pageSize"
+					:options="pageSizeOptions"
+					:width="120"
+					:disabled="revoking" />
 			</div>
 
 			<div class="sad-table-wrapper">
@@ -90,7 +95,7 @@
 
 			<div class="sad-pagination">
 				<span class="sad-pagination__info">{{ rangeLabel }}</span>
-				<div class="sad-pagination__controls">
+				<div v-if="!isAll && total > apiLimit" class="sad-pagination__controls">
 					<NcButton :disabled="page <= 1" @click="goto(page - 1)">
 						{{ t('share_audit_dashboard', 'Previous') }}
 					</NcButton>
@@ -112,6 +117,7 @@ import NcChip from '@nextcloud/vue/components/NcChip'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
 import { fetchOrphans, revokeOrphans } from '../services/api.js'
 
@@ -124,6 +130,7 @@ export default {
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
+		PageSizeSelect,
 	},
 	emits: ['orphan-count'],
 	data() {
@@ -135,14 +142,31 @@ export default {
 			items: [],
 			total: 0,
 			page: 1,
-			limit: 50,
+			pageSizeOptions: [
+				{ id: 5, label: '5' },
+				{ id: 15, label: '15' },
+				{ id: 25, label: '25' },
+				{ id: 50, label: '50' },
+				{ id: 'all', label: t('share_audit_dashboard', 'All') },
+			],
+			pageSize: { id: 25, label: '25' },
 			selectedIds: [],
 			notice: null,
 		}
 	},
 	computed: {
+		isAll() {
+			return this.pageSize.id === 'all'
+		},
+		// Numeric limit sent to the API; 0 means "return every orphan".
+		apiLimit() {
+			return this.isAll ? 0 : this.pageSize.id
+		},
 		totalPages() {
-			return Math.max(1, Math.ceil(this.total / this.limit))
+			if (this.isAll) {
+				return 1
+			}
+			return Math.max(1, Math.ceil(this.total / this.apiLimit))
 		},
 		allSelected() {
 			return this.items.length > 0 && this.selectedIds.length === this.items.length
@@ -151,9 +175,18 @@ export default {
 			if (this.total === 0) {
 				return ''
 			}
-			const from = (this.page - 1) * this.limit + 1
-			const to = Math.min(this.total, this.page * this.limit)
+			const from = this.isAll ? 1 : (this.page - 1) * this.apiLimit + 1
+			const to = this.isAll ? this.total : Math.min(this.total, this.page * this.apiLimit)
 			return t('share_audit_dashboard', '{from}–{to} of {total}', { from, to, total: this.total })
+		},
+	},
+	watch: {
+		// A different page size invalidates the current page and selection.
+		'pageSize.id'() {
+			this.page = 1
+			this.selectedIds = []
+			this.confirming = false
+			this.load()
 		},
 	},
 	mounted() {
@@ -191,6 +224,9 @@ export default {
 			}
 		},
 		goto(page) {
+			if (page < 1 || page > this.totalPages || page === this.page) {
+				return
+			}
 			this.page = page
 			this.selectedIds = []
 			this.load()
@@ -199,7 +235,7 @@ export default {
 			this.loading = true
 			this.error = null
 			try {
-				const data = await fetchOrphans({ page: this.page, limit: this.limit })
+				const data = await fetchOrphans({ page: this.page, limit: this.apiLimit })
 				this.items = data.items
 				this.total = data.total
 				this.selectedIds = this.selectedIds.filter((id) => this.items.some((s) => s.id === id))
