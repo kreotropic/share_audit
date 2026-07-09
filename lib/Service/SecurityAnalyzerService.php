@@ -75,6 +75,22 @@ class SecurityAnalyzerService {
     }
 
     /**
+     * Drop cached alerts made stale by a mutation (password/expiration set,
+     * revoke, bulk delete). Always clears the admin view; pass every uid
+     * whose personal view (owner or initiator) could include the affected
+     * share(s) so it doesn't keep showing an already-fixed item for up to
+     * CACHE_TTL seconds after the user acted on it.
+     */
+    public function invalidate(?string ...$uids): void {
+        $this->cache->remove('__admin__');
+        foreach ($uids as $uid) {
+            if ($uid !== null && $uid !== '') {
+                $this->cache->remove($uid);
+            }
+        }
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function computeAlerts(?string $owner): array {

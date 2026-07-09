@@ -86,13 +86,16 @@
 
 			<div v-if="!loading && items.length" class="sad-table-wrapper">
 				<table class="sad-table">
+					<caption class="hidden-visually">
+						{{ t('share_audit_dashboard', 'Every share granting this recipient access.') }}
+					</caption>
 					<thead>
 						<tr>
-							<th>{{ t('share_audit_dashboard', 'Path') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Shared by') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Permissions') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Created') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Expires') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Path') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Shared by') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Permissions') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Created') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Expires') }}</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -124,6 +127,11 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
 import { searchRecipients, recipientShares, revokeRecipientAll } from '../services/api.js'
+
+// Matches RecipientLookupService::BATCH_SIZE server-side batches; caps how
+// many rounds revokeAll() will loop for, e.g. if shares keep coming back as
+// failed (a persistently locked file) instead of looping forever.
+const MAX_BATCHES = 50
 
 export default {
 	name: 'RecipientDrilldown',
@@ -201,10 +209,23 @@ export default {
 		async revokeAll() {
 			this.revoking = true
 			try {
-				const res = await revokeRecipientAll(this.selected.shareWith, this.selected.shareType)
+				// The server resolves and deletes one batch (500) per request
+				// and reports how many are left; repeat until it reports none,
+				// so a recipient with thousands of shares doesn't time out a
+				// single HTTP request. MAX_BATCHES is just a safety net against
+				// looping forever if shares keep failing (e.g. a stuck lock).
+				let deleted = 0
+				let remaining = Infinity
+				let batches = 0
+				while (remaining > 0 && batches < MAX_BATCHES) {
+					const res = await revokeRecipientAll(this.selected.shareWith, this.selected.shareType)
+					deleted += res.deleted
+					remaining = res.remaining
+					batches += 1
+				}
 				this.notice = {
 					type: 'success',
-					message: n('share_audit_dashboard', 'Revoked %n share.', 'Revoked %n shares.', res.deleted),
+					message: n('share_audit_dashboard', 'Revoked %n share.', 'Revoked %n shares.', deleted),
 				}
 				this.items = []
 				this.total = 0

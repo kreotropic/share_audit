@@ -19,6 +19,7 @@ class ShareRemediationService {
         private IManager $shareManager,
         private PasswordGeneratorService $passwordGenerator,
         private ShareAuditLogger $auditLogger,
+        private SecurityAnalyzerService $analyzer,
     ) {
     }
 
@@ -30,6 +31,7 @@ class ShareRemediationService {
         $plain = $password !== '' ? $password : $this->passwordGenerator->generate();
         $share->setPassword($plain);
         $this->shareManager->updateShare($share);
+        $this->analyzer->invalidate($share->getShareOwner(), $share->getSharedBy());
         return ['id' => $id, 'success' => true, 'action' => 'password', 'password' => $plain];
     }
 
@@ -42,6 +44,7 @@ class ShareRemediationService {
         $share = $this->loadShare($id);
         $share->setExpirationDate($date);
         $this->shareManager->updateShare($share);
+        $this->analyzer->invalidate($share->getShareOwner(), $share->getSharedBy());
         return ['id' => $id, 'success' => true, 'action' => 'expiration', 'expiration' => $date->format('Y-m-d')];
     }
 
@@ -56,6 +59,7 @@ class ShareRemediationService {
             'share_type' => $share->getShareType(),
             'uid_owner' => $share->getShareOwner(),
         ]]);
+        $this->analyzer->invalidate($share->getShareOwner(), $share->getSharedBy());
         return ['id' => $id, 'success' => true, 'action' => 'revoke'];
     }
 

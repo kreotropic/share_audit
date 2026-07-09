@@ -62,7 +62,7 @@ class OrphanShareController extends AdminController {
                 Http::STATUS_BAD_REQUEST,
             );
         }
-        $deleted = $this->orphanService->revoke($ids);
-        return new JSONResponse(['deleted' => $deleted]);
+        $result = $this->orphanService->revoke($ids);
+        return new JSONResponse($result);
     }
 }

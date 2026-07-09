@@ -3,6 +3,52 @@
 All notable changes to Share Audit Dashboard are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0]
+
+### Security
+- Share deletion — single, bulk, orphan revoke and recipient revoke-all —
+  now always goes through `IShareManager` instead of a raw SQL `DELETE`, so
+  federated unshare (OCM), `ShareDeletedEvent` and provider-specific cleanup
+  run; a direct DB delete is now only a documented fallback (owner account
+  gone, provider app disabled), and a genuinely retryable failure (a locked
+  file, an unreachable storage backend) is reported back as failed instead
+  of being forced through that fallback.
+- Bulk endpoints (revoke, orphan revoke, revoke-all for a recipient) are
+  capped and chunked so an unbounded selection can no longer tie up a PHP
+  worker for minutes; `revoke-all` for a recipient with a very large number
+  of shares now runs in server-side batches of 500 instead of one
+  synchronous request.
+- The security-alerts cache is now invalidated as soon as a link is fixed or
+  revoked, instead of only expiring after its normal TTL — the alerts view
+  no longer shows an already-fixed item as still insecure right after acting
+  on it.
+- Minimum supported Nextcloud version raised to **31** — orphan-share revoke
+  relies on `IShareManager::getShareById()`'s `$onlyValid` parameter, which
+  does not exist on Nextcloud 30.
+
+### Added
+- **Portuguese (Portugal)** translation of the whole interface, plus
+  `build/l10n.py` to regenerate the frontend `l10n/*.js` bundles from the
+  `.json` sources and report missing or orphaned strings; `l10n.py --check`
+  now also gates `krankerl package`.
+- Security alerts: copy/open-in-Files actions on individual alerts, and a
+  clearable active-filter indicator.
+- All shares: a table caption describing the view.
+- Personal view: an option to include link tokens in CSV export, with an
+  explicit warning about what that means.
+- Admin setting to turn the personal "My shares audit" page and its
+  dashboard widget off instance-wide, for admins who want sharing audits to
+  stay an admin-only concern.
+
+### Changed
+- Personal view header, summary cards and table captions restyled to match
+  the admin dashboard's look (icon cards, `· `-separated header, consistent
+  table styling).
+
+### Fixed
+- Several UI strings introduced alongside the above were missing from
+  `l10n/*.json`, so pt_PT users saw English text on the newest features.
+
 ## [0.2.1]
 
 ### Added

@@ -2,12 +2,18 @@
 
 Ponto da situação combinando [SECURITY_REVIEW_PLAN.md](SECURITY_REVIEW_PLAN.md)
 (High/Medium), [SECURITY_REVIEW_PLAN_LOW.md](SECURITY_REVIEW_PLAN_LOW.md)
-(Low/Info/Performance), [FEATURE_GAPS_PLAN.md](FEATURE_GAPS_PLAN.md) e
+(Low/Info/Performance), [FEATURE_GAPS_PLAN.md](FEATURE_GAPS_PLAN.md),
+[PRE_RELEASE_PLAN.md](PRE_RELEASE_PLAN.md) (2ª revisão, pré-submissão) e
 [ROADMAP.md](ROADMAP.md). Cada documento continua a ser a fonte de verdade
 para o detalhe de cada item — isto é só o resumo para saber rapidamente o que
 falta.
 
-**Total: 34 feitos · 2 adiados · 18 por fazer**
+**Total: 40 feitos · 2 adiados · 18 por fazer**
+
+> ✅ A 2ª revisão (2026-07-09) validou a execução dos planos de 2026-07-08;
+> os 6 itens que resultaram (R1–R6, incluindo os 3 que bloqueavam a
+> submissão à App Store) estão todos feitos — ver PRE_RELEASE_PLAN.md.
+> Nada resta a bloquear a submissão.
 
 ---
 
@@ -27,6 +33,36 @@ Todos os L1–L12 e P1–P5 feitos.
 
 INFO (sem checkbox no documento original): sem testes, sem CI, sem
 cabeçalhos SPDX — o próprio plano diz que não são bugs e não bloqueiam nada.
+
+---
+
+## PRE_RELEASE_PLAN.md (2ª revisão, 2026-07-09) — 6/6 ✅ completo
+
+Regressões e pendências encontradas ao validar a execução dos planos acima —
+todas corrigidas.
+
+**Bloqueavam submissão:**
+
+- [x] **R1** — 11 strings (+1 órfã de sessão anterior) adicionadas a
+      `en.json`/`pt_PT.json`; `--check` adicionado ao `before_cmds` do
+      `krankerl.toml`.
+- [x] **R2** — `SecurityAnalyzerService::invalidate()` chamado no fim de
+      cada mutação (`ShareRemediationService`, `ShareDeletionService`),
+      limpando `__admin__` + owner/initiator afetados.
+- [x] **R3** — confirmado contra as tags do `nextcloud/server` que
+      `$onlyValid` só existe a partir do NC 31; `min-version` subido para 31.
+
+**Recomendados na mesma leva:**
+
+- [x] **R4** — `LockedException`/`StorageNotAvailableException` tratadas à
+      parte em `ShareDeletionService::deleteRows()`; reportadas como
+      `failed`, nunca forçadas pelo fallback de delete direto.
+- [x] **R5** — `RecipientLookupService::revokeAll()` processa em lotes de
+      500 no servidor e devolve `{deleted, failed, remaining}`; o frontend
+      repete o pedido enquanto `remaining > 0`.
+- [x] **R6** — versão 0.3.0 em `info.xml`/`package.json`, CHANGELOG
+      atualizado, planos internos excluídos via `.nextcloudignore`, caption
+      + `scope="col"` adicionados às tabelas de Orphans/Personal/Recipient.
 
 ---
 
@@ -83,6 +119,11 @@ breve/já expirado").
 
 ## Sugestão de próximo passo
 
-**G2 (acknowledge)** é o maior impacto isolado que resta, mas implica a
-primeira migration da app — vale a pena decidir se entra na mesma leva que
-o soft delete do roadmap (#1), já que ambos precisam de migration.
+1. **PRE_RELEASE_PLAN.md está fechado (R1–R6)** — nada resta a bloquear a
+   submissão à App Store; `l10n.py --check` está verde e faz parte do
+   `krankerl package`.
+2. Rever o diff (nada foi commitado) e cortar o **0.3.0**.
+3. Depois do lançamento: **G2 (acknowledge)** continua a ser o maior impacto
+   isolado que resta, mas implica a primeira migration da app — vale a pena
+   decidir se entra na mesma leva que o soft delete do roadmap (#1), já que
+   ambos precisam de migration.

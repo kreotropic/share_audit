@@ -200,6 +200,7 @@ class ShareApiController extends AdminController {
         bool $ruleNoPassword = true,
         bool $ruleNoExpiration = true,
         bool $ruleSensitiveFile = true,
+        bool $personalViewEnabled = true,
     ): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
@@ -208,7 +209,7 @@ class ShareApiController extends AdminController {
             'no_password' => $ruleNoPassword,
             'no_expiration' => $ruleNoExpiration,
             'sensitive_file' => $ruleSensitiveFile,
-        ]);
+        ], $personalViewEnabled);
         return new JSONResponse($this->settings->getSettings());
     }
 

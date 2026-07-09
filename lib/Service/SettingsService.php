@@ -45,6 +45,16 @@ class SettingsService {
     }
 
     /**
+     * Whether the personal "My shares audit" page (Settings → Personal) and
+     * its dashboard widget are available to users. Defaults to on; an admin
+     * who wants sharing audits to stay an admin-only concern can turn it off
+     * instance-wide.
+     */
+    public function isPersonalViewEnabled(): bool {
+        return $this->config->getValueString(Application::APP_ID, 'personal_view_enabled', 'yes') === 'yes';
+    }
+
+    /**
      * Full settings payload for the frontend.
      *
      * @return array<string, mixed>
@@ -57,6 +67,7 @@ class SettingsService {
         return [
             'sensitiveExtensions' => implode(', ', $this->getSensitiveExtensions()),
             'rules' => $rules,
+            'personalViewEnabled' => $this->isPersonalViewEnabled(),
         ];
     }
 
@@ -65,7 +76,7 @@ class SettingsService {
      *
      * @param array<string, bool> $rules rule code => enabled
      */
-    public function saveSettings(string $extensions, array $rules): void {
+    public function saveSettings(string $extensions, array $rules, bool $personalViewEnabled = true): void {
         $this->config->setValueString(
             Application::APP_ID,
             'sensitive_extensions',
@@ -75,6 +86,11 @@ class SettingsService {
             $enabled = !empty($rules[$rule]);
             $this->config->setValueString(Application::APP_ID, 'rule_' . $rule, $enabled ? 'yes' : 'no');
         }
+        $this->config->setValueString(
+            Application::APP_ID,
+            'personal_view_enabled',
+            $personalViewEnabled ? 'yes' : 'no',
+        );
     }
 
     /**

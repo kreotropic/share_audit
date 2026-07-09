@@ -62,15 +62,18 @@
 
 			<div class="sad-table-wrapper">
 				<table class="sad-table">
+					<caption class="hidden-visually">
+						{{ t('share_audit_dashboard', 'Shares owned by a disabled or deleted account, selectable for bulk revoke.') }}
+					</caption>
 					<thead>
 						<tr>
 							<th class="sad-table__check" />
-							<th>{{ t('share_audit_dashboard', 'Owner') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Path') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Recipient') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Type') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Permissions') }}</th>
-							<th>{{ t('share_audit_dashboard', 'Created') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Owner') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Path') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Recipient') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Type') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Permissions') }}</th>
+							<th scope="col">{{ t('share_audit_dashboard', 'Created') }}</th>
 						</tr>
 					</thead>
 					<tbody>

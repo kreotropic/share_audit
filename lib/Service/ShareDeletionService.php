@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\Files\StorageNotAvailableException;
 use OCP\IDBConnection;
+use OCP\Lock\LockedException;
 use OCP\Share\Exceptions\ShareNotFound;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
@@ -23,6 +25,12 @@ use Psr\Log\LoggerInterface;
  * shares) a post-delete step inside IShareManager itself throws because the
  * owner account no longer exists — logging it since OCM/events/cleanup are
  * necessarily skipped in that case.
+ *
+ * A retryable failure (a lock held on the underlying file, a storage backend
+ * that's momentarily unreachable) is different: the row is untouched, so
+ * falling back to a direct delete would bypass OCM/events for a share that
+ * was never actually broken — it's reported as failed instead, and the
+ * caller can retry.
  */
 class ShareDeletionService {
 
@@ -43,16 +51,20 @@ class ShareDeletionService {
         private IManager $shareManager,
         private LoggerInterface $logger,
         private ShareAuditLogger $auditLogger,
+        private SecurityAnalyzerService $analyzer,
     ) {
     }
 
     /**
      * @param array<int, array{id: int|string, share_type: int|string, uid_owner?: string}> $rows
-     * @return int number of shares deleted
+     * @return array{deleted: int, failed: int[]} failed ids hit a retryable
+     *         error (lock held, storage unreachable) and were left untouched
+     *         — safe for the caller to retry.
      */
-    public function deleteRows(array $rows): int {
+    public function deleteRows(array $rows): array {
         $deleted = 0;
         $fallbackIds = [];
+        $failedIds = [];
         $auditRows = [];
 
         foreach ($rows as $row) {
@@ -69,6 +81,18 @@ class ShareDeletionService {
             } catch (ShareNotFound) {
                 // Provider app disabled, or the row is gone already.
                 $fallbackIds[] = $id;
+            } catch (LockedException|StorageNotAvailableException $e) {
+                // Transient: a lock on the underlying file, or the storage
+                // backend being momentarily unreachable. The row was never
+                // touched, so it must NOT go through the fallback delete —
+                // that would permanently bypass OCM/events for a share that
+                // isn't actually broken. Report it as failed; the caller can
+                // retry.
+                $this->logger->warning(
+                    'Share {id} could not be revoked (retryable): {exception}',
+                    ['id' => $id, 'exception' => $e],
+                );
+                $failedIds[] = $id;
             } catch (\Throwable $e) {
                 // The manager's own deleteShare() deletes the row *before*
                 // its post-delete steps (e.g. promoteReshares(), which
@@ -106,7 +130,13 @@ class ShareDeletionService {
 
         $this->auditLogger->logRevoke($auditRows);
 
-        return $deleted;
+        $owners = array_unique(array_map(
+            static fn (array $row) => (string)($row['uid_owner'] ?? ''),
+            $auditRows,
+        ));
+        $this->analyzer->invalidate(...$owners);
+
+        return ['deleted' => $deleted, 'failed' => $failedIds];
     }
 
     private function shareRowExists(int $id): bool {

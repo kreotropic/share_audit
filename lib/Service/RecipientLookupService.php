@@ -18,6 +18,16 @@ use OCP\Share\IShare;
  */
 class RecipientLookupService {
 
+    /**
+     * revokeAll() resolves ids server-side (unlike the bulk-by-id endpoints,
+     * which are capped client-side) — a recipient with thousands of shares
+     * would otherwise run thousands of synchronous IShareManager deletes in
+     * one HTTP request and likely time out, partially applied with no
+     * report. Cap one request to a single batch; the caller repeats the
+     * request while the response's `remaining` is > 0.
+     */
+    private const BATCH_SIZE = 500;
+
     /** Share types that carry a recipient in share_with (links have none). */
     private const RECIPIENT_TYPES = [
         IShare::TYPE_USER, IShare::TYPE_GROUP, IShare::TYPE_EMAIL,
@@ -111,26 +121,53 @@ class RecipientLookupService {
     }
 
     /**
-     * Revoke every share to this recipient. Goes through IShareManager (see
-     * ShareDeletionService) so federated unshare, ShareDeletedEvent and
-     * provider cleanup all run, instead of a raw DELETE.
+     * Revoke up to one batch of shares to this recipient. Goes through
+     * IShareManager (see ShareDeletionService) so federated unshare,
+     * ShareDeletedEvent and provider cleanup all run, instead of a raw
+     * DELETE. Resolves and deletes at most BATCH_SIZE rows per call; the
+     * caller repeats the request while `remaining` > 0 (a share left behind
+     * as `failed` — see ShareDeletionService — also counts toward
+     * `remaining`, since its row is still there).
      *
-     * @return int number of top-level shares revoked
+     * @return array{deleted: int, failed: int[], remaining: int}
      */
-    public function revokeAll(string $shareWith, int $shareType): int {
+    public function revokeAll(string $shareWith, int $shareType): array {
+        $rows = $this->findRecipientRows($shareWith, $shareType, self::BATCH_SIZE);
+
+        if ($rows === []) {
+            return ['deleted' => 0, 'failed' => [], 'remaining' => 0];
+        }
+
+        $result = $this->deletion->deleteRows($rows);
+        $remaining = $this->countRecipientRows($shareWith, $shareType);
+
+        return $result + ['remaining' => $remaining];
+    }
+
+    /**
+     * @return array<int, array{id: int, share_type: int, uid_owner: string}>
+     */
+    private function findRecipientRows(string $shareWith, int $shareType, int $limit): array {
         $qb = $this->db->getQueryBuilder();
         $qb->select('id', 'share_type', 'uid_owner')->from('share')
             ->where($qb->expr()->eq('share_with', $qb->createNamedParameter($shareWith)))
-            ->andWhere($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)));
+            ->andWhere($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)))
+            ->setMaxResults($limit);
         $result = $qb->executeQuery();
         $rows = $result->fetchAll();
         $result->closeCursor();
+        return $rows;
+    }
 
-        if ($rows === []) {
-            return 0;
-        }
-
-        return $this->deletion->deleteRows($rows);
+    private function countRecipientRows(string $shareWith, int $shareType): int {
+        $qb = $this->db->getQueryBuilder();
+        $qb->selectAlias($qb->func()->count('*'), 'cnt')->from('share')
+            ->where($qb->expr()->eq('share_with', $qb->createNamedParameter($shareWith)))
+            ->andWhere($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)));
+        $result = $qb->executeQuery();
+        $count = (int)$result->fetchOne();
+        $result->closeCursor();
+        return $count;
     }
 
     private function displayName(string $shareWith, int $shareType): string {

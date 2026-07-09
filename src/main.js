@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 	const personal = document.getElementById('share-audit-personal')
 	if (personal) {
-		createApp(PersonalApp).mount(personal)
+		const enabled = personal.dataset.enabled !== '0'
+		createApp(PersonalApp, { enabled }).mount(personal)
 	}
 })

@@ -21,3 +21,8 @@ _seed.php
 _seedp.php
 _reset.php
 js/*.map
+STATUS.md
+SECURITY_REVIEW_PLAN.md
+SECURITY_REVIEW_PLAN_LOW.md
+FEATURE_GAPS_PLAN.md
+PRE_RELEASE_PLAN.md

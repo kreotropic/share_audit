@@ -35,6 +35,17 @@
 					:disabled="!rules.sensitive_file" />
 			</section>
 
+			<section class="sad-settings__block">
+				<h3>{{ t('share_audit_dashboard', 'Personal view') }}</h3>
+				<p class="settings-hint">
+					{{ t('share_audit_dashboard',
+						'Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.') }}
+				</p>
+				<NcCheckboxRadioSwitch v-model="personalViewEnabled" type="switch">
+					{{ t('share_audit_dashboard', 'Enable the personal audit view for every user') }}
+				</NcCheckboxRadioSwitch>
+			</section>
+
 			<div class="sad-settings__actions">
 				<NcButton type="primary" :disabled="saving" @click="save">
 					{{ saving ? t('share_audit_dashboard', 'Saving…') : t('share_audit_dashboard', 'Save') }}
@@ -83,6 +94,7 @@ export default {
 				no_expiration: true,
 				sensitive_file: true,
 			},
+			personalViewEnabled: true,
 		}
 	},
 	async mounted() {
@@ -90,6 +102,7 @@ export default {
 			const data = await fetchSettings()
 			this.sensitiveExtensions = data.sensitiveExtensions
 			this.rules = { ...this.rules, ...data.rules }
+			this.personalViewEnabled = data.personalViewEnabled
 		} catch (e) {
 			this.error = t('share_audit_dashboard', 'Could not load settings.')
 		} finally {
@@ -108,6 +121,7 @@ export default {
 					ruleNoPassword: this.rules.no_password,
 					ruleNoExpiration: this.rules.no_expiration,
 					ruleSensitiveFile: this.rules.sensitive_file,
+					personalViewEnabled: this.personalViewEnabled,
 				})
 				this.saved = true
 				this.$emit('saved')

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Dashboard;
 
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
+use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCP\Dashboard\IAPIWidget;
 use OCP\Dashboard\IAPIWidgetV2;
 use OCP\Dashboard\IIconWidget;
@@ -17,7 +18,9 @@ use OCP\IURLGenerator;
  * Dashboard widget: the current user's own public links that need attention
  * (no password / no expiration / sensitive file). Scoped per-user via $userId,
  * so it works for admins and regular users alike. Clicking an item opens the
- * personal "My shares audit" page.
+ * personal "My shares audit" page — so when that page is switched off (see
+ * SettingsService::isPersonalViewEnabled()), the widget reports no items
+ * rather than linking somewhere that now just says "disabled".
  */
 class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2, IIconWidget {
 
@@ -25,6 +28,7 @@ class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2, IIconWidget {
         private IL10N $l10n,
         private IURLGenerator $urlGenerator,
         private SecurityAnalyzerService $security,
+        private SettingsService $settings,
     ) {
     }
 
@@ -60,6 +64,9 @@ class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2, IIconWidget {
      * @return WidgetItem[]
      */
     public function getItems(string $userId, ?string $since = null, int $limit = 7): array {
+        if (!$this->settings->isPersonalViewEnabled()) {
+            return [];
+        }
         $alerts = array_slice($this->security->getAlerts($userId), 0, $limit);
         $url = $this->personalUrl();
         $icon = $this->iconUrl();

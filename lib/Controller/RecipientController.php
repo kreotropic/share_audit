@@ -54,6 +54,6 @@ class RecipientController extends AdminController {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        return new JSONResponse(['deleted' => $this->lookup->revokeAll($shareWith, $shareType)]);
+        return new JSONResponse($this->lookup->revokeAll($shareWith, $shareType));
     }
 }

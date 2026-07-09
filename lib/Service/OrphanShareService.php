@@ -166,12 +166,12 @@ class OrphanShareService {
      * instead of a raw DELETE.
      *
      * @param int[] $ids
-     * @return int number of share rows deleted
+     * @return array{deleted: int, failed: int[]}
      */
-    public function revoke(array $ids): int {
+    public function revoke(array $ids): array {
         $ids = array_values(array_filter(array_map('intval', $ids), static fn ($v) => $v > 0));
         if ($ids === []) {
-            return 0;
+            return ['deleted' => 0, 'failed' => []];
         }
 
         $orphanOwners = $this->getOrphanOwners(true);
