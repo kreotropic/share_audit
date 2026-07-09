@@ -1,15 +1,19 @@
 <template>
 	<div class="sad-bars" :style="{ '--sad-label-w': labelWidth }">
-		<div v-for="(row, index) in computedRows"
+		<component :is="clickable ? 'button' : 'div'"
+			v-for="(row, index) in computedRows"
 			:key="row.key"
+			type="button"
 			class="sad-bars__row"
-			:title="`${row.label}: ${row.count}`">
+			:class="{ 'sad-bars__row--clickable': clickable, 'sad-bars__row--dimmed': clickable && activeKey && activeKey !== row.key }"
+			:title="`${row.label}: ${row.count}`"
+			@click="clickable && $emit('select', row.key)">
 			<span class="sad-bars__label">{{ row.label }}</span>
 			<div class="sad-bars__track" :style="trackStyle">
 				<div class="sad-bars__fill" :style="fillStyle(row, index)" />
 			</div>
 			<span class="sad-bars__value">{{ row.count }}</span>
-		</div>
+		</component>
 	</div>
 </template>
 
@@ -42,7 +46,18 @@ export default {
 			type: String,
 			default: '120px',
 		},
+		/** Render rows as buttons that emit 'select' with the row's key. */
+		clickable: {
+			type: Boolean,
+			default: false,
+		},
+		/** Key of the currently selected row (dims the others). */
+		activeKey: {
+			type: String,
+			default: '',
+		},
 	},
+	emits: ['select'],
 	computed: {
 		computedRows() {
 			const rows = this.hideZero ? this.rows.filter((r) => r.count > 0) : this.rows
@@ -80,6 +95,26 @@ export default {
 	grid-template-columns: var(--sad-label-w, 120px) 1fr 32px;
 	align-items: center;
 	gap: 8px;
+	width: 100%;
+	background: none;
+	border: none;
+	padding: 2px 4px;
+	border-radius: var(--border-radius, 6px);
+	font: inherit;
+	color: inherit;
+	transition: opacity 0.15s ease;
+}
+
+.sad-bars__row--clickable {
+	cursor: pointer;
+}
+
+.sad-bars__row--clickable:hover {
+	background: var(--color-background-hover);
+}
+
+.sad-bars__row--dimmed {
+	opacity: 0.45;
 }
 
 .sad-bars__label {

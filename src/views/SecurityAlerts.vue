@@ -34,7 +34,7 @@
 				{{ notice.message }}
 			</NcNoteCard>
 
-			<NcEmptyContent v-if="items.length === 0"
+			<NcEmptyContent v-if="items.length === 0 && !activeIssue"
 				:name="t('share_audit_dashboard', 'All clear')"
 				:description="t('share_audit_dashboard', 'No insecure public links were found.')">
 				<template #icon>
@@ -44,49 +44,69 @@
 
 			<template v-else>
 				<section class="sad-alerts-breakdown">
-					<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
-					<HBarChart :rows="breakdownRows" track-color="var(--sad-track)" label-width="180px" />
-				</section>
-
-				<BulkActionBar :count="selectedIds.length"
-					:all-selected="allSelected"
-					:busy="busy"
-					@bulk="onBulk"
-					@toggle-all="toggleAll"
-					@clear="selectedIds = []">
-					<template #trailing>
-						<PageSizeSelect v-model="pageSize"
-							:options="pageSizeOptions"
-							:width="120"
-							:disabled="busy"
-							:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
-					</template>
-				</BulkActionBar>
-
-				<ul class="sad-alerts">
-					<AlertCard v-for="alert in items"
-						:key="alert.id"
-						:alert="alert"
-						:busy="busy"
-						:selected="selectedIds.includes(alert.id)"
-						@update:selected="toggleSelect(alert.id, $event)"
-						@action="onCardAction" />
-				</ul>
-
-				<div v-if="!isAll && total > apiLimit" class="sad-pagination">
-					<span class="sad-pagination__range">{{ rangeLabel }}</span>
-					<div class="sad-pagination__controls">
-						<NcButton :disabled="busy || page <= 1" @click="goto(page - 1)">
-							{{ t('share_audit_dashboard', 'Previous') }}
-						</NcButton>
-						<span class="sad-pagination__page">
-							{{ n('share_audit_dashboard', 'Page %n', 'Page %n', page) }} / {{ totalPages }}
-						</span>
-						<NcButton :disabled="busy || page >= totalPages" @click="goto(page + 1)">
-							{{ t('share_audit_dashboard', 'Next') }}
+					<div class="sad-alerts-breakdown__header">
+						<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
+						<NcButton v-if="activeIssue" type="tertiary" @click="clearIssueFilter">
+							{{ t('share_audit_dashboard', 'Showing: {label} — clear filter', { label: issueLabel(activeIssue) }) }}
 						</NcButton>
 					</div>
-				</div>
+					<HBarChart :rows="breakdownRows"
+						track-color="var(--sad-track)"
+						label-width="180px"
+						clickable
+						:active-key="activeIssue"
+						@select="onIssueSelect" />
+				</section>
+
+				<NcEmptyContent v-if="items.length === 0"
+					:name="t('share_audit_dashboard', 'No alerts in this category')"
+					:description="t('share_audit_dashboard', 'Clear the filter to see the other insecure links.')">
+					<template #icon>
+						<span class="icon-checkmark" />
+					</template>
+				</NcEmptyContent>
+
+				<template v-else>
+					<BulkActionBar :count="selectedIds.length"
+						:all-selected="allSelected"
+						:busy="busy"
+						@bulk="onBulk"
+						@toggle-all="toggleAll"
+						@clear="selectedIds = []">
+						<template #trailing>
+							<PageSizeSelect v-model="pageSize"
+								:options="pageSizeOptions"
+								:width="120"
+								:disabled="busy"
+								:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
+						</template>
+					</BulkActionBar>
+
+					<ul class="sad-alerts">
+						<AlertCard v-for="alert in items"
+							:key="alert.id"
+							:alert="alert"
+							:busy="busy"
+							:selected="selectedIds.includes(alert.id)"
+							@update:selected="toggleSelect(alert.id, $event)"
+							@action="onCardAction" />
+					</ul>
+
+					<div v-if="!isAll && total > apiLimit" class="sad-pagination">
+						<span class="sad-pagination__range">{{ rangeLabel }}</span>
+						<div class="sad-pagination__controls">
+							<NcButton :disabled="busy || page <= 1" @click="goto(page - 1)">
+								{{ t('share_audit_dashboard', 'Previous') }}
+							</NcButton>
+							<span class="sad-pagination__page">
+								{{ n('share_audit_dashboard', 'Page %n', 'Page %n', page) }} / {{ totalPages }}
+							</span>
+							<NcButton :disabled="busy || page >= totalPages" @click="goto(page + 1)">
+								{{ t('share_audit_dashboard', 'Next') }}
+							</NcButton>
+						</div>
+					</div>
+				</template>
 			</template>
 		</template>
 	</div>
@@ -145,6 +165,10 @@ export default {
 			selectedIds: [],
 			generatedPasswords: [],
 			notice: null,
+			// Issue code (e.g. 'no_password') the list is currently restricted
+			// to, set by clicking a bar in the "Alerts by category" chart.
+			// '' means no filter.
+			activeIssue: '',
 		}
 	},
 	computed: {
@@ -205,7 +229,7 @@ export default {
 		n,
 		async load() {
 			try {
-				const data = await fetchAlerts({ page: this.page, limit: this.apiLimit })
+				const data = await fetchAlerts({ page: this.page, limit: this.apiLimit, issue: this.activeIssue })
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
 				this.total = data.total ?? this.items.length
@@ -216,12 +240,27 @@ export default {
 					return
 				}
 				this.selectedIds = this.selectedIds.filter((id) => this.items.some((a) => a.id === id))
-				this.$emit('alerts-count', this.total)
+				// The tab badge always reflects every insecure link, not just
+				// the current category filter.
+				this.$emit('alerts-count', data.totalAll ?? this.total)
 			} catch (e) {
 				this.error = t('share_audit_dashboard', 'Could not load security alerts.')
 			} finally {
 				this.loading = false
 			}
+		},
+		issueLabel,
+		onIssueSelect(key) {
+			this.activeIssue = this.activeIssue === key ? '' : key
+			this.page = 1
+			this.selectedIds = []
+			this.load()
+		},
+		clearIssueFilter() {
+			this.activeIssue = ''
+			this.page = 1
+			this.selectedIds = []
+			this.load()
 		},
 		goto(page) {
 			if (page < 1 || page > this.totalPages || page === this.page) {
@@ -316,9 +355,17 @@ export default {
 	border-radius: var(--border-radius-large, 12px);
 
 	h3 {
-		margin: 0 0 12px;
+		margin: 0;
 		font-size: 15px;
 	}
+}
+
+.sad-alerts-breakdown__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
 }
 
 .sad-alerts {

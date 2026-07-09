@@ -145,25 +145,40 @@ class ShareApiController extends AdminController {
      * GET /api/alerts — security alerts, most severe first, paginated.
      *
      * The analyzer must evaluate every insecure link to rank by severity and to
-     * compute the category breakdown, so both the total and the breakdown cover
-     * the full set while only one page of items is returned to the browser.
+     * compute the category breakdown, so both the breakdown and the $issue
+     * filter below are applied over the full set while only one page of items
+     * is returned to the browser.
      *
-     * A $limit of 0 (or less) returns every alert on a single page, so the
-     * "select all" bulk action can span the whole set.
+     * $issue (optional) restricts the returned/paginated items to alerts that
+     * carry that issue code (e.g. 'no_password') — used by the "Alerts by
+     * category" chart's click-to-filter. The breakdown itself always reflects
+     * the FULL set, unfiltered, so the chart stays a stable overview the admin
+     * can use to jump between categories.
+     *
+     * A $limit of 0 (or less) returns every matching alert on a single page,
+     * so the "select all" bulk action can span the whole (filtered) set.
      */
-    public function alerts(int $page = 1, int $limit = 25): JSONResponse {
+    public function alerts(int $page = 1, int $limit = 25, string $issue = ''): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
         $all = $this->security->getAlerts();
-        $total = count($all);
+        $breakdown = $this->security->countByIssue($all);
+        $filtered = $issue !== ''
+            ? array_values(array_filter($all, static fn ($alert) => in_array($issue, array_column($alert['issues'], 'code'), true)))
+            : $all;
+        $total = count($filtered);
         $offset = max(0, ($page - 1) * $limit);
         return new JSONResponse([
-            'items' => $limit > 0 ? array_slice($all, $offset, $limit) : $all,
+            'items' => $limit > 0 ? array_slice($filtered, $offset, $limit) : $filtered,
             'total' => $total,
+            // Unfiltered count, for the tab badge — must stay stable while
+            // browsing a single category so it always reads as "all insecure
+            // links", not "links in the current category".
+            'totalAll' => count($all),
             'page' => $page,
             'limit' => $limit,
-            'breakdown' => $this->security->countByIssue($all),
+            'breakdown' => $breakdown,
         ]);
     }
 
