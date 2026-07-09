@@ -69,7 +69,10 @@
 						<NcChip :text="categoryLabel(share.category)" :no-close="true" />
 					</td>
 					<td class="sad-table__path" :title="share.path">
-						{{ share.path || '—' }}
+						<a v-if="share.fileId" :href="filesUrl(share.fileId)" target="_blank" rel="noopener noreferrer">
+							{{ share.path || '—' }}
+						</a>
+						<span v-else>{{ share.path || '—' }}</span>
 					</td>
 					<td>{{ share.owner }}</td>
 					<td>{{ recipientOf(share) }}</td>
@@ -97,6 +100,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
 import NcActions from '@nextcloud/vue/components/NcActions'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActionInput from '@nextcloud/vue/components/NcActionInput'
@@ -197,6 +201,9 @@ export default {
 				return 'none'
 			}
 			return this.sortDir === 'asc' ? 'ascending' : 'descending'
+		},
+		filesUrl(fileId) {
+			return generateUrl('/f/' + fileId)
 		},
 		recipientOf(share) {
 			if (share.recipient) {

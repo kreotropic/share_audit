@@ -17,7 +17,16 @@ só acrescenta o que é novo ou diferente face ao que lá está escrito.
 
 ## Lacunas identificadas
 
-### [ ] G1 — Sem undo: revogações são irreversíveis e sem rasto de auditoria
+### [x] G1 — Sem undo: revogações são irreversíveis e sem rasto de auditoria
+
+**Implementado (2026-07-09):** `ShareAuditLogger` novo, injetado em
+`ShareDeletionService` (usado por `OrphanShareService`/`RecipientLookupService`)
+e em `ShareRemediationService` (usado por `ShareActionController` e
+`PersonalController`) — os dois caminhos de revogação existentes. Despacha
+`OCP\Log\Audit\CriticalActionPerformedEvent` com quem revogou, quantas, ids,
+tipos e owners originais. **Requer a app `admin_audit` ativa** para ter
+qualquer efeito (estava desativada neste ambiente dev; foi ativada). Verificado
+em `data/audit.log`.
 
 O soft delete (`ROADMAP.md` #1) resolve isto a médio prazo, mas é 4-5 dias de
 esforço e ainda não está agendado. **Até lá**, um "Revoke all access" enganado
@@ -131,7 +140,10 @@ sem ação necessária.)*
 
 ## Quick wins (horas, não dias)
 
-### [ ] Q1 — M2: export respeita os filtros ativos
+### [x] Q1 — M2: export respeita os filtros ativos
+
+Já estava implementado (M2 no `SECURITY_REVIEW_PLAN.md`, feito numa sessão
+anterior) — confirmado no código atual, sem alterações necessárias.
 
 Já documentado como **M2** em
 [SECURITY_REVIEW_PLAN.md](SECURITY_REVIEW_PLAN.md) — não duplicar a
@@ -139,20 +151,39 @@ especificação aqui, só realçar a prioridade: é a diferença entre "feature
 anunciada" e "feature real", por isso deve ser tratado como quick win mesmo
 estando no plano Medium.
 
-### [ ] Q2 — Link "abrir no Files" em cada linha/alerta
+### [x] Q2 — Link "abrir no Files" em cada linha/alerta
+
+**Implementado (2026-07-09):** `fileId` acrescentado a `ShareCollectorService::normalizeRow()`
+e a `SecurityAnalyzerService`'s alerts (a partir de `file_source`, já presente
+nas queries). Frontend: `ShareTable.vue` (coluna Path) e `AlertCard.vue`
+("Open in Files") linkam para `/f/{fileId}` via `generateUrl`.
 
 `file_source` já vem na query (`ShareCollectorService`/`SecurityAnalyzerService`).
 Construir o link `/f/{fileId}` (rota nativa do Files app) e mostrá-lo em cada
 linha da tabela e de cada alerta — o admin quase sempre quer ver o ficheiro
 antes de decidir o que fazer.
 
-### [ ] Q3 — Copiar URL do link público diretamente nos alertas
+### [x] Q3 — Copiar URL do link público diretamente nos alertas
+
+**Implementado (2026-07-09):** botão "Copy link" em `AlertCard.vue` (`token`
+já vinha na API) — copia `origin + /s/{token}` via clipboard API, com
+feedback "Copied!" por 2s. Sem nova dependência (`@nextcloud/dialogs` não
+estava instalado; feedback inline em vez de toast).
 
 O `token` já está disponível nas linhas de alerta (ver `ShareActionController`
 e `getAlerts()`). Construir a URL pública (`/s/{token}`) e adicionar um botão
 "copiar link" por alerta, para o admin testar o link antes de o revogar.
 
-### [ ] Q4 — Alerta "expira em breve / já expirado"
+### [x] Q4 — Alerta "expira em breve / já expirado"
+
+**Implementado (2026-07-09):** `SecurityAnalyzerService::issuesFor()` — duas
+issues novas, `already_expired` (warning) e `expiring_soon` (info, janela de
+7 dias), independentes do toggle `no_expiration`. **Não** inclui G5.2 (corrigir
+`hasExpiration` para não contar links já expirados como "com expiração") —
+fora do âmbito combinado desta sessão; ficou só a nota no código a apontar
+para lá. Sem toggle em Settings (fora do âmbito de "quick win"; ao contrário
+de G4, que trata de regras configuráveis). Verificado ao vivo com datas
+forçadas no passado/próximas.
 
 Os dados (`expiration`) já estão na query usada por `issuesFor()`. Acrescentar
 duas novas issues (`expiring_soon`, `already_expired`) com severidade

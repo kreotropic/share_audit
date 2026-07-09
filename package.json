@@ -1,6 +1,6 @@
 {
 	"name": "share_audit_dashboard",
-	"version": "0.1.0",
+	"version": "0.2.1",
 	"description": "Visual audit dashboard for all shares across a Nextcloud instance",
 	"license": "AGPL-3.0-or-later",
 	"private": true,

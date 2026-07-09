@@ -154,6 +154,8 @@ export default {
 				no_password: 'var(--sad-alert-no-password)',
 				no_expiration: 'var(--sad-alert-no-expiration)',
 				sensitive_file: 'var(--sad-alert-sensitive)',
+				expiring_soon: 'var(--sad-alert-expiring-soon)',
+				already_expired: 'var(--sad-alert-already-expired)',
 			}
 			return Object.entries(this.breakdown).map(([key, count]) => ({
 				key,

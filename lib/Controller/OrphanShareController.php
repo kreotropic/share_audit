@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
-use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
@@ -15,7 +14,7 @@ use OCP\IUserSession;
 /**
  * Admin-only API for orphan shares (owned by disabled/deleted accounts).
  */
-class OrphanShareController extends Controller {
+class OrphanShareController extends AdminController {
 
     /**
      * Max ids accepted by revoke() in one request. Since H1, each id is a
@@ -30,10 +29,10 @@ class OrphanShareController extends Controller {
         string $appName,
         IRequest $request,
         private OrphanShareService $orphanService,
-        private IUserSession $userSession,
-        private IGroupManager $groupManager,
+        IUserSession $userSession,
+        IGroupManager $groupManager,
     ) {
-        parent::__construct($appName, $request);
+        parent::__construct($appName, $request, $userSession, $groupManager);
     }
 
     /**
@@ -65,16 +64,5 @@ class OrphanShareController extends Controller {
         }
         $deleted = $this->orphanService->revoke($ids);
         return new JSONResponse(['deleted' => $deleted]);
-    }
-
-    private function requireAdmin(): ?JSONResponse {
-        $user = $this->userSession->getUser();
-        if ($user === null || !$this->groupManager->isAdmin($user->getUID())) {
-            return new JSONResponse(
-                ['message' => 'Administrator privileges required'],
-                Http::STATUS_FORBIDDEN,
-            );
-        }
-        return null;
     }
 }

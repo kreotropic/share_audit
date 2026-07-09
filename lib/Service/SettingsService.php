@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCA\ShareAuditDashboard\AppInfo\Application;
-use OCP\IConfig;
+use OCP\IAppConfig;
 
 /**
  * Reads and writes the app's configurable security-alert rules:
@@ -21,7 +21,7 @@ class SettingsService {
     ];
 
     public function __construct(
-        private IConfig $config,
+        private IAppConfig $config,
     ) {
     }
 
@@ -29,7 +29,7 @@ class SettingsService {
      * @return string[] lowercase extensions, without the dot
      */
     public function getSensitiveExtensions(): array {
-        $raw = $this->config->getAppValue(
+        $raw = $this->config->getValueString(
             Application::APP_ID,
             'sensitive_extensions',
             implode(',', self::DEFAULT_EXTENSIONS),
@@ -41,7 +41,7 @@ class SettingsService {
      * Whether a given alert rule is currently enabled (all default to on).
      */
     public function isRuleEnabled(string $rule): bool {
-        return $this->config->getAppValue(Application::APP_ID, 'rule_' . $rule, 'yes') === 'yes';
+        return $this->config->getValueString(Application::APP_ID, 'rule_' . $rule, 'yes') === 'yes';
     }
 
     /**
@@ -66,14 +66,14 @@ class SettingsService {
      * @param array<string, bool> $rules rule code => enabled
      */
     public function saveSettings(string $extensions, array $rules): void {
-        $this->config->setAppValue(
+        $this->config->setValueString(
             Application::APP_ID,
             'sensitive_extensions',
             implode(',', $this->parseExtensions($extensions)),
         );
         foreach (self::RULES as $rule) {
             $enabled = !empty($rules[$rule]);
-            $this->config->setAppValue(Application::APP_ID, 'rule_' . $rule, $enabled ? 'yes' : 'no');
+            $this->config->setValueString(Application::APP_ID, 'rule_' . $rule, $enabled ? 'yes' : 'no');
         }
     }
 

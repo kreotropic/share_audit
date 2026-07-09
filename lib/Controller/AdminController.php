@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCA\ShareAuditDashboard\Controller;
+
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\JSONResponse;
+use OCP\IGroupManager;
+use OCP\IRequest;
+use OCP\IUserSession;
+
+/**
+ * Base for the admin-only controllers: centralizes the requireAdmin() guard
+ * so every admin-only endpoint enforces the same check from a single place.
+ */
+abstract class AdminController extends Controller {
+
+    public function __construct(
+        string $appName,
+        IRequest $request,
+        private IUserSession $userSession,
+        private IGroupManager $groupManager,
+    ) {
+        parent::__construct($appName, $request);
+    }
+
+    /**
+     * @return JSONResponse|null a 403 response when the caller is not an admin,
+     *                           or null when access is granted.
+     */
+    protected function requireAdmin(): ?JSONResponse {
+        $user = $this->userSession->getUser();
+        if ($user === null || !$this->groupManager->isAdmin($user->getUID())) {
+            return new JSONResponse(
+                ['message' => 'Administrator privileges required'],
+                Http::STATUS_FORBIDDEN,
+            );
+        }
+        return null;
+    }
+}

@@ -18,8 +18,6 @@ use OCP\IUserManager;
  */
 class OrphanShareService {
 
-    private const EXCLUDED_TYPES = [2, 11, 13];
-
     /**
      * getOrphanOwners() is on the hot path of the dashboard/stats endpoint
      * and, per distinct owner, can cost a backend round trip (e.g. an LDAP
@@ -71,9 +69,12 @@ class OrphanShareService {
         $qb->selectDistinct('uid_owner')
             ->from('share')
             ->where($qb->expr()->notIn('share_type',
-                $qb->createNamedParameter(self::EXCLUDED_TYPES, IQueryBuilder::PARAM_INT_ARRAY)));
+                $qb->createNamedParameter(ShareMapper::EXCLUDED_TYPES, IQueryBuilder::PARAM_INT_ARRAY)));
         $result = $qb->executeQuery();
-        $owners = array_map('strval', $result->fetchAll(\PDO::FETCH_COLUMN));
+        $owners = [];
+        while (($uid = $result->fetchOne()) !== false) {
+            $owners[] = (string)$uid;
+        }
         $result->closeCursor();
 
         // One batch query covers every disabled account. This is normally

@@ -1,4 +1,4 @@
-import { translate as t } from '@nextcloud/l10n'
+import { translate as t, getCanonicalLocale } from '@nextcloud/l10n'
 
 const APP = 'share_audit_dashboard'
 
@@ -68,6 +68,8 @@ export function issueLabel(code) {
 		no_password: t(APP, 'No password'),
 		no_expiration: t(APP, 'No expiration date'),
 		sensitive_file: t(APP, 'Sensitive file type'),
+		expiring_soon: t(APP, 'Expiring soon'),
+		already_expired: t(APP, 'Already expired'),
 	}
 	return labels[code] ?? code
 }
@@ -82,5 +84,5 @@ export function formatDate(seconds) {
 	if (!seconds) {
 		return '—'
 	}
-	return new Date(seconds * 1000).toLocaleDateString()
+	return new Date(seconds * 1000).toLocaleDateString(getCanonicalLocale())
 }

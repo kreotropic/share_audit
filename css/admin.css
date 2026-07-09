@@ -85,6 +85,8 @@ body {
 	--sad-alert-no-password: var(--sad-hue-coral);
 	--sad-alert-no-expiration: var(--sad-hue-amber);
 	--sad-alert-sensitive: var(--sad-hue-red);
+	--sad-alert-expiring-soon: var(--sad-hue-blue);
+	--sad-alert-already-expired: var(--sad-hue-purple);
 
 	/* Bar track: derived from the theme, subtle in light. */
 	--sad-track: color-mix(in srgb, var(--color-main-text) 8%, var(--color-main-background));

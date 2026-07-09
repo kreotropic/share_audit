@@ -53,7 +53,10 @@ class RecipientLookupService {
      * @return array<int, array<string, mixed>>
      */
     public function search(string $query, int $limit = 20): array {
-        if (trim($query) === '') {
+        // Mirrors the frontend's minimum, but enforced server-side too: a
+        // direct API call (bypassing the UI) with a 1-char query would
+        // otherwise trigger a full LIKE '%x%' scan of the share table.
+        if (mb_strlen(trim($query)) < 2) {
             return [];
         }
         $like = '%' . $this->db->escapeLikeParameter($query) . '%';
@@ -116,7 +119,7 @@ class RecipientLookupService {
      */
     public function revokeAll(string $shareWith, int $shareType): int {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('id', 'share_type')->from('share')
+        $qb->select('id', 'share_type', 'uid_owner')->from('share')
             ->where($qb->expr()->eq('share_with', $qb->createNamedParameter($shareWith)))
             ->andWhere($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)));
         $result = $qb->executeQuery();

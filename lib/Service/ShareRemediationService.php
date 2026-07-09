@@ -18,6 +18,7 @@ class ShareRemediationService {
     public function __construct(
         private IManager $shareManager,
         private PasswordGeneratorService $passwordGenerator,
+        private ShareAuditLogger $auditLogger,
     ) {
     }
 
@@ -48,7 +49,13 @@ class ShareRemediationService {
      * @return array<string, mixed>
      */
     public function revoke(int $id): array {
-        $this->shareManager->deleteShare($this->loadShare($id));
+        $share = $this->loadShare($id);
+        $this->shareManager->deleteShare($share);
+        $this->auditLogger->logRevoke([[
+            'id' => $id,
+            'share_type' => $share->getShareType(),
+            'uid_owner' => $share->getShareOwner(),
+        ]]);
         return ['id' => $id, 'success' => true, 'action' => 'revoke'];
     }
 

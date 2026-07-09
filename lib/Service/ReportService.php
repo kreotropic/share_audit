@@ -35,7 +35,7 @@ class ReportService {
         if ($includeTokens) {
             $headers[] = 'Token';
         }
-        fputcsv($fh, $headers);
+        fputcsv($fh, $headers, escape: '');
 
         foreach ($rows as $row) {
             $line = [
@@ -52,7 +52,7 @@ class ReportService {
             if ($includeTokens) {
                 $line[] = $this->cell($row['token'] ?? '');
             }
-            fputcsv($fh, $line);
+            fputcsv($fh, $line, escape: '');
         }
 
         rewind($fh);

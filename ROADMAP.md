@@ -167,3 +167,9 @@ desde o último relatório").
   `SecurityAnalyzerService` e `ShareCollectorService` seria o maior retorno
 - Truncagem do label "Hiperligação pública" no gráfico "Partilhas por tipo"
   (a coluna de labels do `HBarChart` está a 120px nessa vista)
+- Falta índice em `share_with` (autocomplete/recipient search, `ILIKE %...%`)
+  e em `path` (ordenação). Numa instância de ~300 users é tolerável (dezenas
+  de milhares de linhas); decisão adiada até haver evidência de instâncias
+  maiores. Quando justificar, adicionar via migration — coordenar com a
+  feature "Soft delete" acima, que já vai precisar da primeira migration da
+  app de qualquer forma.

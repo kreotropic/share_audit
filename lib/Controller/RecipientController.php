@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Service\RecipientLookupService;
-use OCP\AppFramework\Controller;
-use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -15,21 +14,22 @@ use OCP\IUserSession;
 /**
  * Admin-only API for the reverse recipient drill-down.
  */
-class RecipientController extends Controller {
+class RecipientController extends AdminController {
 
     public function __construct(
         string $appName,
         IRequest $request,
         private RecipientLookupService $lookup,
-        private IUserSession $userSession,
-        private IGroupManager $groupManager,
+        IUserSession $userSession,
+        IGroupManager $groupManager,
     ) {
-        parent::__construct($appName, $request);
+        parent::__construct($appName, $request, $userSession, $groupManager);
     }
 
     /**
      * GET /api/recipients/search — autocomplete recipients.
      */
+    #[UserRateLimit(limit: 60, period: 60)]
     public function search(string $q = ''): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
@@ -55,16 +55,5 @@ class RecipientController extends Controller {
             return $guard;
         }
         return new JSONResponse(['deleted' => $this->lookup->revokeAll($shareWith, $shareType)]);
-    }
-
-    private function requireAdmin(): ?JSONResponse {
-        $user = $this->userSession->getUser();
-        if ($user === null || !$this->groupManager->isAdmin($user->getUID())) {
-            return new JSONResponse(
-                ['message' => 'Administrator privileges required'],
-                Http::STATUS_FORBIDDEN,
-            );
-        }
-        return null;
     }
 }

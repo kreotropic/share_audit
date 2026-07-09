@@ -9,8 +9,6 @@ use OCA\ShareAuditDashboard\Service\ReportService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
-use OCP\AppFramework\Controller;
-use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
@@ -23,7 +21,7 @@ use OCP\IUserSession;
  * Every action is guarded by requireAdmin(): these endpoints expose share
  * metadata across all users and must never be reachable by a regular account.
  */
-class ShareApiController extends Controller {
+class ShareApiController extends AdminController {
 
     public function __construct(
         string $appName,
@@ -33,10 +31,10 @@ class ShareApiController extends Controller {
         private ReportService $report,
         private SettingsService $settings,
         private OrphanShareService $orphanService,
-        private IUserSession $userSession,
-        private IGroupManager $groupManager,
+        IUserSession $userSession,
+        IGroupManager $groupManager,
     ) {
-        parent::__construct($appName, $request);
+        parent::__construct($appName, $request, $userSession, $groupManager);
     }
 
     /**
@@ -197,21 +195,6 @@ class ShareApiController extends Controller {
             'sensitive_file' => $ruleSensitiveFile,
         ]);
         return new JSONResponse($this->settings->getSettings());
-    }
-
-    /**
-     * @return JSONResponse|null a 403 response when the caller is not an admin,
-     *                           or null when access is granted.
-     */
-    private function requireAdmin(): ?JSONResponse {
-        $user = $this->userSession->getUser();
-        if ($user === null || !$this->groupManager->isAdmin($user->getUID())) {
-            return new JSONResponse(
-                ['message' => 'Administrator privileges required'],
-                Http::STATUS_FORBIDDEN,
-            );
-        }
-        return null;
     }
 
     /**

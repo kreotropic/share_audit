@@ -24,7 +24,7 @@ class ShareMapper {
      *  - 11 = USERROOM   (per-user row of a Talk room share)
      *  - 13 = DECK_USER  (per-user row of a Deck share)
      */
-    private const EXCLUDED_TYPES = [2, 11, 13];
+    public const EXCLUDED_TYPES = [2, 11, 13];
 
     /** Whitelist of sortable columns: frontend key => DB column. */
     private const SORT_COLUMNS = [
@@ -115,7 +115,10 @@ class ShareMapper {
             ->andWhere($qb->expr()->gte('stime',
                 $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
         $result = $qb->executeQuery();
-        $rows = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+        $rows = [];
+        while (($stime = $result->fetchOne()) !== false) {
+            $rows[] = (int)$stime;
+        }
         $result->closeCursor();
         return $rows;
     }
@@ -196,7 +199,6 @@ class ShareMapper {
      * @return array<int, array<string, mixed>> raw share rows
      */
     public function findShares(array $filters, int $limit, int $offset, string $sort = 'created', string $dir = 'desc'): array {
-        $column = self::SORT_COLUMNS[$sort] ?? 's.stime';
         $direction = strtolower($dir) === 'asc' ? 'ASC' : 'DESC';
 
         $qb = $this->db->getQueryBuilder();
@@ -207,9 +209,16 @@ class ShareMapper {
         )
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
-            ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
-            ->orderBy($column, $direction)
-            ->addOrderBy('s.id', 'DESC')
+            ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'));
+
+        // Sorting by the raw password column would order by the hash, which
+        // is semantically random — sort by "has a password" instead.
+        if ($sort === 'password') {
+            $qb->orderBy($qb->createFunction('CASE WHEN s.password IS NULL THEN 0 ELSE 1 END'), $direction);
+        } else {
+            $qb->orderBy(self::SORT_COLUMNS[$sort] ?? 's.stime', $direction);
+        }
+        $qb->addOrderBy('s.id', 'DESC')
             ->setMaxResults($limit)
             ->setFirstResult($offset);
         $this->applyFilters($qb, $filters);
@@ -245,8 +254,11 @@ class ShareMapper {
     }
 
     /**
-     * Public links (type 3) that are missing a password and/or an expiration
-     * date — the raw material for the security alerts view.
+     * Public links (type 3) that are missing a password, missing an
+     * expiration date, or whose expiration is already past / within
+     * $expiringSoonCutoff — the raw material for the security alerts view.
+     * A link with both a password and a comfortably-future expiration is
+     * never a candidate and is excluded here, before issuesFor() runs.
      *
      * $ownerOrInitiator scopes to a single user's personal view: it matches
      * either uid_owner or uid_initiator, since a user who creates a link on
@@ -254,7 +266,7 @@ class ShareMapper {
      *
      * @return array<int, array<string, mixed>>
      */
-    public function findInsecureLinks(?string $ownerOrInitiator = null): array {
+    public function findInsecureLinks(?string $ownerOrInitiator = null, ?\DateTimeImmutable $expiringSoonCutoff = null): array {
         $qb = $this->db->getQueryBuilder();
         $qb->select(
             's.id', 's.share_type', 's.uid_owner', 's.uid_initiator',
@@ -265,11 +277,7 @@ class ShareMapper {
             ->from('share', 's')
             ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
             ->where($qb->expr()->eq('s.share_type', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->orX(
-                $qb->expr()->isNull('s.password'),
-                $qb->expr()->eq('s.password', $qb->createNamedParameter('')),
-                $qb->expr()->isNull('s.expiration'),
-            ))
+            ->andWhere($qb->expr()->orX(...$this->insecureLinkConditions($qb, $expiringSoonCutoff)))
             ->orderBy('s.stime', 'DESC');
 
         if ($ownerOrInitiator !== null) {
@@ -284,6 +292,107 @@ class ShareMapper {
         $rows = $result->fetchAll();
         $result->closeCursor();
         return $rows;
+    }
+
+    /**
+     * OR-able conditions matching the candidate pool issuesFor() actually
+     * evaluates: missing password, missing expiration, or (if a cutoff is
+     * given) an expiration at/before it — covers both "already expired" and
+     * "expiring soon" in one comparison, since the past is always <= cutoff.
+     *
+     * Single source of truth for the base filter, shared by
+     * findInsecureLinks() and countInsecureLinks() so they can never drift
+     * apart on *which rows are even candidates* (as opposed to which of
+     * those trip an enabled rule, which is each method's own concern).
+     *
+     * @return array<int, mixed>
+     */
+    private function insecureLinkConditions(IQueryBuilder $qb, ?\DateTimeImmutable $expiringSoonCutoff): array {
+        $conditions = [
+            $qb->expr()->isNull('s.password'),
+            $qb->expr()->eq('s.password', $qb->createNamedParameter('')),
+            $qb->expr()->isNull('s.expiration'),
+        ];
+        if ($expiringSoonCutoff !== null) {
+            $conditions[] = $qb->expr()->lte('s.expiration',
+                $qb->createNamedParameter($expiringSoonCutoff->format('Y-m-d H:i:s')));
+        }
+        return $conditions;
+    }
+
+    /**
+     * Count of public links matching at least one *enabled* alert rule,
+     * computed entirely in SQL — used for dashboard badges (see
+     * SecurityAnalyzerService::countAlerts()) where only the number is
+     * needed, so evaluating and normalizing every row in PHP is wasted work.
+     *
+     * The extension check is a superset of the real "sensitive file" rule
+     * (a LIKE match on the name, vs. an exact extension match after
+     * pathinfo()), so this can very slightly over-count — acceptable for a
+     * badge; the alerts list itself still uses the precise PHP evaluation.
+     * expiring_soon/already_expired aren't configurable rules (see
+     * SecurityAnalyzerService::issuesFor()), so they're always counted when
+     * $expiringSoonCutoff is given.
+     *
+     * @param string[] $sensitiveExtensions lowercase, without the dot
+     */
+    public function countInsecureLinks(
+        bool $noPassword,
+        bool $noExpiration,
+        bool $sensitiveFile,
+        array $sensitiveExtensions,
+        ?string $ownerOrInitiator = null,
+        ?\DateTimeImmutable $expiringSoonCutoff = null,
+    ): int {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->func()->count('s.id', 'cnt'))
+            ->from('share', 's')
+            ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
+            ->where($qb->expr()->eq('s.share_type', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->orX(...$this->insecureLinkConditions($qb, $expiringSoonCutoff)));
+
+        $conditions = [];
+        if ($noPassword) {
+            $conditions[] = $qb->expr()->orX(
+                $qb->expr()->isNull('s.password'),
+                $qb->expr()->eq('s.password', $qb->createNamedParameter('')),
+            );
+        }
+        if ($noExpiration) {
+            $conditions[] = $qb->expr()->isNull('s.expiration');
+        }
+        if ($expiringSoonCutoff !== null) {
+            $conditions[] = $qb->expr()->andX(
+                $qb->expr()->isNotNull('s.expiration'),
+                $qb->expr()->lte('s.expiration',
+                    $qb->createNamedParameter($expiringSoonCutoff->format('Y-m-d H:i:s'))),
+            );
+        }
+        if ($sensitiveFile && $sensitiveExtensions !== []) {
+            $extConditions = array_map(
+                fn (string $ext) => $qb->expr()->iLike('f.name', $qb->createNamedParameter('%.' . $ext)),
+                $sensitiveExtensions,
+            );
+            $conditions[] = $qb->expr()->orX(...$extConditions);
+        }
+
+        if ($conditions === []) {
+            return 0;
+        }
+        $qb->andWhere($qb->expr()->orX(...$conditions));
+
+        if ($ownerOrInitiator !== null) {
+            $uid = $qb->createNamedParameter($ownerOrInitiator);
+            $qb->andWhere($qb->expr()->orX(
+                $qb->expr()->eq('s.uid_owner', $uid),
+                $qb->expr()->eq('s.uid_initiator', $uid),
+            ));
+        }
+
+        $result = $qb->executeQuery();
+        $count = (int)$result->fetchOne();
+        $result->closeCursor();
+        return $count;
     }
 
     /**

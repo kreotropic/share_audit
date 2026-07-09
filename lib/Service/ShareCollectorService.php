@@ -37,6 +37,7 @@ class ShareCollectorService {
         private ShareMapper $mapper,
         private SecurityAnalyzerService $security,
         private IUserManager $userManager,
+        private PathFormatter $pathFormatter,
     ) {
     }
 
@@ -177,7 +178,8 @@ class ShareCollectorService {
             'initiator' => (string)($row['uid_initiator'] ?? ''),
             'recipient' => (string)($row['share_with'] ?? ''),
             'itemType' => (string)($row['item_type'] ?? ''),
-            'path' => $this->prettyPath($row['file_path'] ?? null),
+            'fileId' => isset($row['file_source']) ? (int)$row['file_source'] : null,
+            'path' => $this->pathFormatter->prettyPath($row['file_path'] ?? null),
             'permissions' => $permissions,
             'permissionLabels' => $this->permissionLabels($permissions),
             'created' => isset($row['stime']) ? (int)$row['stime'] : null,
@@ -233,23 +235,6 @@ class ShareCollectorService {
             $labels[] = 'share';
         }
         return $labels;
-    }
-
-    /**
-     * Strip the internal "files/" storage prefix from a filecache path so the
-     * result reads like a user-facing path.
-     */
-    private function prettyPath(?string $path): ?string {
-        if ($path === null) {
-            return null;
-        }
-        if (str_starts_with($path, 'files/')) {
-            return '/' . substr($path, strlen('files/'));
-        }
-        if ($path === 'files') {
-            return '/';
-        }
-        return $path;
     }
 
     /**

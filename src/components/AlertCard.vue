@@ -19,6 +19,12 @@
 				</div>
 				<div class="sad-alert__meta">
 					<span class="sad-alert__path" :title="alert.path">{{ alert.path || '—' }}</span>
+					<a v-if="alert.fileId"
+						:href="filesUrl(alert.fileId)"
+						target="_blank"
+						rel="noopener noreferrer">
+						{{ t('share_audit_dashboard', 'Open in Files') }}
+					</a>
 					<span>{{ t('share_audit_dashboard', 'Owner: {owner}', { owner: alert.owner }) }}</span>
 					<span>{{ formatDate(alert.created) }}</span>
 				</div>
@@ -26,6 +32,10 @@
 		</div>
 
 		<div class="sad-alert__actions">
+			<NcButton v-if="alert.token" type="tertiary" :disabled="busy" @click="copyLink">
+				{{ linkCopied ? t('share_audit_dashboard', 'Copied!') : t('share_audit_dashboard', 'Copy link') }}
+			</NcButton>
+
 			<NcButton v-if="hasIssue('no_password')"
 				:disabled="busy"
 				@click="$emit('action', { type: 'password', id: alert.id, path: alert.path })">
@@ -61,6 +71,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcChip from '@nextcloud/vue/components/NcChip'
@@ -91,6 +102,7 @@ export default {
 	data() {
 		return {
 			confirming: false,
+			linkCopied: false,
 		}
 	},
 	computed: {
@@ -105,6 +117,17 @@ export default {
 		formatDate,
 		hasIssue(code) {
 			return this.alert.issues.some((i) => i.code === code)
+		},
+		filesUrl(fileId) {
+			return generateUrl('/f/' + fileId)
+		},
+		async copyLink() {
+			const url = window.location.origin + generateUrl('/s/' + this.alert.token)
+			await navigator.clipboard.writeText(url)
+			this.linkCopied = true
+			setTimeout(() => {
+				this.linkCopied = false
+			}, 2000)
 		},
 		revoke() {
 			this.confirming = false
@@ -209,6 +232,14 @@ export default {
 
 .sad-alert__chip--sensitive_file {
 	--chip: var(--sad-alert-sensitive);
+}
+
+.sad-alert__chip--expiring_soon {
+	--chip: var(--sad-alert-expiring-soon);
+}
+
+.sad-alert__chip--already_expired {
+	--chip: var(--sad-alert-already-expired);
 }
 
 .sad-alert__name {

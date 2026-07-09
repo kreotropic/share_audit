@@ -12,7 +12,7 @@ duplicação e falta de índices).
 
 ## LOW
 
-### [ ] L1 — Duplicação: `requireAdmin()`, `EXCLUDED_TYPES`, `prettyPath()`
+### [x] L1 — Duplicação: `requireAdmin()`, `EXCLUDED_TYPES`, `prettyPath()`
 
 **Onde:**
 - `requireAdmin()` repetido em `RecipientController.php:60`,
@@ -42,7 +42,7 @@ definição, todos os usos atuais continuam a passar nos testes manuais.
 
 ---
 
-### [ ] L2 — `SettingsService` usa `IConfig::getAppValue/setAppValue` (deprecated desde NC29)
+### [x] L2 — `SettingsService` usa `IConfig::getAppValue/setAppValue` (deprecated desde NC29)
 
 **Onde:** `lib/Service/SettingsService.php:32,44,69,76`
 
@@ -52,7 +52,7 @@ no constructor.
 
 ---
 
-### [ ] L3 — Ordenar por coluna `password` ordena pelo hash (semanticamente aleatório)
+### [x] L3 — Ordenar por coluna `password` ordena pelo hash (semanticamente aleatório)
 
 **Onde:** `lib/Db/ShareMapper.php:37` (mapa de colunas ordenáveis)
 
@@ -62,7 +62,7 @@ coluna crua.
 
 ---
 
-### [ ] L4 — `package.json` (0.1.0) e `info.xml` (0.2.1) dessincronizados
+### [x] L4 — `package.json` (0.1.0) e `info.xml` (0.2.1) dessincronizados
 
 **Onde:** `package.json:3`, `appinfo/info.xml:31`
 
@@ -72,7 +72,7 @@ divergir.
 
 ---
 
-### [ ] L5 — `\PDO::FETCH_COLUMN` direto depende de internals do DBAL
+### [x] L5 — `\PDO::FETCH_COLUMN` direto depende de internals do DBAL
 
 **Onde:** `lib/Service/RecipientLookupService.php:119`
 
@@ -89,7 +89,7 @@ while (($id = $result->fetchOne()) !== false) {
 
 ---
 
-### [ ] L6 — Sem rate limiting nos endpoints pessoais e no recipients/search
+### [x] L6 — Sem rate limiting nos endpoints pessoais e no recipients/search
 
 **Onde:** endpoints de `PersonalController` e `RecipientController::search()`
 
@@ -99,7 +99,7 @@ sensível por poder ser chamado a cada tecla no autocomplete.
 
 ---
 
-### [ ] L7 — Recipient search aceita `q` de 1 carácter no backend (frontend impõe 2)
+### [x] L7 — Recipient search aceita `q` de 1 carácter no backend (frontend impõe 2)
 
 **Onde:** `lib/Controller/RecipientController.php:33` /
 `lib/Service/RecipientLookupService.php:52-56`
@@ -110,7 +110,7 @@ contrário — evita full scans disparados por chamadas diretas à API.
 
 ---
 
-### [ ] L8 — `fputcsv()` sem `$escape` explícito → deprecation no PHP 8.4
+### [x] L8 — `fputcsv()` sem `$escape` explícito → deprecation no PHP 8.4
 
 **Onde:** `lib/Service/ReportService.php:29,32`
 
@@ -119,7 +119,7 @@ contrário — evita full scans disparados por chamadas diretas à API.
 
 ---
 
-### [ ] L9 — `prettyPath()` não trata paths de groupfolders
+### [x] L9 — `prettyPath()` não trata paths de groupfolders
 
 **Onde:** `ShareCollectorService::prettyPath()` /
 `SecurityAnalyzerService::prettyPath()` (mesma lógica duplicada — ver L1)
@@ -132,7 +132,7 @@ sítios).
 
 ---
 
-### [ ] L10 — `format.js:81` usa `toLocaleDateString()` em vez de `getCanonicalLocale()`
+### [x] L10 — `format.js:81` usa `toLocaleDateString()` em vez de `getCanonicalLocale()`
 
 **Onde:** `src/.../format.js:81`
 
@@ -142,7 +142,7 @@ locale que o resto do Nextcloud, em vez da locale do browser.
 
 ---
 
-### [ ] L11 — `countTotal()` é redundante (soma de `countByType()`)
+### [x] L11 — `countTotal()` é redundante (soma de `countByType()`)
 
 **Onde:** `lib/Db/ShareMapper.php:50` (`countByType()`) e `:71` (`countTotal()`)
 
@@ -152,7 +152,7 @@ reaproveitando o resultado já obtido de `countByType()` sem nova query).
 
 ---
 
-### [ ] L12 — Confirmar que os screenshots resolvem no repo `share_audit` (não `share_audit_dashboard`)
+### [x] L12 — Confirmar que os screenshots resolvem no repo `share_audit` (não `share_audit_dashboard`)
 
 **Onde:** `appinfo/info.xml:37-45` — `website`/`repository` apontam para
 `github.com/kreotropic/share_audit`, mas a pasta local/app id é
@@ -188,7 +188,7 @@ silenciosamente a app se algum screenshot não carregar.
 
 ## PERFORMANCE
 
-### [ ] P1 — `/api/stats`: trend mensal faz 12 queries (`countCreatedBetween` × 12) + 3×`countCreatedSince`
+### [x] P1 — `/api/stats`: trend mensal faz 12 queries (`countCreatedBetween` × 12) + 3×`countCreatedSince`
 
 **Onde:** `lib/Service/ShareCollectorService.php:88-100`
 
@@ -210,7 +210,7 @@ a limpeza geral de `countByType`/`countTotal`, já que mexem na mesma zona do
 
 ---
 
-### [ ] P2 — `countAlerts()` = `count(getAlerts())` — carrega tudo só para um número
+### [x] P2 — `countAlerts()` = `count(getAlerts())` — carrega tudo só para um número
 
 **Onde:** `lib/Service/SecurityAnalyzerService.php:26-28`
 
@@ -223,7 +223,7 @@ para o badge — ou aplicar o filtro de extensão como `LIKE '%.ext'` sobre
 
 ---
 
-### [ ] P3 — `getOrphanOwners()`: N+1 contra o user backend, sem cache
+### [x] P3 — `getOrphanOwners()`: N+1 contra o user backend, sem cache
 
 **Onde:** `lib/Service/OrphanShareService.php:34-57` — corre em `/api/stats` e
 `/api/orphans`.
@@ -245,7 +245,7 @@ O mesmo padrão de cache serve para o payload completo de `/api/stats`.
 
 ---
 
-### [ ] P4 — `/api/alerts`: paginação com `array_slice` sobre o conjunto completo
+### [x] P4 — `/api/alerts`: paginação com `array_slice` sobre o conjunto completo
 
 **Onde:** `lib/Controller/ShareApiController.php:140-154`
 
@@ -256,7 +256,11 @@ pena reescrever a lógica de ranking só por isto.
 
 ---
 
-### [ ] P5 — Falta índice em `share_with`; `ORDER BY path` também sem índice
+### [x] P5 — Falta índice em `share_with`; `ORDER BY path` também sem índice
+
+**Decisão tomada (2026-07-09):** documentado como limitação conhecida no
+`ROADMAP.md` (opção 1) — sem migration por agora. Revisitar se/quando a
+instância crescer, coordenado com a feature "Soft delete".
 
 **Onde:** `RecipientLookupService::search()` (autocomplete, `ILIKE %...%`),
 `recipientSearch` no filtro geral, ordenação por `path`.
@@ -272,6 +276,10 @@ milhares de linhas). Duas opções, sem implementar já:
 ---
 
 ### [ ] P6 — Export materializa até 100k linhas em memória
+
+**Adiado (2026-07-09):** decisão do utilizador, seguindo a recomendação do
+próprio plano — maior esforço, sem evidência real de instâncias com dezenas
+de milhares de partilhas. Revisitar quando essa evidência existir.
 
 **Onde:** `ShareCollectorService::getAllForExport()` (~linhas 130-133),
 consumido por `ReportService::buildCsv()`

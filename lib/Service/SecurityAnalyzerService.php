@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
+use OCP\ICache;
+use OCP\ICacheFactory;
 
 /**
  * Detects shares that represent a governance / security risk. For the MVP this
@@ -13,18 +15,45 @@ use OCA\ShareAuditDashboard\Db\ShareMapper;
  */
 class SecurityAnalyzerService {
 
+    /**
+     * getAlerts() re-evaluates every insecure link on each call — needed for
+     * ranking + breakdown, but wasteful when the alerts page is just paged
+     * through (Previous/Next) or reloaded within a few seconds. A short
+     * cache absorbs that; a fix applied through remediation may take up to
+     * this long to disappear from the list, which is an acceptable trade-off
+     * for a non-mutating read (contrast with OrphanShareService, where a
+     * mutation gate always bypasses its cache).
+     */
+    private const CACHE_TTL = 60;
+
+    /** Window (days) within which a still-valid expiration counts as "expiring soon". */
+    private const EXPIRING_SOON_DAYS = 7;
+
+    private ICache $cache;
+
     public function __construct(
         private ShareMapper $mapper,
         private SettingsService $settings,
+        private PathFormatter $pathFormatter,
+        ICacheFactory $cacheFactory,
     ) {
+        $this->cache = $cacheFactory->createDistributed('share_audit_dashboard-alerts');
     }
 
     /**
      * Number of shares flagged as insecure (used for dashboard badges).
-     * Counts actual alerts so it honours the configurable rule toggles.
+     * Computed directly in SQL — see ShareMapper::countInsecureLinks() — so
+     * badges don't pay the cost of normalizing every alert just for a count.
      */
     public function countAlerts(?string $owner = null): int {
-        return count($this->getAlerts($owner));
+        return $this->mapper->countInsecureLinks(
+            $this->settings->isRuleEnabled('no_password'),
+            $this->settings->isRuleEnabled('no_expiration'),
+            $this->settings->isRuleEnabled('sensitive_file'),
+            $this->settings->getSensitiveExtensions(),
+            $owner,
+            $this->expiringSoonCutoff(),
+        );
     }
 
     /**
@@ -35,8 +64,22 @@ class SecurityAnalyzerService {
      * @return array<int, array<string, mixed>>
      */
     public function getAlerts(?string $owner = null): array {
+        $cacheKey = $owner ?? '__admin__';
+        $cached = $this->cache->get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+        $alerts = $this->computeAlerts($owner);
+        $this->cache->set($cacheKey, $alerts, self::CACHE_TTL);
+        return $alerts;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function computeAlerts(?string $owner): array {
         $alerts = [];
-        foreach ($this->mapper->findInsecureLinks($owner) as $row) {
+        foreach ($this->mapper->findInsecureLinks($owner, $this->expiringSoonCutoff()) as $row) {
             $issues = $this->issuesFor($row);
             if ($issues === []) {
                 continue;
@@ -45,7 +88,8 @@ class SecurityAnalyzerService {
             $alerts[] = [
                 'id' => (int)$row['id'],
                 'owner' => (string)$row['uid_owner'],
-                'path' => $this->prettyPath($row['file_path'] ?? null),
+                'fileId' => isset($row['file_source']) ? (int)$row['file_source'] : null,
+                'path' => $this->pathFormatter->prettyPath($row['file_path'] ?? null),
                 'token' => $row['token'] ?? null,
                 'created' => isset($row['stime']) ? (int)$row['stime'] : null,
                 'issues' => $issues,
@@ -89,14 +133,48 @@ class SecurityAnalyzerService {
         if ($this->settings->isRuleEnabled('no_password') && empty($row['password'])) {
             $issues[] = ['code' => 'no_password', 'severity' => 'critical'];
         }
-        if ($this->settings->isRuleEnabled('no_expiration') && empty($row['expiration'])) {
-            $issues[] = ['code' => 'no_expiration', 'severity' => 'warning'];
+
+        if (empty($row['expiration'])) {
+            if ($this->settings->isRuleEnabled('no_expiration')) {
+                $issues[] = ['code' => 'no_expiration', 'severity' => 'warning'];
+            }
+        } else {
+            // Independent of the no_expiration toggle: a link *with* an
+            // expiration set is only actually protected while that date is
+            // still in the future and not imminent — see FEATURE_GAPS_PLAN.md
+            // Q4 (and G5.2, not implemented here, for hasExpiration itself).
+            $expiresAt = $this->parseExpiration($row['expiration']);
+            if ($expiresAt !== null) {
+                $now = new \DateTimeImmutable();
+                if ($expiresAt < $now) {
+                    $issues[] = ['code' => 'already_expired', 'severity' => 'warning'];
+                } elseif ($expiresAt <= $this->expiringSoonCutoff()) {
+                    $issues[] = ['code' => 'expiring_soon', 'severity' => 'info'];
+                }
+            }
         }
+
         if ($this->settings->isRuleEnabled('sensitive_file') && $this->isSensitiveFile($row['file_path'] ?? null)) {
             $issues[] = ['code' => 'sensitive_file', 'severity' => 'warning'];
         }
 
         return $issues;
+    }
+
+    private function parseExpiration(string $expiration): ?\DateTimeImmutable {
+        try {
+            return new \DateTimeImmutable($expiration);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    /**
+     * Shared by issuesFor() (PHP-precise) and the mapper's SQL candidate
+     * filter/count (which must stay a superset of what this actually flags).
+     */
+    private function expiringSoonCutoff(): \DateTimeImmutable {
+        return (new \DateTimeImmutable())->modify('+' . self::EXPIRING_SOON_DAYS . ' days');
     }
 
     private function isSensitiveFile(?string $path): bool {
@@ -119,15 +197,5 @@ class SecurityAnalyzerService {
             }
         }
         return $best;
-    }
-
-    private function prettyPath(?string $path): ?string {
-        if ($path === null) {
-            return null;
-        }
-        if (str_starts_with($path, 'files/')) {
-            return '/' . substr($path, strlen('files/'));
-        }
-        return $path;
     }
 }

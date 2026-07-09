@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Service\ShareRemediationService;
-use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
@@ -21,7 +20,7 @@ use Psr\Log\LoggerInterface;
  * Revoke currently deletes the share; once soft-delete (roadmap F4) lands it
  * will route through the retention table instead.
  */
-class ShareActionController extends Controller {
+class ShareActionController extends AdminController {
 
     /**
      * Client-facing message for any failed action. The real exception is
@@ -37,11 +36,11 @@ class ShareActionController extends Controller {
         string $appName,
         IRequest $request,
         private ShareRemediationService $remediation,
-        private IUserSession $userSession,
-        private IGroupManager $groupManager,
+        IUserSession $userSession,
+        IGroupManager $groupManager,
         private LoggerInterface $logger,
     ) {
-        parent::__construct($appName, $request);
+        parent::__construct($appName, $request, $userSession, $groupManager);
     }
 
     /**
@@ -140,16 +139,5 @@ class ShareActionController extends Controller {
             ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR],
             Http::STATUS_BAD_REQUEST,
         );
-    }
-
-    private function requireAdmin(): ?JSONResponse {
-        $user = $this->userSession->getUser();
-        if ($user === null || !$this->groupManager->isAdmin($user->getUID())) {
-            return new JSONResponse(
-                ['message' => 'Administrator privileges required'],
-                Http::STATUS_FORBIDDEN,
-            );
-        }
-        return null;
     }
 }

@@ -11,6 +11,7 @@ use OCA\ShareAuditDashboard\Service\ShareRemediationService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -47,6 +48,7 @@ class PersonalController extends Controller {
      * be able to see and fix it.
      */
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 30, period: 60)]
     public function summary(): JSONResponse {
         $uid = $this->uid();
         if ($uid === null) {
@@ -62,6 +64,7 @@ class PersonalController extends Controller {
      * GET /api/my/shares — the user's own shares (owner or initiator), paginated.
      */
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 30, period: 60)]
     public function shares(int $page = 1, int $limit = 50): JSONResponse {
         $uid = $this->uid();
         if ($uid === null) {
@@ -74,6 +77,7 @@ class PersonalController extends Controller {
      * GET /api/my/alerts — the user's own insecure public links.
      */
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 30, period: 60)]
     public function alerts(): JSONResponse {
         $uid = $this->uid();
         if ($uid === null) {
@@ -86,6 +90,7 @@ class PersonalController extends Controller {
      * POST /api/my/shares/{id}/password
      */
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 20, period: 60)]
     public function setPassword(int $id, string $password = ''): JSONResponse {
         return $this->owned($id, fn () => $this->remediation->applyPassword($id, $password));
     }
@@ -94,6 +99,7 @@ class PersonalController extends Controller {
      * POST /api/my/shares/{id}/expiration
      */
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 20, period: 60)]
     public function setExpiration(int $id, int $days = 30): JSONResponse {
         return $this->owned($id, fn () => $this->remediation->applyExpiration($id, $days));
     }
@@ -102,6 +108,7 @@ class PersonalController extends Controller {
      * DELETE /api/my/shares/{id}
      */
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 20, period: 60)]
     public function revoke(int $id): JSONResponse {
         return $this->owned($id, fn () => $this->remediation->revoke($id));
     }

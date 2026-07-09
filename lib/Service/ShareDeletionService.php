@@ -18,8 +18,10 @@ use Psr\Log\LoggerInterface;
  * provider-specific cleanup (e.g. sharebymail's auxiliary tables) all run,
  * instead of leaving those side effects to a raw SQL DELETE.
  *
- * Falls back to a direct DB delete only when the provider itself can't be
- * loaded (its app is disabled), logging it since OCM/events/cleanup are
+ * Falls back to a direct DB delete when the provider can't handle the row —
+ * its app is disabled, the row is already gone, or (notably for orphan
+ * shares) a post-delete step inside IShareManager itself throws because the
+ * owner account no longer exists — logging it since OCM/events/cleanup are
  * necessarily skipped in that case.
  */
 class ShareDeletionService {
@@ -40,16 +42,18 @@ class ShareDeletionService {
         private IDBConnection $db,
         private IManager $shareManager,
         private LoggerInterface $logger,
+        private ShareAuditLogger $auditLogger,
     ) {
     }
 
     /**
-     * @param array<int, array{id: int|string, share_type: int|string}> $rows
+     * @param array<int, array{id: int|string, share_type: int|string, uid_owner?: string}> $rows
      * @return int number of shares deleted
      */
     public function deleteRows(array $rows): int {
         $deleted = 0;
         $fallbackIds = [];
+        $auditRows = [];
 
         foreach ($rows as $row) {
             $id = (int)$row['id'];
@@ -61,9 +65,28 @@ class ShareDeletionService {
                 $share = $this->shareManager->getShareById($provider . ':' . $id, null, false);
                 $this->shareManager->deleteShare($share);
                 $deleted++;
+                $auditRows[] = $row;
             } catch (ShareNotFound) {
                 // Provider app disabled, or the row is gone already.
                 $fallbackIds[] = $id;
+            } catch (\Throwable $e) {
+                // The manager's own deleteShare() deletes the row *before*
+                // its post-delete steps (e.g. promoteReshares(), which
+                // resolves the owner's user folder and can throw for a share
+                // whose owner account no longer exists at all — exactly the
+                // "deleted" orphan-share case this feature targets). So a
+                // throw here doesn't necessarily mean the row survived;
+                // check for real rather than assuming either way.
+                if ($this->shareRowExists($id)) {
+                    $fallbackIds[] = $id;
+                } else {
+                    $this->logger->warning(
+                        'Share {id} was deleted, but a post-delete step failed (owner account likely gone)',
+                        ['id' => $id, 'exception' => $e],
+                    );
+                    $deleted++;
+                    $auditRows[] = $row;
+                }
             }
         }
 
@@ -74,9 +97,26 @@ class ShareDeletionService {
                 ['count' => count($fallbackIds), 'ids' => implode(',', $fallbackIds)],
             );
             $deleted += $this->deleteDirect($fallbackIds);
+            foreach ($rows as $row) {
+                if (in_array((int)$row['id'], $fallbackIds, true)) {
+                    $auditRows[] = $row;
+                }
+            }
         }
 
+        $this->auditLogger->logRevoke($auditRows);
+
         return $deleted;
+    }
+
+    private function shareRowExists(int $id): bool {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('id')->from('share')
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+        $result = $qb->executeQuery();
+        $exists = $result->fetchOne() !== false;
+        $result->closeCursor();
+        return $exists;
     }
 
     /**
