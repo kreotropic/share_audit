@@ -43,6 +43,9 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
   (add password / set expiration / revoke) — scoped strictly to your own shares.
 - A **dashboard widget** highlights your links that need attention right on the
   Nextcloud dashboard.
+- Admins can turn this personal view (and its widget) off instance-wide from
+  **Settings → Administration → Share Audit → Settings**, for instances where
+  sharing audits should stay an admin-only concern.
 
 ## Installation
 
@@ -103,7 +106,7 @@ and regenerate the matching `l10n/<locale>.js` with `python3 build/l10n.py`.
 
 ## Requirements
 
-- Nextcloud 30–33
+- Nextcloud 31–33
 - PHP 8.1 or later
 
 ## License

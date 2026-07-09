@@ -1,9 +1,13 @@
 # Share Audit Dashboard — Roadmap
 
-## Estado atual (v0.2.1)
+## Estado atual (v0.3.0)
 
-**Fases 1–3 concluídas.** A app está funcionalmente completa para lançamento na
-App Store. Tudo o que se segue já está implementado e a funcionar:
+**Fases 1–3 concluídas, mais a 2ª revisão pré-submissão (R1–R6).** A app está
+funcionalmente completa e sem bloqueios conhecidos para lançamento na App
+Store — ver [PRE_RELEASE_PLAN.md](PRE_RELEASE_PLAN.md) e
+[CHANGELOG.md](CHANGELOG.md) (0.3.0) para o detalhe do que essa ronda
+corrigiu (cache de alertas, `min-version` 31, lotes no revoke-all, etc.).
+Tudo o que se segue já está implementado e a funcionar:
 
 ### Entregue
 
@@ -38,10 +42,18 @@ App Store. Tudo o que se segue já está implementado e a funcionar:
 **Vista pessoal (Personal settings → My shares audit)**
 - Cada utilizador audita e corrige as suas próprias partilhas de risco
 - **Widget** no dashboard do Nextcloud com os links que precisam de atenção
+- Toggle no admin (tab Settings) para desativar esta vista e o widget em toda
+  a instância, para quem prefere manter a auditoria de partilhas como
+  assunto exclusivo de administração
 
 **Publicação**
-- i18n **EN + pt‑PT** (com `build/l10n.py` para gerar os bundles frontend)
+- i18n **EN + pt‑PT** (com `build/l10n.py` para gerar os bundles frontend;
+  `--check` corre como parte do `krankerl package`, falha o build em vez de
+  depender de disciplina)
 - README, screenshots, `krankerl.toml` + `.nextcloudignore` para packaging
+  (os documentos de planeamento internos ficam fora do tarball)
+- `min-version` 31 (NC 30 já não é suportado — o revoke de órfãs depende de
+  um parâmetro que só existe a partir do NC 31)
 
 > ⚠️ **Nota importante:** as revogações são **permanentes** — a partilha
 > desaparece da `oc_share`. O soft delete (abaixo) é o que resolve isto.
