@@ -104,7 +104,7 @@ entre `declare(strict_types=1);` e `namespace` nos 26 ficheiros de `lib/`;
 
 ## Melhorias (robustez/qualidade, não bloqueiam nada)
 
-### [ ] M-Q1 — Testes automatizados inexistentes para a lógica com mais invariantes implícitas
+### [x] M-Q1 — Testes automatizados inexistentes para a lógica com mais invariantes implícitas
 
 Já no backlog do `ROADMAP.md` ("Testes: ... maior retorno em
 `SecurityAnalyzerService` e `ShareCollectorService`"), mas vale reforçar o
@@ -121,7 +121,39 @@ quebrar silenciosamente numa futura alteração.
 
 **Prioridade sugerida:** antes ou junto de G2 (abaixo) — G2 vai adicionar mais um eixo de filtragem (`acknowledged`) exatamente ao código que este item identifica como frágil; entra mais barato com um teste já a proteger o comportamento atual.
 
-### [ ] M-Q2 — `RecipientController::shares`/`revokeAll` sem `#[UserRateLimit]` (LOW)
+**Implementado (2026-07-10):** infraestrutura de testes criada seguindo o
+padrão já usado em `folder_protection` (app irmã do mesmo autor):
+`tests/bootstrap.php`, `phpunit.xml`, `tests/Unit/ArrayCache.php` (fake
+`ICache` em memória). `composer.json` já tinha `nextcloud/ocp`/`phpunit`
+como dev deps (nunca usadas); acrescentado `doctrine/dbal` (resolve
+`Doctrine\DBAL\ParameterType`, usado pelas assinaturas de `IQueryBuilder`) e
+um `classmap` para `vendor/nextcloud/ocp/OCP` em `autoload-dev` — isto foi
+além do padrão da app irmã: com o classmap, os testes correm em
+`vendor/bin/phpunit` **no host, sem precisar do Docker** (a app irmã só
+corre dentro do container, onde o autoloader real do NC existe); confirmado
+que também continua a passar dentro do container `nextcloud-app` (sem
+conflito de classes duplicadas).
+
+- `tests/Unit/SecurityAnalyzerServiceTest.php` — 15 casos: password vazio/nulo/definido,
+  cada toggle de regra desligado, os quatro ramos de expiração (nenhuma, futura seguro,
+  a expirar em ≤7 dias, já expirada), data não-parseável, extensão sensível
+  com a regra ligada/desligada, ordenação por severidade, e os três cenários
+  de cache (hit dentro do TTL, `invalidate()` força recomputo, vistas
+  admin/pessoal em chaves de cache independentes).
+- `tests/Unit/ShareMapperTest.php` — 4 casos focados no early-return de
+  `countInsecureLinks()`: 0 sem executar a query quando nenhuma regra está
+  ativa e não há cutoff; `sensitive_file=true` com lista de extensões vazia
+  não deve equivaler a "aceita tudo"; executa e devolve a contagem real
+  quando pelo menos uma regra está ativa; um cutoff de "a expirar em breve"
+  sozinho (sem nenhuma regra) já é candidato válido e deve executar.
+
+`vendor/bin/phpunit -c phpunit.xml` → 19 testes, 31 assertions, verde (host
+e container). `vendor/` acrescentado ao `.nextcloudignore` (não estava —
+sem isso, `krankerl package` incluiria os ~20MB de dependências de teste no
+tarball da App Store; `phpunit.xml` e `.phpunit.result.cache` também
+adicionados).
+
+### [x] M-Q2 — `RecipientController::shares`/`revokeAll` sem `#[UserRateLimit]` (LOW)
 
 **Onde:** `lib/Controller/RecipientController.php` — só `search()` tem `#[UserRateLimit(limit: 60, period: 60)]`.
 
@@ -129,9 +161,23 @@ quebrar silenciosamente numa futura alteração.
 
 **Correção:** aplicar o mesmo `#[UserRateLimit]` (ajustando limites ao custo de cada endpoint) para consistência.
 
-### [ ] M-Q3 — CI mínimo
+**Implementado (2026-07-10):** `shares()` recebeu o mesmo limite que
+`search()` (60/60s, é leitura); `revokeAll()` recebeu um limite mais baixo
+(20/60s) por ser a única mutação do controller e já processar lotes de 500
+por pedido (ver R5) — 20 pedidos/min chega para drenar praticamente
+qualquer `remaining`.
+
+### [x] M-Q3 — CI mínimo
 
 Nenhum workflow de CI no repositório. `l10n.py --check` já corre no `krankerl package` (R1), mas só localmente/no packaging — um PR não é validado automaticamente. Quando phpunit existir (M-Q1), vale um workflow simples (GitHub Actions ou equivalente) a correr `l10n.py --check` + `phpunit` + lint de PHP/JS em cada push. Baixa prioridade isolada, mas o ROI sobe assim que houver testes para correr.
+
+**Implementado (2026-07-10):** `.github/workflows/ci.yml`, três jobs
+independentes em paralelo — `l10n` (`build/l10n.py --check`), `php`
+(`php -l` a todo o `lib/`, `composer install`, `vendor/bin/phpunit`) e
+`frontend` (`npm ci` + `npm run build`). Corre em push/PR para
+`main`/`master`. Como o classmap do M-Q1 tirou a dependência do Docker, o
+job `php` corre num runner GitHub normal, sem precisar de montar um
+Nextcloud completo.
 
 ---
 

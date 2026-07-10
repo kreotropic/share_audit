@@ -45,6 +45,7 @@ class RecipientController extends AdminController {
     /**
      * GET /api/recipients/shares — shares granting access to a recipient.
      */
+    #[UserRateLimit(limit: 60, period: 60)]
     public function shares(string $shareWith = '', int $shareType = -1): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
@@ -54,7 +55,12 @@ class RecipientController extends AdminController {
 
     /**
      * POST /api/recipients/revoke-all — revoke every share to a recipient.
+     *
+     * Lower limit than the read endpoints: each call is a batch of up to 500
+     * synchronous deletes (see RecipientLookupService::revokeAll()), so it's
+     * both heavier per-request and the one endpoint here that mutates.
      */
+    #[UserRateLimit(limit: 20, period: 60)]
     public function revokeAll(string $shareWith = '', int $shareType = -1): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;

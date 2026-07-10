@@ -9,7 +9,7 @@ qualidade) e [ROADMAP.md](ROADMAP.md). Cada documento continua a ser a fonte
 de verdade para o detalhe de cada item — isto é só o resumo para saber
 rapidamente o que falta.
 
-**Total: 42 feitos · 2 adiados · 21 por fazer**
+**Total: 45 feitos · 2 adiados · 18 por fazer**
 
 > ✅ A 2ª revisão (2026-07-09) validou a execução dos planos de 2026-07-08;
 > os 6 itens que resultaram (R1–R6, incluindo os 3 que bloqueavam a
@@ -19,8 +19,12 @@ rapidamente o que falta.
 > ✅ A 3ª revisão (2026-07-10) auditou a implementação linha a linha (não só
 > os planos) — confirma alta qualidade, sem regressões, e identifica 1 bug
 > novo (C1, exposure score subestima tipos não mapeados) + 2 melhorias de
-> robustez — ver QUALITY_REVIEW_PLAN.md. **C1 e C2 já corrigidos** no mesmo
-> dia (ver secção abaixo); M-Q1–M-Q3 continuam por fazer.
+> robustez — ver QUALITY_REVIEW_PLAN.md. **Os 5 itens (C1, C2, M-Q1, M-Q2,
+> M-Q3) já estão feitos**, no mesmo dia — ver secção abaixo. De caminho,
+> M-Q1 descobriu e corrigiu uma lacuna de packaging: `vendor/` não estava no
+> `.nextcloudignore`, o que teria posto ~20MB de dependências de teste no
+> tarball da App Store assim que o `composer install` de dev passasse a ser
+> usado.
 
 ---
 
@@ -40,6 +44,8 @@ Todos os L1–L12 e P1–P5 feitos.
 
 INFO (sem checkbox no documento original): sem testes, sem CI, sem
 cabeçalhos SPDX — o próprio plano diz que não são bugs e não bloqueiam nada.
+~~Entretanto, os três ficaram resolvidos~~ (2026-07-10, ver
+`QUALITY_REVIEW_PLAN.md` C2/M-Q1/M-Q3).
 
 ---
 
@@ -97,7 +103,7 @@ breve/já expirado").
 
 ---
 
-## QUALITY_REVIEW_PLAN.md (3ª revisão, 2026-07-10) — 2/5
+## QUALITY_REVIEW_PLAN.md (3ª revisão, 2026-07-10) — 5/5 ✅ completo
 
 Achados novos de uma auditoria linha a linha à implementação (não apenas aos
 planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
@@ -111,13 +117,18 @@ planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
 - [x] **C2** — cabeçalhos SPDX em falta em 26/26 ficheiros `lib/*.php` (já
       conhecido como INFO; reconfirmado, correção é trivial). Corrigido: bloco
       SPDX (AGPL-3.0-or-later, Ricardo Ferreira) em todos os ficheiros.
-- [ ] **M-Q1** — sem testes para `SecurityAnalyzerService::issuesFor()` nem
+- [x] **M-Q1** — sem testes para `SecurityAnalyzerService::issuesFor()` nem
       para a invariante `findInsecureLinks()`/`countInsecureLinks()` do
       `ShareMapper` (o próprio código documenta que não podem divergir).
-- [ ] **M-Q2** — `RecipientController::shares`/`revokeAll` sem
+      Corrigido: `tests/Unit/` com 19 testes (phpunit), infraestrutura
+      alinhada com `folder_protection` mas melhorada — corre no host sem
+      Docker via classmap de `nextcloud/ocp`.
+- [x] **M-Q2** — `RecipientController::shares`/`revokeAll` sem
       `#[UserRateLimit]` (inconsistente com `search()` no mesmo controller).
-- [ ] **M-Q3** — sem CI a correr `l10n.py --check` (e, no futuro, phpunit)
-      automaticamente em cada push.
+      Corrigido: 60/60s em `shares()`, 20/60s em `revokeAll()`.
+- [x] **M-Q3** — sem CI a correr `l10n.py --check` (e, no futuro, phpunit)
+      automaticamente em cada push. Corrigido:
+      `.github/workflows/ci.yml` (jobs `l10n`, `php`, `frontend`).
 
 ---
 
@@ -139,8 +150,12 @@ planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
 - [ ] Paginação/seletor "Por página" em Orphans e Lookup.
 - [ ] Encurtar o título do widget (trunca no painel estreito).
 - [ ] Screenshots com dados de demonstração limpos.
-- [ ] Suite de testes (`phpunit`) — maior retorno em
-      `SecurityAnalyzerService` e `ShareCollectorService`.
+- [x] Suite de testes (`phpunit`) — maior retorno em
+      `SecurityAnalyzerService` e `ShareCollectorService`. Feito via
+      `QUALITY_REVIEW_PLAN.md` M-Q1 (2026-07-10); `ShareCollectorService`
+      em si ainda não tem testes próprios (é maioritariamente
+      passagem/normalização de dados, baixo valor condicional), mas
+      `ShareMapper`, de que depende, já tem.
 - [ ] Truncagem do label "Hiperligação pública" no gráfico "Partilhas por
       tipo".
 - [x] Índice em `share_with`/`path` (= P5) — decisão já tomada: adiar até
@@ -153,11 +168,16 @@ planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
 1. **PRE_RELEASE_PLAN.md está fechado (R1–R6)** — nada resta a bloquear a
    submissão à App Store; `l10n.py --check` está verde e faz parte do
    `krankerl package`.
-2. Rever o diff (nada foi commitado) e cortar o **0.3.0**.
-3. ~~**C1** (exposure score) é o único item novo com urgência própria~~ —
-   feito, junto com C2 (SPDX), no mesmo dia da 3ª revisão; entram no 0.3.0.
+2. **QUALITY_REVIEW_PLAN.md está fechado (C1, C2, M-Q1–M-Q3)** — auditoria
+   de qualidade sem itens pendentes; a app ganhou testes automatizados e CI
+   pela primeira vez nesta ronda.
+3. Rever o diff (nada foi commitado) e cortar o **0.3.0** — inclui a
+   correção do exposure score (C1), os cabeçalhos SPDX (C2), os testes/CI
+   novos (que não vão no tarball — `vendor`/`tests`/`phpunit.xml`/`.github`
+   estão no `.nextcloudignore`) e o rate limit em falta (M-Q2).
 4. Depois do lançamento: **G2 (acknowledge)** continua a ser o maior impacto
    isolado que resta. `QUALITY_REVIEW_PLAN.md` já decide a pergunta em aberto
    desta secção — G2 **não espera** pelo soft delete do roadmap (#1), que
    está condicional a tração e não tem previsão; ver a sequência de fases
-   completa em `QUALITY_REVIEW_PLAN.md`.
+   completa em `QUALITY_REVIEW_PLAN.md`. Com M-Q1 feito, G2 pode reutilizar
+   o padrão de testes já criado para cobrir a nova lógica de `acknowledged`.

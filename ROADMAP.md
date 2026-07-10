@@ -175,8 +175,12 @@ desde o último relatório").
 - Encurtar o título do widget — trunca no painel estreito do dashboard
   ("Shares needing a…")
 - Screenshots com dados de demonstração limpos (atualmente há paths de teste)
-- Testes: a app não tem suite de testes (`phpunit`) — adicionar cobertura ao
-  `SecurityAnalyzerService` e `ShareCollectorService` seria o maior retorno
+- ~~Testes: a app não tem suite de testes (`phpunit`)~~ — feito
+  (2026-07-10, ver `QUALITY_REVIEW_PLAN.md` M-Q1): `tests/Unit/` cobre
+  `SecurityAnalyzerService::issuesFor()` e o early-return de
+  `ShareMapper::countInsecureLinks()`; `ShareCollectorService` continua sem
+  testes próprios (é maioritariamente normalização de dados sem lógica
+  condicional de peso).
 - Truncagem do label "Hiperligação pública" no gráfico "Partilhas por tipo"
   (a coluna de labels do `HBarChart` está a 120px nessa vista)
 - Falta índice em `share_with` (autocomplete/recipient search, `ILIKE %...%`)

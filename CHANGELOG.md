@@ -30,6 +30,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   it's now weighted the same as an external share instead of falling back to
   internal, and shown as its own "Other" slice (with an explanatory tooltip)
   in the exposure breakdown whenever it's non-zero.
+- The recipient drill-down's `shares`/`revoke-all` endpoints are now
+  rate-limited, matching the same endpoint's `search` action.
 
 ### Added
 - **Portuguese (Portugal)** translation of the whole interface, plus

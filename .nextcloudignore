@@ -1,4 +1,5 @@
 node_modules
+vendor
 src
 tests
 build
@@ -15,6 +16,8 @@ package.json
 package-lock.json
 composer.json
 composer.lock
+phpunit.xml
+.phpunit.result.cache
 krankerl.toml
 _smoke.php
 _seed.php
