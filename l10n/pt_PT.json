@@ -91,6 +91,7 @@
         "score": "pontuação",
         "0 = everything internal, 100 = everything public.": "0 = tudo interno, 100 = tudo público.",
         "Exposure by reach": "Exposição por alcance",
+        "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe.": "Tipos de partilha que esta versão da app ainda não reconhece. Tratados como pelo menos externamente expostos, nunca presumidos seguros.",
         "View": "Ver",
         "Most public exposure": "Maior exposição pública",
         "_%n public link_::_%n public links_": [

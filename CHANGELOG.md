@@ -25,6 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Minimum supported Nextcloud version raised to **31** — orphan-share revoke
   relies on `IShareManager::getShareById()`'s `$onlyValid` parameter, which
   does not exist on Nextcloud 30.
+- The exposure score no longer treats a share type this version of the app
+  doesn't recognize (e.g. one added in a future Nextcloud release) as safe —
+  it's now weighted the same as an external share instead of falling back to
+  internal, and shown as its own "Other" slice (with an explanatory tooltip)
+  in the exposure breakdown whenever it's non-zero.
 
 ### Added
 - **Portuguese (Portugal)** translation of the whole interface, plus

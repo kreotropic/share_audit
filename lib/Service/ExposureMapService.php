@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+/**
+ * SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
@@ -27,8 +32,15 @@ class ExposureMapService {
         IShare::TYPE_LINK => 'public',
     ];
 
-    /** Risk weight per category (0 = safe … 2 = most exposed). */
-    private const WEIGHT = ['internal' => 0, 'external' => 1, 'public' => 2];
+    /**
+     * Risk weight per category (0 = safe … 2 = most exposed). 'other' covers
+     * any share_type not in CATEGORY above (a type added in a future
+     * Nextcloud version, e.g. ScienceMesh federation) — see
+     * QUALITY_REVIEW_PLAN.md C1. It must NOT default to 'internal'/weight 0:
+     * an unrecognized type is not known to be safe, so it is weighted the
+     * same as 'external' rather than assumed internal.
+     */
+    private const WEIGHT = ['internal' => 0, 'external' => 1, 'public' => 2, 'other' => 1];
 
     public function __construct(
         private ShareMapper $mapper,
@@ -40,9 +52,9 @@ class ExposureMapService {
      * @return array<string, mixed>
      */
     public function getOverview(): array {
-        $counts = ['internal' => 0, 'external' => 0, 'public' => 0];
+        $counts = ['internal' => 0, 'external' => 0, 'public' => 0, 'other' => 0];
         foreach ($this->mapper->countByType() as $type => $count) {
-            $category = self::CATEGORY[$type] ?? 'internal';
+            $category = self::CATEGORY[$type] ?? 'other';
             $counts[$category] += $count;
         }
         $total = array_sum($counts);

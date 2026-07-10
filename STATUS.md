@@ -1,19 +1,26 @@
-# Checklist global — estado dos planos (2026-07-09)
+# Checklist global — estado dos planos (2026-07-10)
 
 Ponto da situação combinando [SECURITY_REVIEW_PLAN.md](SECURITY_REVIEW_PLAN.md)
 (High/Medium), [SECURITY_REVIEW_PLAN_LOW.md](SECURITY_REVIEW_PLAN_LOW.md)
 (Low/Info/Performance), [FEATURE_GAPS_PLAN.md](FEATURE_GAPS_PLAN.md),
-[PRE_RELEASE_PLAN.md](PRE_RELEASE_PLAN.md) (2ª revisão, pré-submissão) e
-[ROADMAP.md](ROADMAP.md). Cada documento continua a ser a fonte de verdade
-para o detalhe de cada item — isto é só o resumo para saber rapidamente o que
-falta.
+[PRE_RELEASE_PLAN.md](PRE_RELEASE_PLAN.md) (2ª revisão, pré-submissão),
+[QUALITY_REVIEW_PLAN.md](QUALITY_REVIEW_PLAN.md) (3ª revisão, auditoria de
+qualidade) e [ROADMAP.md](ROADMAP.md). Cada documento continua a ser a fonte
+de verdade para o detalhe de cada item — isto é só o resumo para saber
+rapidamente o que falta.
 
-**Total: 40 feitos · 2 adiados · 18 por fazer**
+**Total: 42 feitos · 2 adiados · 21 por fazer**
 
 > ✅ A 2ª revisão (2026-07-09) validou a execução dos planos de 2026-07-08;
 > os 6 itens que resultaram (R1–R6, incluindo os 3 que bloqueavam a
 > submissão à App Store) estão todos feitos — ver PRE_RELEASE_PLAN.md.
 > Nada resta a bloquear a submissão.
+>
+> ✅ A 3ª revisão (2026-07-10) auditou a implementação linha a linha (não só
+> os planos) — confirma alta qualidade, sem regressões, e identifica 1 bug
+> novo (C1, exposure score subestima tipos não mapeados) + 2 melhorias de
+> robustez — ver QUALITY_REVIEW_PLAN.md. **C1 e C2 já corrigidos** no mesmo
+> dia (ver secção abaixo); M-Q1–M-Q3 continuam por fazer.
 
 ---
 
@@ -90,6 +97,30 @@ breve/já expirado").
 
 ---
 
+## QUALITY_REVIEW_PLAN.md (3ª revisão, 2026-07-10) — 2/5
+
+Achados novos de uma auditoria linha a linha à implementação (não apenas aos
+planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
+
+- [x] **C1** — `ExposureMapService` conta tipos de partilha não mapeados como
+      "internal" (peso 0) em vez de "other"; o score de exposição subestima
+      silenciosamente tipos futuros/desconhecidos. Corrigido: fallback passou
+      a `'other'` (peso 1); frontend mostra a fatia "Other" (só quando > 0)
+      com tooltip explicativo, sem botão "View" (o filtro atual não suporta
+      NOT-IN).
+- [x] **C2** — cabeçalhos SPDX em falta em 26/26 ficheiros `lib/*.php` (já
+      conhecido como INFO; reconfirmado, correção é trivial). Corrigido: bloco
+      SPDX (AGPL-3.0-or-later, Ricardo Ferreira) em todos os ficheiros.
+- [ ] **M-Q1** — sem testes para `SecurityAnalyzerService::issuesFor()` nem
+      para a invariante `findInsecureLinks()`/`countInsecureLinks()` do
+      `ShareMapper` (o próprio código documenta que não podem divergir).
+- [ ] **M-Q2** — `RecipientController::shares`/`revokeAll` sem
+      `#[UserRateLimit]` (inconsistente com `search()` no mesmo controller).
+- [ ] **M-Q3** — sem CI a correr `l10n.py --check` (e, no futuro, phpunit)
+      automaticamente em cada push.
+
+---
+
 ## ROADMAP.md — 0/11
 
 ### Pós-lançamento (só se houver tração)
@@ -123,7 +154,10 @@ breve/já expirado").
    submissão à App Store; `l10n.py --check` está verde e faz parte do
    `krankerl package`.
 2. Rever o diff (nada foi commitado) e cortar o **0.3.0**.
-3. Depois do lançamento: **G2 (acknowledge)** continua a ser o maior impacto
-   isolado que resta, mas implica a primeira migration da app — vale a pena
-   decidir se entra na mesma leva que o soft delete do roadmap (#1), já que
-   ambos precisam de migration.
+3. ~~**C1** (exposure score) é o único item novo com urgência própria~~ —
+   feito, junto com C2 (SPDX), no mesmo dia da 3ª revisão; entram no 0.3.0.
+4. Depois do lançamento: **G2 (acknowledge)** continua a ser o maior impacto
+   isolado que resta. `QUALITY_REVIEW_PLAN.md` já decide a pergunta em aberto
+   desta secção — G2 **não espera** pelo soft delete do roadmap (#1), que
+   está condicional a tração e não tem previsão; ver a sequência de fases
+   completa em `QUALITY_REVIEW_PLAN.md`.

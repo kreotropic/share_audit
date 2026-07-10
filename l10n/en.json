@@ -91,6 +91,7 @@
         "score": "score",
         "0 = everything internal, 100 = everything public.": "0 = everything internal, 100 = everything public.",
         "Exposure by reach": "Exposure by reach",
+        "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe.": "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe.",
         "View": "View",
         "Most public exposure": "Most public exposure",
         "_%n public link_::_%n public links_": [

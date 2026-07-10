@@ -16,7 +16,7 @@
 						{{ levelLabel }}
 					</span>
 					<ul class="sad-exposure__legend">
-						<li v-for="seg in segments" :key="seg.key">
+						<li v-for="seg in segments" :key="seg.key" :title="seg.title">
 							<span class="sad-exposure__dot" :style="{ background: seg.color }" />
 							<span>{{ seg.label }}</span>
 						</li>
@@ -28,7 +28,7 @@
 
 				<section class="sad-panel sad-exposure__breakdown">
 					<h3>{{ t('share_audit_dashboard', 'Exposure by reach') }}</h3>
-					<div v-for="cat in segments" :key="cat.key" class="sad-exposure__row">
+					<div v-for="cat in segments" :key="cat.key" class="sad-exposure__row" :title="cat.title">
 						<span class="sad-exposure__dot" :style="{ background: cat.color }" />
 						<span class="sad-exposure__name">{{ cat.label }}</span>
 						<div class="sad-exposure__track">
@@ -36,7 +36,8 @@
 								:style="{ width: pct(cat.value) + '%', background: cat.color }" />
 						</div>
 						<span class="sad-exposure__val">{{ cat.value }} · {{ pct(cat.value) }}%</span>
-						<NcButton type="tertiary"
+						<NcButton v-if="cat.key !== 'other'"
+							type="tertiary"
 							:disabled="cat.value === 0"
 							@click="$emit('drilldown', cat.key)">
 							{{ t('share_audit_dashboard', 'View') }}
@@ -68,6 +69,7 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import ExposureDonut from '../components/ExposureDonut.vue'
 import { fetchExposure } from '../services/api.js'
+import { categoryLabel } from '../utils/format.js'
 
 export default {
 	name: 'ExposureMap',
@@ -88,11 +90,25 @@ export default {
 	computed: {
 		segments() {
 			const c = this.overview.counts
-			return [
+			const segments = [
 				{ key: 'internal', label: t('share_audit_dashboard', 'Internal'), value: c.internal, color: 'var(--sad-internal)' },
 				{ key: 'external', label: t('share_audit_dashboard', 'External'), value: c.external, color: 'var(--sad-external)' },
 				{ key: 'public', label: t('share_audit_dashboard', 'Public'), value: c.public, color: 'var(--sad-public)' },
 			]
+			// Only shown when non-zero: groups share types this version of the
+			// app doesn't recognize yet (e.g. added in a newer Nextcloud release).
+			// Treated as at least as exposed as "External" rather than assumed
+			// safe — see QUALITY_REVIEW_PLAN.md C1.
+			if (c.other > 0) {
+				segments.push({
+					key: 'other',
+					label: categoryLabel('other'),
+					value: c.other,
+					color: 'var(--sad-type-other)',
+					title: t('share_audit_dashboard', 'Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe.'),
+				})
+			}
+			return segments
 		},
 		levelLabel() {
 			const labels = {
