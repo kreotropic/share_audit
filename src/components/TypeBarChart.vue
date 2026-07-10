@@ -4,7 +4,7 @@
 
 <script>
 import HBarChart from './HBarChart.vue'
-import { categoryLabel } from '../utils/format.js'
+import { categoryLabel, otherCategoryHint } from '../utils/format.js'
 
 const ORDER = ['user', 'group', 'link', 'email', 'federated', 'talk', 'other']
 
@@ -38,6 +38,7 @@ export default {
 				label: categoryLabel(key),
 				count: this.byType[key] ?? 0,
 				color: COLORS[key],
+				title: key === 'other' ? otherCategoryHint() : undefined,
 			}))
 		},
 	},

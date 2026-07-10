@@ -46,6 +46,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Admin setting to turn the personal "My shares audit" page and its
   dashboard widget off instance-wide, for admins who want sharing audits to
   stay an admin-only concern.
+- Two new configurable security-alert rules: a public link open for
+  anonymous upload without a password (file drop, or full create+update
+  access), and a native group share granting edit or reshare permission to
+  a group above a configurable member-count threshold (default 20).
+- The exposure/type "Other" bucket (share types this version doesn't
+  recognize) now shows an explanatory tooltip on the dashboard's "Shares by
+  type" chart and stat cards too, not just the exposure map.
 
 ### Changed
 - Personal view header, summary cards and table captions restyled to match
@@ -55,6 +62,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Several UI strings introduced alongside the above were missing from
   `l10n/*.json`, so pt_PT users saw English text on the newest features.
+- The "with expiration" / "without expiration" filter (All shares column
+  filter, and the underlying flag used by exports) now treats an
+  already-expired date as "without expiration" instead of counting it as
+  still protected.
 
 ## [0.2.1]
 

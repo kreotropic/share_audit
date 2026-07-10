@@ -170,7 +170,8 @@ export async function fetchSettings() {
 /**
  * Persist the configurable security-alert rules.
  *
- * @param {object} payload { sensitiveExtensions, ruleNoPassword, ruleNoExpiration, ruleSensitiveFile, personalViewEnabled }
+ * @param {object} payload { sensitiveExtensions, ruleNoPassword, ruleNoExpiration, ruleSensitiveFile,
+ *   ruleGroupShareEditable, rulePublicUpload, personalViewEnabled, groupShareMinMembers }
  */
 export async function saveSettings(payload) {
 	const { data } = await axios.post(base('/api/settings'), payload)

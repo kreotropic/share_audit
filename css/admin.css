@@ -87,6 +87,8 @@ body {
 	--sad-alert-sensitive: var(--sad-hue-red);
 	--sad-alert-expiring-soon: var(--sad-hue-blue);
 	--sad-alert-already-expired: var(--sad-hue-purple);
+	--sad-alert-group-share-editable: var(--sad-hue-slate);
+	--sad-alert-public-upload: var(--sad-hue-green);
 
 	/* Bar track: derived from the theme, subtle in light. */
 	--sad-track: color-mix(in srgb, var(--color-main-text) 8%, var(--color-main-background));

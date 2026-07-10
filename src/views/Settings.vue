@@ -22,6 +22,12 @@
 				<NcCheckboxRadioSwitch v-model="rules.sensitive_file" type="switch">
 					{{ t('share_audit_dashboard', 'Public link exposing a sensitive file type') }}
 				</NcCheckboxRadioSwitch>
+				<NcCheckboxRadioSwitch v-model="rules.public_upload" type="switch">
+					{{ t('share_audit_dashboard', 'Public link open for anonymous upload without a password') }}
+				</NcCheckboxRadioSwitch>
+				<NcCheckboxRadioSwitch v-model="rules.group_share_editable" type="switch">
+					{{ t('share_audit_dashboard', 'Large group with edit or reshare permission') }}
+				</NcCheckboxRadioSwitch>
 			</section>
 
 			<section class="sad-settings__block">
@@ -33,6 +39,18 @@
 					class="sad-settings__ext"
 					:label="t('share_audit_dashboard', 'Extensions')"
 					:disabled="!rules.sensitive_file" />
+			</section>
+
+			<section class="sad-settings__block">
+				<h3>{{ t('share_audit_dashboard', 'Large group threshold') }}</h3>
+				<p class="settings-hint">
+					{{ t('share_audit_dashboard', 'Group shares with edit or reshare permission are flagged when the group has at least this many members.') }}
+				</p>
+				<NcTextField v-model.number="groupShareMinMembers"
+					type="number"
+					class="sad-settings__ext"
+					:label="t('share_audit_dashboard', 'Members')"
+					:disabled="!rules.group_share_editable" />
 			</section>
 
 			<section class="sad-settings__block">
@@ -89,10 +107,13 @@ export default {
 			saved: false,
 			saveError: null,
 			sensitiveExtensions: '',
+			groupShareMinMembers: 20,
 			rules: {
 				no_password: true,
 				no_expiration: true,
 				sensitive_file: true,
+				group_share_editable: true,
+				public_upload: true,
 			},
 			personalViewEnabled: true,
 		}
@@ -101,6 +122,7 @@ export default {
 		try {
 			const data = await fetchSettings()
 			this.sensitiveExtensions = data.sensitiveExtensions
+			this.groupShareMinMembers = data.groupShareMinMembers ?? this.groupShareMinMembers
 			this.rules = { ...this.rules, ...data.rules }
 			this.personalViewEnabled = data.personalViewEnabled
 		} catch (e) {
@@ -121,7 +143,10 @@ export default {
 					ruleNoPassword: this.rules.no_password,
 					ruleNoExpiration: this.rules.no_expiration,
 					ruleSensitiveFile: this.rules.sensitive_file,
+					ruleGroupShareEditable: this.rules.group_share_editable,
+					rulePublicUpload: this.rules.public_upload,
 					personalViewEnabled: this.personalViewEnabled,
+					groupShareMinMembers: this.groupShareMinMembers,
 				})
 				this.saved = true
 				this.$emit('saved')

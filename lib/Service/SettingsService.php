@@ -19,11 +19,17 @@ use OCP\IAppConfig;
  */
 class SettingsService {
 
-    public const RULES = ['no_password', 'no_expiration', 'sensitive_file'];
+    public const RULES = [
+        'no_password', 'no_expiration', 'sensitive_file',
+        'group_share_editable', 'public_upload',
+    ];
 
     private const DEFAULT_EXTENSIONS = [
         'xlsx', 'xls', 'docx', 'doc', 'pdf', 'csv', 'sql', 'bak', 'pptx', 'ppt',
     ];
+
+    /** Default threshold (member count) above which an editable group share is flagged. */
+    private const DEFAULT_GROUP_SHARE_MIN_MEMBERS = 20;
 
     public function __construct(
         private IAppConfig $config,
@@ -50,6 +56,19 @@ class SettingsService {
     }
 
     /**
+     * Member count above which an editable/resharable group share is
+     * flagged by the `group_share_editable` rule.
+     */
+    public function getGroupShareMinMembers(): int {
+        $value = $this->config->getValueInt(
+            Application::APP_ID,
+            'group_share_min_members',
+            self::DEFAULT_GROUP_SHARE_MIN_MEMBERS,
+        );
+        return max(1, $value);
+    }
+
+    /**
      * Whether the personal "My shares audit" page (Settings → Personal) and
      * its dashboard widget are available to users. Defaults to on; an admin
      * who wants sharing audits to stay an admin-only concern can turn it off
@@ -71,6 +90,7 @@ class SettingsService {
         }
         return [
             'sensitiveExtensions' => implode(', ', $this->getSensitiveExtensions()),
+            'groupShareMinMembers' => $this->getGroupShareMinMembers(),
             'rules' => $rules,
             'personalViewEnabled' => $this->isPersonalViewEnabled(),
         ];
@@ -81,12 +101,18 @@ class SettingsService {
      *
      * @param array<string, bool> $rules rule code => enabled
      */
-    public function saveSettings(string $extensions, array $rules, bool $personalViewEnabled = true): void {
+    public function saveSettings(
+        string $extensions,
+        array $rules,
+        bool $personalViewEnabled = true,
+        int $groupShareMinMembers = self::DEFAULT_GROUP_SHARE_MIN_MEMBERS,
+    ): void {
         $this->config->setValueString(
             Application::APP_ID,
             'sensitive_extensions',
             implode(',', $this->parseExtensions($extensions)),
         );
+        $this->config->setValueInt(Application::APP_ID, 'group_share_min_members', max(1, $groupShareMinMembers));
         foreach (self::RULES as $rule) {
             $enabled = !empty($rules[$rule]);
             $this->config->setValueString(Application::APP_ID, 'rule_' . $rule, $enabled ? 'yes' : 'no');

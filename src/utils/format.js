@@ -22,6 +22,19 @@ export function categoryLabel(category) {
 }
 
 /**
+ * Explains what the "Other" category groups: share types this version of
+ * the app doesn't have a specific bucket for (e.g. one added in a newer
+ * Nextcloud release). Shared by every chart/card that has an "other" slice,
+ * so it doesn't read as an unexplained, slightly alarming leftover bucket —
+ * see QUALITY_REVIEW_PLAN.md G5.3.
+ *
+ * @return {string}
+ */
+export function otherCategoryHint() {
+	return t(APP, 'Share types this version of the app doesn’t recognize yet.')
+}
+
+/**
  * Filter options for the share-type selector. Each option maps a category to
  * the raw share_type integers the backend understands.
  *
@@ -60,7 +73,8 @@ export function permissionLabel(token) {
 /**
  * Human-readable label for a security-alert issue code.
  *
- * @param {string} code no_password|no_expiration|sensitive_file
+ * @param {string} code no_password|no_expiration|sensitive_file|expiring_soon|
+ *   already_expired|group_share_editable|public_upload
  * @return {string}
  */
 export function issueLabel(code) {
@@ -70,6 +84,8 @@ export function issueLabel(code) {
 		sensitive_file: t(APP, 'Sensitive file type'),
 		expiring_soon: t(APP, 'Expiring soon'),
 		already_expired: t(APP, 'Already expired'),
+		group_share_editable: t(APP, 'Large group can edit'),
+		public_upload: t(APP, 'Public upload'),
 	}
 	return labels[code] ?? code
 }

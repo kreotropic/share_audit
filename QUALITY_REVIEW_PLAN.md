@@ -200,28 +200,37 @@ isolado por uma otimização de contagem de migrations. Recomendação: **G2
 avança já, como migration própria**; se/quando o soft delete avançar, é a
 migration seguinte — normal ao longo da vida de uma app, não um problema a evitar.
 
-### Fase 1 — G2: acknowledge/exceção nos alertas
-Maior impacto isolado por fazer. Primeira migration da app
-(`oc_shareaudit_ack`), `AckController`, UI de "Aceitar" + filtro "mostrar
-aceites". Ver `FEATURE_GAPS_PLAN.md` G2 para o esboço técnico completo.
-Fazer M-Q1 (testes de `issuesFor`) antes ou junto, pelo motivo já explicado.
+### [x] Fase 1 (parcial) — M-Q1 feito; G2 ainda por fazer
+M-Q1 (testes de `issuesFor`/`countInsecureLinks`) ficou pronto em
+2026-07-10, antes do resto — ver secção "Melhorias" acima. **G2
+(acknowledge/exceção nos alertas)** continua por fazer: maior impacto
+isolado que resta, primeira migration da app (`oc_shareaudit_ack`),
+`AckController`, UI de "Aceitar" + filtro "mostrar aceites". Ver
+`FEATURE_GAPS_PLAN.md` G2 para o esboço técnico completo. **Importante:**
+como G4 avançou antes (ver abaixo), G2 tem de cobrir também
+`group_share_editable`/`public_upload`, não só as três regras originais.
 
-### Fase 2 — G5: edge cases (pode correr em paralelo com a Fase 1)
+### [x] Fase 2 — G5: edge cases — feito (2026-07-10)
 Três correções pequenas e independentes: `hasExpiration` a não distinguir
 expirado de futuro (G5.2 — mesma comparação de datas já usada em Q4),
 tooltip/legenda na categoria "other" do breakdown (G5.3 — resolvido em
 conjunto com **C1** acima, já que ambos mexem no mesmo bucket), e circles
 inconsistentes (já feito via M9, só falta o checkbox em
-`SECURITY_REVIEW_PLAN_LOW.md`).
+`SECURITY_REVIEW_PLAN_LOW.md`). Testado em `ShareMapperTest`/
+`ShareCollectorServiceTest`.
 
 ### Fase 3 — G3: notificar o dono + "pedir para corrigir"
 Depois de G2, para reutilizar a UI de ações nos alertas que G2 vai alterar.
 `INotificationManager::notify()` em toda ação de `ShareActionController`, não
 só numa ação dedicada — ver `FEATURE_GAPS_PLAN.md` G3.
 
-### Fase 4 — G4: novas regras de alerta
-`group_share_editable` e `public_upload`. Depois de G2, para que as regras
-novas já nasçam com "acknowledge" disponível.
+### [x] Fase 4 — G4: novas regras de alerta — feito (2026-07-10), fora de ordem
+`group_share_editable` e `public_upload` implementadas **antes** de G2 (a
+ordem original desta fase previa o contrário, "depois de G2, para que as
+regras novas já nasçam com acknowledge disponível") — decisão tomada durante
+uma sessão de trabalho autónomo, para aproveitar itens sem migration
+enquanto G2 (que tem migration) ficava para confirmação. Consequência já
+registada na Fase 1: G2 tem de incluir estas duas regras quando avançar.
 
 ### Fase 5 — Digest semanal por email
 `TimedJob` + `IMailer`, resumindo novidades desde o último digest. Depois de

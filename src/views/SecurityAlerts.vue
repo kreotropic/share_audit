@@ -180,6 +180,8 @@ export default {
 				sensitive_file: 'var(--sad-alert-sensitive)',
 				expiring_soon: 'var(--sad-alert-expiring-soon)',
 				already_expired: 'var(--sad-alert-already-expired)',
+				group_share_editable: 'var(--sad-alert-group-share-editable)',
+				public_upload: 'var(--sad-alert-public-upload)',
 			}
 			return Object.entries(this.breakdown).map(([key, count]) => ({
 				key,

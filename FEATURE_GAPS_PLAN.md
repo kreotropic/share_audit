@@ -90,7 +90,7 @@ explicação.
 
 ---
 
-### [ ] G4 — Alertas cobrem só links públicos; faltam permissões de edit/share em massa e uploads públicos
+### [x] G4 — Alertas cobrem só links públicos; faltam permissões de edit/share em massa e uploads públicos
 
 **Onde:** `lib/Service/SecurityAnalyzerService.php` — o docstring da classe já
 assume "for the MVP this focuses on public links (type 3)".
@@ -112,9 +112,27 @@ Cada regra nova precisa de: predicado em `issuesFor()`, entrada em
 `SettingsService::RULES` (toggle em Settings), tradução EN/pt-PT, e entrada
 no breakdown por categoria.
 
+**Implementado (2026-07-10):** ambas as regras adicionadas.
+`group_share_editable` — `ShareMapper::findGroupShares()` (share_type=1,
+nativo; circles ficam de fora, precisariam da API própria da app Circles) +
+`SecurityAnalyzerService::riskyGroupShareRows()`, que filtra por permissão
+(`PERMISSION_UPDATE|PERMISSION_SHARE`) e resolve a contagem de membros via
+`IGroupManager`, cacheada 15 min (`groupMemberCount()`) — separado do cache
+de 60s dos alertas porque a contagem de membros muda com bem menos
+frequência. Limiar configurável em Settings (`getGroupShareMinMembers()`,
+default 20). `public_upload` — predicado direto em `issuesFor()` usando
+`permissions` (já vinha na query de `findInsecureLinks()`), sem alteração ao
+SQL: `create` sem `read`, ou `create+update`, sempre exigindo password vazia
+(com password, o acesso já está limitado a quem a tem). `countAlerts()`
+(badge) estendido para incluir `group_share_editable` (reutiliza
+`riskyGroupShareRows()`, sem atalho SQL possível já que a contagem de
+membros não está em `oc_share`); `public_upload` não precisou de alteração
+no badge — é sempre um subconjunto de `no_password`, já contado aí. Testado
+em `tests/Unit/SecurityAnalyzerServiceTest.php` (13 casos novos).
+
 ---
 
-### [ ] G5 — Edge cases de classificação e contagem
+### [x] G5 — Edge cases de classificação e contagem
 
 Agrupa três problemas menores de correção, não de feature nova:
 
@@ -135,6 +153,15 @@ Agrupa três problemas menores de correção, não de feature nova:
 
 *(Instância sem partilhas: confirmado como bem tratado nos empty states —
 sem ação necessária.)*
+
+**Implementado (2026-07-10):** subitem 2 — `ShareMapper::applyFilters()`'s
+`hasExpiration` e `ShareCollectorService::normalizeRow()`'s campo homónimo
+passaram a comparar com `now()` (`> now` para "com expiração", `<= now` OR
+null para "sem"); testado em `ShareMapperTest`/`ShareCollectorServiceTest`.
+Subitem 3 — tooltip "Share types this version of the app doesn't recognize
+yet." adicionado ao `TypeBarChart`/`StatsCards` (o exposure map já tinha
+sido resolvido antes, via `QUALITY_REVIEW_PLAN.md` C1); reutiliza
+`otherCategoryHint()` em `utils/format.js`. Subitem 1 já estava feito (M9).
 
 ---
 
@@ -272,6 +299,16 @@ tokens de acesso.
 
 ## Ordem de execução sugerida
 
+> **Nota de execução (2026-07-10):** G4 e G5 avançaram **antes** de G2,
+> invertendo a ordem abaixo — ver `QUALITY_REVIEW_PLAN.md` (decisão "G2 não
+> deve esperar pelo soft delete") para o raciocínio: G2 é a primeira
+> migration da app e foi propositadamente deixada de fora de uma sessão
+> autónoma, enquanto G4/G5 não precisam de migration e são baixo risco. Como
+> consequência, quando G2 avançar, tem de cobrir **também** as duas regras
+> novas (`group_share_editable`, `public_upload`), não só as três
+> originais — senão repete-se a queixa da lacuna nº 1 especificamente para
+> elas, exatamente o cenário que este item 5 (abaixo) já antecipava.
+
 1. **G1 (audit log)** — horas de esforço, elimina o maior risco silencioso
    imediato; não depende de nada.
 2. **Quick wins Q1–Q4** — todos independentes entre si e da lista acima,
@@ -282,11 +319,10 @@ tokens de acesso.
    consecutivas se puderem ser uma só).
 4. **G3 (notificar + "pedir para corrigir")** — depois de G2, para reutilizar
    a mesma UI de ações em alertas que G2 vai mexer.
-5. **G4 (novas regras de alerta)** — depois de G2 estar pronto, para que as
-   novas regras já nasçam com "acknowledge" disponível (senão repete-se a
-   queixa da lacuna nº 1 para as regras novas).
-6. **G5 (edge cases)** — pode ser feito em paralelo com qualquer um dos
-   acima; são correções pequenas e isoladas.
+5. ~~**G4 (novas regras de alerta)** — depois de G2 estar pronto~~ — feito
+   antes de G2 (ver nota acima); G2 tem de incluir estas regras quando
+   avançar.
+6. ~~**G5 (edge cases)**~~ — feito.
 7. **Digest semanal** — depois de G2/G3, para que o digest já reflita alertas
    "aceites" (não faz sentido mandar email semanal sobre algo que o admin já
    marcou como exceção).

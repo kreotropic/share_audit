@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
-use OCP\IUserManager;
 use OCP\Share\IShare;
 
 /**
@@ -44,7 +43,7 @@ class ExposureMapService {
 
     public function __construct(
         private ShareMapper $mapper,
-        private IUserManager $userManager,
+        private DisplayNameResolver $displayNames,
     ) {
     }
 
@@ -75,11 +74,13 @@ class ExposureMapService {
      * @return array<int, array{owner: string, displayName: string, count: int}>
      */
     public function getTopExposedUsers(int $limit): array {
-        return array_map(function (array $o) {
-            $user = $this->userManager->get($o['owner']);
-            $o['displayName'] = $user?->getDisplayName() ?: $o['owner'];
-            return $o;
-        }, $this->mapper->topOwnersByType(IShare::TYPE_LINK, $limit));
+        $owners = $this->mapper->topOwnersByType(IShare::TYPE_LINK, $limit);
+        $names = $this->displayNames->resolveMany(array_column($owners, 'owner'));
+        foreach ($owners as &$o) {
+            $o['displayName'] = $names[$o['owner']] ?? $o['owner'];
+        }
+        unset($o);
+        return $owners;
     }
 
     /**

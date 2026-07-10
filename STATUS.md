@@ -9,7 +9,7 @@ qualidade) e [ROADMAP.md](ROADMAP.md). Cada documento continua a ser a fonte
 de verdade para o detalhe de cada item — isto é só o resumo para saber
 rapidamente o que falta.
 
-**Total: 45 feitos · 2 adiados · 18 por fazer**
+**Total: 47 feitos · 2 adiados · 16 por fazer**
 
 > ✅ A 2ª revisão (2026-07-09) validou a execução dos planos de 2026-07-08;
 > os 6 itens que resultaram (R1–R6, incluindo os 3 que bloqueavam a
@@ -25,6 +25,12 @@ rapidamente o que falta.
 > `.nextcloudignore`, o que teria posto ~20MB de dependências de teste no
 > tarball da App Store assim que o `composer install` de dev passasse a ser
 > usado.
+>
+> ✅ Na sequência da 3ª revisão, **G4 e G5** (`FEATURE_GAPS_PLAN.md`) também
+> ficaram feitos no mesmo dia — trabalho autónomo enquanto o autor estava
+> fora; G2 (acknowledge) foi deliberadamente deixado de fora por implicar a
+> primeira migration da app (decisão de esquema a confirmar antes de
+> avançar). Ver a nota de execução em `FEATURE_GAPS_PLAN.md`.
 
 ---
 
@@ -79,21 +85,23 @@ todas corrigidas.
 
 ---
 
-## FEATURE_GAPS_PLAN.md — 5/13
+## FEATURE_GAPS_PLAN.md — 7/13
 
 Feitos: G1 (audit log), Q1 (= M2, export respeita filtros), Q2 (link "abrir
 no Files"), Q3 (copiar URL do link público), Q4 (alerta "expira em
-breve/já expirado").
+breve/já expirado"), **G4**, **G5**.
 
 - [ ] **G2** — acknowledge/exceção nos alertas. Prioridade nº 1 do
       documento; é a primeira migration própria da app.
 - [ ] **G3** — notificar o dono ao remediar (estende `ROADMAP.md` #3;
       cobre toda ação de `ShareActionController`, não só a de notificar).
-- [ ] **G4** — novas regras de alerta: partilhas de grupo com edit/share
+- [x] **G4** — novas regras de alerta: partilhas de grupo com edit/share
       para grupos grandes, e links públicos com upload sem password.
-- [ ] **G5** — edge cases: `hasExpiration` a contar links já expirados como
-      "com expiração"; tooltip/legenda na categoria "other". (O 1º subitem,
-      circles inconsistentes, já está feito via M9.)
+      Implementado 2026-07-10 — ver nota de execução em
+      `FEATURE_GAPS_PLAN.md` sobre a ordem trocada com G2.
+- [x] **G5** — edge cases: `hasExpiration` a contar links já expirados como
+      "com expiração"; tooltip/legenda na categoria "other". Implementado
+      2026-07-10 (todos os 3 subitens, incluindo o M9 já anterior).
 - [ ] Digest semanal por email para admins.
 - [ ] Snapshot histórico do exposure score (= `ROADMAP.md` #4).
 - [ ] Políticas por grupo (ex.: "grupo Finance nunca sem password") — maior
@@ -153,9 +161,8 @@ planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
 - [x] Suite de testes (`phpunit`) — maior retorno em
       `SecurityAnalyzerService` e `ShareCollectorService`. Feito via
       `QUALITY_REVIEW_PLAN.md` M-Q1 (2026-07-10); `ShareCollectorService`
-      em si ainda não tem testes próprios (é maioritariamente
-      passagem/normalização de dados, baixo valor condicional), mas
-      `ShareMapper`, de que depende, já tem.
+      ganhou o seu próprio `tests/Unit/ShareCollectorServiceTest.php` ao
+      corrigir G5.2 (hasExpiration) na mesma sessão.
 - [ ] Truncagem do label "Hiperligação pública" no gráfico "Partilhas por
       tipo".
 - [x] Índice em `share_with`/`path` (= P5) — decisão já tomada: adiar até
@@ -174,10 +181,14 @@ planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
 3. Rever o diff (nada foi commitado) e cortar o **0.3.0** — inclui a
    correção do exposure score (C1), os cabeçalhos SPDX (C2), os testes/CI
    novos (que não vão no tarball — `vendor`/`tests`/`phpunit.xml`/`.github`
-   estão no `.nextcloudignore`) e o rate limit em falta (M-Q2).
-4. Depois do lançamento: **G2 (acknowledge)** continua a ser o maior impacto
-   isolado que resta. `QUALITY_REVIEW_PLAN.md` já decide a pergunta em aberto
-   desta secção — G2 **não espera** pelo soft delete do roadmap (#1), que
-   está condicional a tração e não tem previsão; ver a sequência de fases
-   completa em `QUALITY_REVIEW_PLAN.md`. Com M-Q1 feito, G2 pode reutilizar
-   o padrão de testes já criado para cobrir a nova lógica de `acknowledged`.
+   estão no `.nextcloudignore`), o rate limit em falta (M-Q2), a correção do
+   `hasExpiration` (G5.2/G5.3) e as duas regras de alerta novas (G4:
+   `group_share_editable`, `public_upload`) — 38 testes phpunit, tudo verde.
+4. **G2 (acknowledge)** é agora o único item de maior impacto que resta e o
+   próximo passo natural — é a primeira migration da app, por isso foi
+   deixado fora do trabalho autónomo desta sessão. Quando avançar, tem de
+   cobrir as duas regras novas de G4 também (ver nota em
+   `FEATURE_GAPS_PLAN.md`), e pode reutilizar o padrão de testes já criado
+   (M-Q1) para a nova lógica de `acknowledged`. G2 **não espera** pelo soft
+   delete do roadmap (#1), que está condicional a tração e sem previsão —
+   ver `QUALITY_REVIEW_PLAN.md`.

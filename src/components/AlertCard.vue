@@ -25,7 +25,14 @@
 						rel="noopener noreferrer">
 						{{ t('share_audit_dashboard', 'Open in Files') }}
 					</a>
-					<span>{{ t('share_audit_dashboard', 'Owner: {owner}', { owner: alert.owner }) }}</span>
+					<span>
+						{{ t('share_audit_dashboard', 'Owner: {owner}', { owner: alert.ownerDisplayName || alert.owner }) }}
+						<span v-if="alert.ownerDisplayName && alert.ownerDisplayName !== alert.owner"
+							class="sad-alert__uid">{{ alert.owner }}</span>
+					</span>
+					<span v-if="alert.recipient">
+						{{ t('share_audit_dashboard', 'Group: {group} · {count} members', { group: alert.recipientLabel, count: alert.memberCount }) }}
+					</span>
 					<span>{{ formatDate(alert.created) }}</span>
 				</div>
 			</div>
@@ -36,7 +43,7 @@
 				{{ linkCopied ? t('share_audit_dashboard', 'Copied!') : t('share_audit_dashboard', 'Copy link') }}
 			</NcButton>
 
-			<NcButton v-if="hasIssue('no_password')"
+			<NcButton v-if="hasIssue('no_password') || hasIssue('public_upload')"
 				:disabled="busy"
 				@click="$emit('action', { type: 'password', id: alert.id, path: alert.path })">
 				{{ t('share_audit_dashboard', 'Add password') }}
@@ -242,6 +249,14 @@ export default {
 	--chip: var(--sad-alert-already-expired);
 }
 
+.sad-alert__chip--group_share_editable {
+	--chip: var(--sad-alert-group-share-editable);
+}
+
+.sad-alert__chip--public_upload {
+	--chip: var(--sad-alert-public-upload);
+}
+
 .sad-alert__name {
 	font-weight: 600;
 	overflow: hidden;
@@ -257,6 +272,11 @@ export default {
 	color: var(--color-text-maxcontrast);
 	font-size: 12px;
 	margin: 6px 0;
+}
+
+.sad-alert__uid {
+	opacity: 0.75;
+	margin-left: 4px;
 }
 
 .sad-alert__path {

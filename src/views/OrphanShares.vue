@@ -83,10 +83,12 @@
 									@update:model-value="toggleSelect(share.id, $event)" />
 							</td>
 							<td>
-								<span class="sad-owner">{{ share.owner }}</span>
+								<span class="sad-owner">{{ share.ownerDisplayName || share.owner }}</span>
 								<span class="sad-owner__status" :class="'sad-owner__status--' + share.ownerStatus">
 									{{ statusLabel(share.ownerStatus) }}
 								</span>
+								<span v-if="share.ownerDisplayName && share.ownerDisplayName !== share.owner"
+									class="sad-owner__uid">{{ share.owner }}</span>
 							</td>
 							<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
 							<td>{{ recipientOf(share) }}</td>
@@ -381,6 +383,12 @@ export default {
 .sad-table__perms {
 	white-space: normal;
 	min-width: 140px;
+}
+
+.sad-owner__uid {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
 }
 
 .sad-owner__status {
