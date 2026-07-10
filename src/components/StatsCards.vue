@@ -8,7 +8,8 @@
 			:tabindex="card.clickable ? 0 : null"
 			@click="card.clickable && onSelect(card)"
 			@keydown.enter="card.clickable && onSelect(card)"
-			@keydown.space.prevent="card.clickable && onSelect(card)">
+			@keydown.space.prevent="card.clickable && onSelect(card)"
+			:title="card.title">
 			<span class="sad-card__icon" v-html="card.icon" />
 			<span class="sad-card__body">
 				<span class="sad-card__count">{{ card.count }}</span>
@@ -20,7 +21,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
-import { categoryLabel, typeFilterOptions } from '../utils/format.js'
+import { categoryLabel, otherCategoryHint, typeFilterOptions } from '../utils/format.js'
 
 // category id -> raw share_type integers the ShareList filter understands.
 const TYPE_MAP = Object.fromEntries(typeFilterOptions().map((o) => [o.id, o.types]))
@@ -79,6 +80,7 @@ export default {
 					icon: svg(ICONS[key]),
 					types,
 					clickable: types !== null,
+					title: key === 'other' ? otherCategoryHint() : undefined,
 				})
 			}
 			return cards

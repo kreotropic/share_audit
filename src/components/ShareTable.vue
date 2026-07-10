@@ -74,7 +74,11 @@
 						</a>
 						<span v-else>{{ share.path || '—' }}</span>
 					</td>
-					<td>{{ share.owner }}</td>
+					<td>
+						{{ share.ownerDisplayName || share.owner }}
+						<span v-if="share.ownerDisplayName && share.ownerDisplayName !== share.owner"
+							class="sad-table__uid">{{ share.owner }}</span>
+					</td>
 					<td>{{ recipientOf(share) }}</td>
 					<td class="sad-table__perms">
 						{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}
@@ -361,6 +365,12 @@ export default {
 .sad-table__perms {
 	white-space: normal;
 	min-width: 140px;
+}
+
+.sad-table__uid {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
 }
 
 .sad-expire-warn {

@@ -300,6 +300,46 @@ class ShareMapper {
     }
 
     /**
+     * Native group shares (share_type = 1) — raw material for the
+     * `group_share_editable` alert rule. Unfiltered by permission: whether a
+     * share grants edit/reshare, and whether the group is "large", are both
+     * decided in SecurityAnalyzerService, since the second needs
+     * IGroupManager (group membership isn't in oc_share, and for
+     * non-database backends like LDAP it isn't in this database at all).
+     *
+     * Deliberately scoped to native groups only, not circles (share_type 7):
+     * circle membership needs the Circles app's own API, not IGroupManager —
+     * out of scope for now (see QUALITY_REVIEW_PLAN.md's G4 notes).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function findGroupShares(?string $ownerOrInitiator = null): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select(
+            's.id', 's.share_type', 's.share_with', 's.uid_owner', 's.uid_initiator',
+            's.item_type', 's.file_source', 's.permissions', 's.stime',
+        )
+            ->selectAlias('f.path', 'file_path')
+            ->from('share', 's')
+            ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
+            ->where($qb->expr()->eq('s.share_type', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
+            ->orderBy('s.stime', 'DESC');
+
+        if ($ownerOrInitiator !== null) {
+            $uid = $qb->createNamedParameter($ownerOrInitiator);
+            $qb->andWhere($qb->expr()->orX(
+                $qb->expr()->eq('s.uid_owner', $uid),
+                $qb->expr()->eq('s.uid_initiator', $uid),
+            ));
+        }
+
+        $result = $qb->executeQuery();
+        $rows = $result->fetchAll();
+        $result->closeCursor();
+        return $rows;
+    }
+
+    /**
      * OR-able conditions matching the candidate pool issuesFor() actually
      * evaluates: missing password, missing expiration, or (if a cutoff is
      * given) an expiration at/before it — covers both "already expired" and
@@ -483,10 +523,21 @@ class ShareMapper {
         }
 
         if (array_key_exists('hasExpiration', $filters) && $filters['hasExpiration'] !== null) {
+            // "Has expiration" means an expiration that's still in the
+            // future — a share whose expiration already passed is, for
+            // filtering purposes, indistinguishable from one that never had
+            // one: the date no longer protects anything, it's just waiting
+            // to be purged. See QUALITY_REVIEW_PLAN.md G5.2 (same date
+            // comparison as SecurityAnalyzerService's already_expired issue).
+            $now = $qb->createNamedParameter((new \DateTimeImmutable())->format('Y-m-d H:i:s'));
             if ($filters['hasExpiration']) {
-                $qb->andWhere($qb->expr()->isNotNull('s.expiration'));
+                $qb->andWhere($qb->expr()->isNotNull('s.expiration'))
+                    ->andWhere($qb->expr()->gt('s.expiration', $now));
             } else {
-                $qb->andWhere($qb->expr()->isNull('s.expiration'));
+                $qb->andWhere($qb->expr()->orX(
+                    $qb->expr()->isNull('s.expiration'),
+                    $qb->expr()->lte('s.expiration', $now),
+                ));
             }
         }
 

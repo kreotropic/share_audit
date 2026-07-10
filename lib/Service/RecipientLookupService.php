@@ -58,6 +58,7 @@ class RecipientLookupService {
         private ShareMapper $mapper,
         private ShareCollectorService $collector,
         private ShareDeletionService $deletion,
+        private DisplayNameResolver $displayNames,
     ) {
     }
 
@@ -112,6 +113,13 @@ class RecipientLookupService {
     public function getShares(string $shareWith, int $shareType): array {
         $filters = ['shareWith' => $shareWith, 'shareType' => $shareType];
         $rows = $this->mapper->findShares($filters, 500, 0);
+        $items = array_map([$this->collector, 'normalizeRow'], $rows);
+
+        $names = $this->displayNames->resolveMany(array_column($items, 'owner'));
+        foreach ($items as &$item) {
+            $item['ownerDisplayName'] = $names[$item['owner']] ?? $item['owner'];
+        }
+        unset($item);
 
         return [
             'recipient' => [
@@ -120,7 +128,7 @@ class RecipientLookupService {
                 'category' => self::CATEGORY[$shareType] ?? 'other',
                 'label' => $this->displayName($shareWith, $shareType),
             ],
-            'items' => array_map([$this->collector, 'normalizeRow'], $rows),
+            'items' => $items,
             'total' => $this->mapper->countShares($filters),
         ];
     }

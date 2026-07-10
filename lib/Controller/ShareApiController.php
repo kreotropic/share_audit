@@ -205,7 +205,10 @@ class ShareApiController extends AdminController {
         bool $ruleNoPassword = true,
         bool $ruleNoExpiration = true,
         bool $ruleSensitiveFile = true,
+        bool $ruleGroupShareEditable = true,
+        bool $rulePublicUpload = true,
         bool $personalViewEnabled = true,
+        int $groupShareMinMembers = 20,
     ): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
@@ -214,7 +217,9 @@ class ShareApiController extends AdminController {
             'no_password' => $ruleNoPassword,
             'no_expiration' => $ruleNoExpiration,
             'sensitive_file' => $ruleSensitiveFile,
-        ], $personalViewEnabled);
+            'group_share_editable' => $ruleGroupShareEditable,
+            'public_upload' => $rulePublicUpload,
+        ], $personalViewEnabled, $groupShareMinMembers);
         return new JSONResponse($this->settings->getSettings());
     }
 

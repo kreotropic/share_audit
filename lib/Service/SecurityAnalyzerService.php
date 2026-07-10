@@ -10,13 +10,18 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
+use OCP\Constants;
 use OCP\ICache;
 use OCP\ICacheFactory;
+use OCP\IGroupManager;
 
 /**
- * Detects shares that represent a governance / security risk. For the MVP this
- * focuses on public links (type 3) that lack a password or an expiration date,
- * and flags when such a link exposes a sensitive file type.
+ * Detects shares that represent a governance / security risk. Originally
+ * scoped to public links (type 3) missing a password or expiration date, or
+ * exposing a sensitive file type; also covers two share_type-independent
+ * risks (see G4 in FEATURE_GAPS_PLAN.md): a public link open for anonymous
+ * upload without a password, and a native group share with edit/reshare
+ * permission granted to a very large group.
  */
 class SecurityAnalyzerService {
 
@@ -31,27 +36,47 @@ class SecurityAnalyzerService {
      */
     private const CACHE_TTL = 60;
 
+    /**
+     * Group member counts don't change nearly as often as share state, and
+     * resolving them (IGroupManager, possibly LDAP) is the expensive part of
+     * the group_share_editable rule — cached separately and longer-lived
+     * than the alerts cache above.
+     */
+    private const GROUP_MEMBER_CACHE_TTL = 900;
+
     /** Window (days) within which a still-valid expiration counts as "expiring soon". */
     private const EXPIRING_SOON_DAYS = 7;
 
+    /** Permission bits that make a group share "editable" for the group_share_editable rule. */
+    private const EDIT_PERMISSIONS = Constants::PERMISSION_UPDATE | Constants::PERMISSION_SHARE;
+
     private ICache $cache;
+    private ICache $groupMemberCache;
 
     public function __construct(
         private ShareMapper $mapper,
         private SettingsService $settings,
         private PathFormatter $pathFormatter,
+        private IGroupManager $groupManager,
+        private DisplayNameResolver $displayNames,
         ICacheFactory $cacheFactory,
     ) {
         $this->cache = $cacheFactory->createDistributed('share_audit_dashboard-alerts');
+        $this->groupMemberCache = $cacheFactory->createDistributed('share_audit_dashboard-group-members');
     }
 
     /**
      * Number of shares flagged as insecure (used for dashboard badges).
-     * Computed directly in SQL — see ShareMapper::countInsecureLinks() — so
-     * badges don't pay the cost of normalizing every alert just for a count.
+     * Link-based rules are computed directly in SQL — see
+     * ShareMapper::countInsecureLinks() — so badges don't pay the cost of
+     * normalizing every alert just for a count; group_share_editable can't
+     * take that shortcut (member counts aren't in oc_share) and reuses the
+     * same row-filtering as getAlerts(), just without building full alert
+     * records — cheap in practice since group shares are a small slice of
+     * the share table.
      */
     public function countAlerts(?string $owner = null): int {
-        return $this->mapper->countInsecureLinks(
+        $count = $this->mapper->countInsecureLinks(
             $this->settings->isRuleEnabled('no_password'),
             $this->settings->isRuleEnabled('no_expiration'),
             $this->settings->isRuleEnabled('sensitive_file'),
@@ -59,6 +84,10 @@ class SecurityAnalyzerService {
             $owner,
             $this->expiringSoonCutoff(),
         );
+        if ($this->settings->isRuleEnabled('group_share_editable')) {
+            $count += count($this->riskyGroupShareRows($owner));
+        }
+        return $count;
     }
 
     /**
@@ -105,24 +134,102 @@ class SecurityAnalyzerService {
             if ($issues === []) {
                 continue;
             }
-            $severity = $this->maxSeverity($issues);
-            $alerts[] = [
-                'id' => (int)$row['id'],
-                'owner' => (string)$row['uid_owner'],
-                'fileId' => isset($row['file_source']) ? (int)$row['file_source'] : null,
-                'path' => $this->pathFormatter->prettyPath($row['file_path'] ?? null),
-                'token' => $row['token'] ?? null,
-                'created' => isset($row['stime']) ? (int)$row['stime'] : null,
-                'issues' => $issues,
-                'severity' => $severity,
-            ];
+            $alerts[] = $this->buildAlert($row, $issues, $row['token'] ?? null);
+        }
+
+        if ($this->settings->isRuleEnabled('group_share_editable')) {
+            foreach ($this->riskyGroupShareRows($owner) as $row) {
+                $issue = ['code' => 'group_share_editable', 'severity' => 'warning'];
+                $alerts[] = $this->buildAlert($row, [$issue], null) + [
+                    'recipient' => (string)($row['share_with'] ?? ''),
+                    'recipientLabel' => $this->groupManager->getDisplayName((string)($row['share_with'] ?? '')) ?? (string)($row['share_with'] ?? ''),
+                    'memberCount' => $row['_memberCount'],
+                ];
+            }
         }
 
         // Sort critical > warning > info.
         $rank = ['critical' => 0, 'warning' => 1, 'info' => 2];
         usort($alerts, fn ($a, $b) => $rank[$a['severity']] <=> $rank[$b['severity']]);
 
+        // Batched once for the whole page, not per alert — see DisplayNameResolver.
+        $names = $this->displayNames->resolveMany(array_column($alerts, 'owner'));
+        foreach ($alerts as &$alert) {
+            $alert['ownerDisplayName'] = $names[$alert['owner']] ?? $alert['owner'];
+        }
+        unset($alert);
+
         return $alerts;
+    }
+
+    /**
+     * Build the fields shared by every alert shape (link-based or
+     * group-share-based). Callers may merge additional fields on top.
+     *
+     * @param array<string, mixed> $row
+     * @param array<int, array{code: string, severity: string}> $issues
+     * @return array<string, mixed>
+     */
+    private function buildAlert(array $row, array $issues, ?string $token): array {
+        return [
+            'id' => (int)$row['id'],
+            'shareType' => (int)($row['share_type'] ?? 0),
+            'owner' => (string)$row['uid_owner'],
+            'fileId' => isset($row['file_source']) ? (int)$row['file_source'] : null,
+            'path' => $this->pathFormatter->prettyPath($row['file_path'] ?? null),
+            'token' => $token,
+            'created' => isset($row['stime']) ? (int)$row['stime'] : null,
+            'issues' => $issues,
+            'severity' => $this->maxSeverity($issues),
+        ];
+    }
+
+    /**
+     * Group shares that grant edit/reshare permission to a group with at
+     * least SettingsService::getGroupShareMinMembers() members — the
+     * candidate pool for the group_share_editable rule. Reused by both
+     * getAlerts() (full records) and countAlerts() (just the count).
+     *
+     * @return array<int, array<string, mixed>> rows annotated with `_memberCount`
+     */
+    private function riskyGroupShareRows(?string $owner): array {
+        $minMembers = $this->settings->getGroupShareMinMembers();
+        $rows = [];
+        foreach ($this->mapper->findGroupShares($owner) as $row) {
+            $permissions = (int)($row['permissions'] ?? 0);
+            if (($permissions & self::EDIT_PERMISSIONS) === 0) {
+                continue;
+            }
+            $gid = (string)($row['share_with'] ?? '');
+            if ($gid === '') {
+                continue;
+            }
+            $memberCount = $this->groupMemberCount($gid);
+            if ($memberCount < $minMembers) {
+                continue;
+            }
+            $row['_memberCount'] = $memberCount;
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    /**
+     * Member count for a group, cached — see GROUP_MEMBER_CACHE_TTL. A
+     * group that no longer exists (deleted after the share was created)
+     * counts as 0, not flagged: a share to a group that isn't there anymore
+     * grants no one anything.
+     */
+    private function groupMemberCount(string $gid): int {
+        $cacheKey = 'count_' . $gid;
+        $cached = $this->groupMemberCache->get($cacheKey);
+        if (is_int($cached)) {
+            return $cached;
+        }
+        $group = $this->groupManager->get($gid);
+        $count = $group !== null ? max(0, (int)$group->count()) : 0;
+        $this->groupMemberCache->set($cacheKey, $count, self::GROUP_MEMBER_CACHE_TTL);
+        return $count;
     }
 
     /**
@@ -155,6 +262,10 @@ class SecurityAnalyzerService {
             $issues[] = ['code' => 'no_password', 'severity' => 'critical'];
         }
 
+        if ($this->settings->isRuleEnabled('public_upload') && $this->isPublicUpload($row)) {
+            $issues[] = ['code' => 'public_upload', 'severity' => 'warning'];
+        }
+
         if (empty($row['expiration'])) {
             if ($this->settings->isRuleEnabled('no_expiration')) {
                 $issues[] = ['code' => 'no_expiration', 'severity' => 'warning'];
@@ -163,7 +274,8 @@ class SecurityAnalyzerService {
             // Independent of the no_expiration toggle: a link *with* an
             // expiration set is only actually protected while that date is
             // still in the future and not imminent — see FEATURE_GAPS_PLAN.md
-            // Q4 (and G5.2, not implemented here, for hasExpiration itself).
+            // Q4 (ShareCollectorService/ShareMapper's own "hasExpiration" flag
+            // and filter follow the same rule — see G5.2).
             $expiresAt = $this->parseExpiration($row['expiration']);
             if ($expiresAt !== null) {
                 $now = new \DateTimeImmutable();
@@ -204,6 +316,30 @@ class SecurityAnalyzerService {
         }
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         return $ext !== '' && in_array($ext, $this->settings->getSensitiveExtensions(), true);
+    }
+
+    /**
+     * A passwordless public link open for anonymous upload: either "file
+     * drop" (create without read — the visitor can only add files, not see
+     * what's already there) or full create+update (they can add AND modify
+     * existing files) — see FEATURE_GAPS_PLAN.md G4. Both are only a
+     * meaningfully distinct risk from plain no_password when a password
+     * *would* otherwise gate them, so this always requires no password;
+     * with one set, upload is limited to whoever has the password anyway
+     * and is covered by that risk assessment instead.
+     */
+    private function isPublicUpload(array $row): bool {
+        if (!empty($row['password'])) {
+            return false;
+        }
+        $permissions = (int)($row['permissions'] ?? 0);
+        $canCreate = ($permissions & Constants::PERMISSION_CREATE) !== 0;
+        if (!$canCreate) {
+            return false;
+        }
+        $canRead = ($permissions & Constants::PERMISSION_READ) !== 0;
+        $canUpdate = ($permissions & Constants::PERMISSION_UPDATE) !== 0;
+        return !$canRead || $canUpdate;
     }
 
     /**

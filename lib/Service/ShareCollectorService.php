@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Service;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
-use OCP\IUserManager;
 use OCP\Share\IShare;
 
 /**
@@ -41,8 +40,8 @@ class ShareCollectorService {
     public function __construct(
         private ShareMapper $mapper,
         private SecurityAnalyzerService $security,
-        private IUserManager $userManager,
         private PathFormatter $pathFormatter,
+        private DisplayNameResolver $displayNames,
     ) {
     }
 
@@ -83,11 +82,37 @@ class ShareCollectorService {
      * @return array<int, array{owner: string, displayName: string, count: int}>
      */
     private function enrichOwners(array $owners): array {
-        return array_map(function (array $o) {
-            $user = $this->userManager->get($o['owner']);
-            $o['displayName'] = $user?->getDisplayName() ?: $o['owner'];
-            return $o;
-        }, $owners);
+        $names = $this->displayNames->resolveMany(array_column($owners, 'owner'));
+        foreach ($owners as &$o) {
+            $o['displayName'] = $names[$o['owner']] ?? $o['owner'];
+        }
+        unset($o);
+        return $owners;
+    }
+
+    /**
+     * Attach ownerDisplayName (and initiatorDisplayName, when present) to a
+     * list of already-normalized rows, resolving each unique uid once
+     * regardless of how many rows share it — see DisplayNameResolver.
+     *
+     * @param array<int, array<string, mixed>> $items normalizeRow() output
+     * @return array<int, array<string, mixed>>
+     */
+    private function withDisplayNames(array $items): array {
+        $uids = [];
+        foreach ($items as $item) {
+            $uids[] = $item['owner'] ?? null;
+            $uids[] = $item['initiator'] ?? null;
+        }
+        $names = $this->displayNames->resolveMany($uids);
+        foreach ($items as &$item) {
+            $item['ownerDisplayName'] = $names[$item['owner']] ?? $item['owner'];
+            if (($item['initiator'] ?? '') !== '') {
+                $item['initiatorDisplayName'] = $names[$item['initiator']] ?? $item['initiator'];
+            }
+        }
+        unset($item);
+        return $items;
     }
 
     /**
@@ -134,7 +159,7 @@ class ShareCollectorService {
         $rows = $this->mapper->findShares($filters, $limit, $offset, $sort, $dir);
 
         return [
-            'items' => array_map([$this, 'normalizeRow'], $rows),
+            'items' => $this->withDisplayNames(array_map([$this, 'normalizeRow'], $rows)),
             'total' => $this->mapper->countShares($filters),
             'page' => $page,
             'limit' => $limit,
@@ -146,6 +171,11 @@ class ShareCollectorService {
      * and sort as getShares() so "Export CSV" always matches what's on
      * screen. Unpaginated but capped to avoid unbounded memory use on very
      * large instances.
+     *
+     * Deliberately skips withDisplayNames(): ReportService only ever writes
+     * the raw uid to the CSV (the unambiguous, exact account id an auditor
+     * wants), and resolving up to $max unique owners would add real cost on
+     * an LDAP-backed instance for a field nothing reads.
      *
      * @param array $filters normalized filters (see ShareMapper::applyFilters)
      */
@@ -190,7 +220,10 @@ class ShareCollectorService {
             'created' => isset($row['stime']) ? (int)$row['stime'] : null,
             'expiration' => $this->normalizeExpiration($row['expiration'] ?? null),
             'hasPassword' => !empty($row['password']),
-            'hasExpiration' => !empty($row['expiration']),
+            // Matches the ShareMapper::applyFilters() "hasExpiration" filter:
+            // an expiration in the past is, for this purpose, the same as no
+            // expiration at all (see QUALITY_REVIEW_PLAN.md G5.2).
+            'hasExpiration' => $this->hasFutureExpiration($row['expiration'] ?? null),
             'name' => $row['share_name'] ?? null,
         ];
         if ($includeToken) {
@@ -254,6 +287,23 @@ class ShareCollectorService {
             return (new \DateTimeImmutable((string)$expiration))->format('Y-m-d');
         } catch (\Exception) {
             return (string)$expiration;
+        }
+    }
+
+    /**
+     * Whether the expiration column holds a date that is still in the
+     * future. An unparsable value is treated as "no (usable) expiration",
+     * matching SecurityAnalyzerService::parseExpiration()'s fail-open
+     * behaviour rather than throwing.
+     */
+    private function hasFutureExpiration($expiration): bool {
+        if (empty($expiration)) {
+            return false;
+        }
+        try {
+            return new \DateTimeImmutable((string)$expiration) > new \DateTimeImmutable();
+        } catch (\Exception) {
+            return false;
         }
     }
 }

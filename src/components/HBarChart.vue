@@ -6,7 +6,7 @@
 			type="button"
 			class="sad-bars__row"
 			:class="{ 'sad-bars__row--clickable': clickable, 'sad-bars__row--dimmed': clickable && activeKey && activeKey !== row.key }"
-			:title="`${row.label}: ${row.count}`"
+			:title="row.title || `${row.label}: ${row.count}`"
 			@click="clickable && $emit('select', row.key)">
 			<span class="sad-bars__label">{{ row.label }}</span>
 			<div class="sad-bars__track" :style="trackStyle">
