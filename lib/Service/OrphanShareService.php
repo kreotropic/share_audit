@@ -41,7 +41,6 @@ class OrphanShareService {
         private ShareMapper $mapper,
         private ShareCollectorService $collector,
         private ShareDeletionService $deletion,
-        private DisplayNameResolver $displayNames,
         ICacheFactory $cacheFactory,
     ) {
         $this->cache = $cacheFactory->createDistributed('share_audit_dashboard-orphans');
@@ -146,16 +145,15 @@ class OrphanShareService {
             $all ? max(1, $total) : $limit,
             $all ? 0 : ($page - 1) * $limit,
         );
-        // $owners is already the exact, deduplicated set of owners on this
-        // page (every row's owner is one of them, by construction of
-        // $filters above) — resolve once for all rather than per row.
-        $names = $this->displayNames->resolveMany($owners);
-        $items = array_map(function (array $row) use ($statuses, $names) {
-            $share = $this->collector->normalizeRow($row);
-            $share['ownerStatus'] = $statuses[$share['owner']] ?? 'unknown';
-            $share['ownerDisplayName'] = $names[$share['owner']] ?? $share['owner'];
-            return $share;
-        }, $rows);
+        // Owner, initiator and recipient names all resolve through the same
+        // batched path every other listing uses.
+        $items = $this->collector->withDisplayNames(
+            array_map([$this->collector, 'normalizeRow'], $rows),
+        );
+        foreach ($items as &$item) {
+            $item['ownerStatus'] = $statuses[$item['owner']] ?? 'unknown';
+        }
+        unset($item);
 
         return [
             'items' => $items,

@@ -91,24 +91,50 @@ class ShareCollectorService {
     }
 
     /**
-     * Attach ownerDisplayName (and initiatorDisplayName, when present) to a
-     * list of already-normalized rows, resolving each unique uid once
-     * regardless of how many rows share it — see DisplayNameResolver.
+     * Attach ownerDisplayName, initiatorDisplayName (when present) and
+     * recipientDisplayName to a list of already-normalized rows, resolving
+     * each unique uid/gid once regardless of how many rows share it — see
+     * DisplayNameResolver.
+     *
+     * The recipient is only resolvable when share_with is a local account or
+     * group: user shares resolve via the user backend, group/team shares via
+     * the group backend (a team id that isn't a group falls back to the raw
+     * id). Email addresses and federated cloud ids are already
+     * human-readable and pass through untouched.
+     *
+     * Public API: OrphanShareService and RecipientLookupService run their
+     * page items through this too, so every listing resolves names the same
+     * way.
      *
      * @param array<int, array<string, mixed>> $items normalizeRow() output
      * @return array<int, array<string, mixed>>
      */
-    private function withDisplayNames(array $items): array {
+    public function withDisplayNames(array $items): array {
         $uids = [];
+        $gids = [];
         foreach ($items as $item) {
             $uids[] = $item['owner'] ?? null;
             $uids[] = $item['initiator'] ?? null;
+            if (($item['type'] ?? null) === IShare::TYPE_USER) {
+                $uids[] = $item['recipient'] ?? null;
+            } elseif (in_array($item['type'] ?? null, [IShare::TYPE_GROUP, IShare::TYPE_CIRCLE], true)) {
+                $gids[] = $item['recipient'] ?? null;
+            }
         }
         $names = $this->displayNames->resolveMany($uids);
+        $groupNames = $this->displayNames->resolveManyGroups($gids);
         foreach ($items as &$item) {
             $item['ownerDisplayName'] = $names[$item['owner']] ?? $item['owner'];
             if (($item['initiator'] ?? '') !== '') {
                 $item['initiatorDisplayName'] = $names[$item['initiator']] ?? $item['initiator'];
+            }
+            $recipient = (string)($item['recipient'] ?? '');
+            if ($recipient !== '') {
+                $item['recipientDisplayName'] = match ($item['type'] ?? null) {
+                    IShare::TYPE_USER => $names[$recipient] ?? $recipient,
+                    IShare::TYPE_GROUP, IShare::TYPE_CIRCLE => $groupNames[$recipient] ?? $recipient,
+                    default => $recipient,
+                };
             }
         }
         unset($item);

@@ -178,7 +178,10 @@ export default {
 	align-items: flex-start;
 	gap: 10px;
 	min-width: 280px;
-	flex: 1;
+	// The flex-basis reserves enough width for the badge + file name + issue
+	// chips to stay on ONE line: without it, the (now four, longer in pt_PT)
+	// action buttons squeeze the head and the chips wrap mid-card.
+	flex: 1 1 560px;
 }
 
 .sad-alert__head {
@@ -288,8 +291,22 @@ export default {
 
 .sad-alert__actions {
 	display: flex;
-	flex-wrap: wrap;
+	// nowrap makes the button block indivisible: when the card is too narrow
+	// for head + actions side by side, the whole block drops below the text
+	// as one right-aligned row, instead of shrinking in place and forcing
+	// the issue chips to wrap.
+	flex-wrap: nowrap;
 	gap: 6px;
 	align-items: center;
+	margin-left: auto;
+}
+
+// On phones the indivisible block would overflow the card — let the buttons
+// wrap again there.
+@media (max-width: 760px) {
+	.sad-alert__actions {
+		flex-wrap: wrap;
+		margin-left: 0;
+	}
 }
 </style>

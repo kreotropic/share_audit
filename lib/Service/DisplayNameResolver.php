@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Service;
 
+use OCP\IGroupManager;
 use OCP\IUserManager;
 
 /**
@@ -22,6 +23,7 @@ class DisplayNameResolver {
 
     public function __construct(
         private IUserManager $userManager,
+        private IGroupManager $groupManager,
     ) {
     }
 
@@ -44,6 +46,28 @@ class DisplayNameResolver {
         $result = [];
         foreach (array_keys($unique) as $uid) {
             $result[$uid] = $this->userManager->get($uid)?->getDisplayName() ?: $uid;
+        }
+        return $result;
+    }
+
+    /**
+     * Same as resolveMany(), for group ids: LDAP/AD-backed groups can have
+     * GUID gids just like users. Ids that don't resolve to a group (deleted,
+     * or e.g. a Teams/circle id, which is not a group) fall back to the id.
+     *
+     * @param iterable<string|null> $gids
+     * @return array<string, string> gid => displayName
+     */
+    public function resolveManyGroups(iterable $gids): array {
+        $unique = [];
+        foreach ($gids as $gid) {
+            if ($gid !== null && $gid !== '') {
+                $unique[$gid] = true;
+            }
+        }
+        $result = [];
+        foreach (array_keys($unique) as $gid) {
+            $result[$gid] = $this->groupManager->get($gid)?->getDisplayName() ?: $gid;
         }
         return $result;
     }

@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Tests\Unit;
 
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
+use OCP\IGroup;
+use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserManager;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,17 +19,25 @@ use PHPUnit\Framework\TestCase;
 class DisplayNameResolverTest extends TestCase {
 
     private IUserManager&MockObject $userManager;
+    private IGroupManager&MockObject $groupManager;
     private DisplayNameResolver $resolver;
 
     protected function setUp(): void {
         $this->userManager = $this->createMock(IUserManager::class);
-        $this->resolver = new DisplayNameResolver($this->userManager);
+        $this->groupManager = $this->createMock(IGroupManager::class);
+        $this->resolver = new DisplayNameResolver($this->userManager, $this->groupManager);
     }
 
     private function user(string $displayName): IUser&MockObject {
         $user = $this->createMock(IUser::class);
         $user->method('getDisplayName')->willReturn($displayName);
         return $user;
+    }
+
+    private function group(string $displayName): IGroup&MockObject {
+        $group = $this->createMock(IGroup::class);
+        $group->method('getDisplayName')->willReturn($displayName);
+        return $group;
     }
 
     public function testResolvesToDisplayName(): void {
@@ -76,5 +86,22 @@ class DisplayNameResolverTest extends TestCase {
 
         $names = $this->resolver->resolveMany(['alice', 'bob', 'alice']);
         $this->assertSame(['alice' => 'Alice Silva', 'bob' => 'Bob Santos'], $names);
+    }
+
+    public function testResolvesGroupsToDisplayNames(): void {
+        $this->groupManager->method('get')->willReturnMap([
+            ['finance-guid', $this->group('Finance')],
+        ]);
+
+        $names = $this->resolver->resolveManyGroups(['finance-guid', 'finance-guid']);
+        $this->assertSame(['finance-guid' => 'Finance'], $names);
+    }
+
+    public function testGroupResolutionFallsBackToGidWhenGroupIsGone(): void {
+        // A deleted group — or a Teams/circle id, which is not a group at
+        // all — must fall back to the raw id, never null.
+        $this->groupManager->method('get')->with('ghost-team')->willReturn(null);
+        $names = $this->resolver->resolveManyGroups(['ghost-team']);
+        $this->assertSame(['ghost-team' => 'ghost-team'], $names);
     }
 }

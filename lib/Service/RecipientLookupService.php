@@ -58,7 +58,6 @@ class RecipientLookupService {
         private ShareMapper $mapper,
         private ShareCollectorService $collector,
         private ShareDeletionService $deletion,
-        private DisplayNameResolver $displayNames,
     ) {
     }
 
@@ -124,13 +123,9 @@ class RecipientLookupService {
             $all ? max(1, $total) : $limit,
             $all ? 0 : ($page - 1) * $limit,
         );
-        $items = array_map([$this->collector, 'normalizeRow'], $rows);
-
-        $names = $this->displayNames->resolveMany(array_column($items, 'owner'));
-        foreach ($items as &$item) {
-            $item['ownerDisplayName'] = $names[$item['owner']] ?? $item['owner'];
-        }
-        unset($item);
+        $items = $this->collector->withDisplayNames(
+            array_map([$this->collector, 'normalizeRow'], $rows),
+        );
 
         return [
             'recipient' => [

@@ -107,7 +107,14 @@
 								<tr v-for="share in shares" :key="share.id">
 									<td><NcChip :text="categoryLabel(share.category)" :no-close="true" /></td>
 									<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
-									<td>{{ recipientOf(share) }}</td>
+									<td>
+										<template v-if="share.recipient">
+											{{ share.recipientDisplayName || share.recipient }}
+											<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
+												class="sad-table__uid">{{ share.recipient }}</span>
+										</template>
+										<span v-else>{{ recipientOf(share) }}</span>
+									</td>
 									<td class="sad-table__perms">{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}</td>
 									<td>{{ formatDate(share.created) }}</td>
 									<td>{{ share.expiration || '—' }}</td>
@@ -474,6 +481,12 @@ export default {
 	max-width: 300px;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.sad-table__uid {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
 }
 
 .sad-table__perms {
