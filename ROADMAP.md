@@ -1,228 +1,229 @@
 # Share Audit Dashboard — Roadmap
 
-> Este é o único documento de planeamento do projeto. O histórico do que já
-> foi feito (incluindo as três rondas de revisão de segurança/qualidade de
-> julho de 2026) está no [CHANGELOG.md](CHANGELOG.md) e no histórico git.
+> This is the project's only planning document. The history of what has
+> already been done (including the three security/quality review rounds of
+> July 2026) lives in the [CHANGELOG.md](CHANGELOG.md) and in the git
+> history.
 
-## Estado atual (v0.3.0)
+## Current state (v0.3.0)
 
-**Desenvolvimento congelado para lançamento.** A app está funcionalmente
-completa, passou três rondas de revisão (segurança, pré-submissão e
-auditoria de qualidade linha a linha) com todos os itens resolvidos, e tem
-suite de testes + CI. Não há bloqueios de código conhecidos para a submissão
-à App Store.
+**Development frozen for release.** The app is functionally complete, went
+through three review rounds (security, pre-submission and a line-by-line
+quality audit) with every item resolved, and has a test suite + CI. There
+are no known code blockers for the App Store submission.
 
-### Entregue
+### Delivered
 
-**Dashboard (Painel)**
-- Contadores por tipo de partilha (cards clicáveis → abrem "All shares" já
-  filtrado), tendência de criação (12 meses), donut Interno vs Externo,
-  top sharers
-- Secção **Exposure**: score 0–100, exposição por alcance (interno /
-  externo / público / other) com drill-down e ranking de exposição pública
+**Dashboard**
+- Counters per share type (clickable cards → open "All shares" pre-filtered),
+  12-month creation trend, internal-vs-external donut, top sharers
+- **Exposure** section: 0–100 score, reach breakdown (internal / external /
+  public / other) with drill-down, and a ranking of public exposure
 
 **All shares**
-- Tabela server-side (filtros nos cabeçalhos, ordenação, paginação) de todas
-  as partilhas da instância, com link "abrir no Files" por linha
-- Exportação **CSV** da vista filtrada; tokens de links públicos só entram
-  no ficheiro com opt-in explícito e aviso (são credenciais)
+- Server-side table (header filters, sorting, pagination) of every share on
+  the instance, with an "open in Files" link per row
+- **CSV** export of the filtered view; public-link tokens only enter the
+  file with an explicit opt-in and warning (they are bare credentials)
 
 **Security alerts**
-- Cinco regras configuráveis: link sem password, sem expiração, ficheiro
-  sensível, **upload anónimo sem password** (file drop) e **partilha de
-  grupo com edit/reshare acima de N membros** (default 20)
-- Categorias "expira em breve" / "já expirado"; breakdown clicável por
-  categoria (filtra a lista); copy link e open-in-Files por alerta
-- Ações individuais e em bulk (com chunking): gerar password, definir
-  expiração (7/30/90d), revogar — passwords geradas mostradas uma única vez
+- Five configurable rules: public link without a password, without an
+  expiration date, exposing a sensitive file type, **anonymous upload
+  without a password** (file drop), and a **group share granting
+  edit/reshare above N members** (default 20)
+- "Expiring soon" / "already expired" categories; clickable per-category
+  breakdown (filters the list); copy link and open-in-Files on each alert
+- Individual and bulk actions (chunked): generate a password, set an
+  expiration (7/30/90 days), revoke — generated passwords shown exactly once
 
 **Lookup & Orphans**
-- **Access lookup** (drill-down reversa, paginada): tudo o que um
-  utilizador/grupo/email consegue alcançar, com *revoke all access* em lotes
-- **Orphan shares**: partilhas de contas desativadas/eliminadas, bulk revoke
-  validado no servidor contra o conjunto real de órfãs
+- **Access lookup** (reverse drill-down, paginated): everything a
+  user/group/email can reach, with batched *revoke all access*
+- **Orphan shares**: shares owned by disabled/deleted accounts, with bulk
+  revoke validated server-side against the real orphan set
 
-**Vista pessoal + widget**
-- Cada utilizador audita e corrige as próprias partilhas (owner **ou**
-  initiator); widget "Share alerts" no dashboard do Nextcloud
-- Toggle de admin para desativar a vista pessoal e o widget em toda a
-  instância (a entrada desaparece da sidebar, não fica uma página morta)
+**Personal view + widget**
+- Every user audits and fixes their own shares (owner **or** initiator);
+  "Share alerts" widget on the Nextcloud dashboard
+- Admin toggle to disable the personal view and the widget instance-wide
+  (the entry disappears from the sidebar — no dead page left behind)
 
-**Robustez e integridade**
-- Toda a revogação passa pelo `IShareManager` (OCM/eventos/cleanup corretos;
-  fallback DB documentado e logado apenas para owner inexistente/provider
-  indisponível) e fica registada no **audit log** (`admin_audit`)
-- Caches com invalidação nas mutações; contagens pesadas em SQL puro;
-  rate limiting nos endpoints pessoais e de lookup
-- Suite `phpunit` (`tests/Unit/`) + CI (l10n, lint, testes, build frontend)
-- i18n EN + pt-PT; `build/l10n.py --check` gates o `krankerl package`
+**Robustness and integrity**
+- Every revocation goes through `IShareManager` (correct OCM/events/cleanup;
+  the direct-DB fallback is documented, logged, and reserved for
+  gone-owner / provider-unavailable cases) and is recorded in the **audit
+  log** (`admin_audit`)
+- Caches invalidated on mutation; heavy counts computed in pure SQL;
+  rate limiting on the personal and lookup endpoints
+- `phpunit` suite (`tests/Unit/`) + CI (l10n, lint, tests, frontend build)
+- i18n EN + pt-PT; `build/l10n.py --check` gates `krankerl package`
 
-> ⚠️ **Limitação conhecida:** as revogações são **permanentes** — a partilha
-> desaparece da `oc_share`. O soft delete (item #1 abaixo) é o que resolve
-> isto, e está documentado no README como limitação.
-
----
-
-## Antes da submissão à App Store
-
-A única pendência de *conteúdo* é a primeira; as restantes são a mecânica de
-publicação.
-
-- [ ] **Screenshots com dados de demonstração limpos.** Os atuais
-  (2026-07-08) têm paths de teste e são anteriores às features novas (regras
-  de alerta novas, filtro por categoria, copy link, vista pessoal
-  restilizada). Refazer os 7 com dados de demonstração plausíveis
-  (`_seed.php` ajuda) e repor em `screenshots/` com os mesmos nomes — o
-  README e o `info.xml` já apontam para eles.
-- [ ] Push do repositório para `github.com/kreotropic/share_audit` — os URLs
-  de screenshots do `info.xml` apontam para `raw.githubusercontent.com/...
-  /master/screenshots/`; a App Store valida-os no upload.
-- [ ] Registar a app em [apps.nextcloud.com](https://apps.nextcloud.com) e
-  obter o **certificado de assinatura** (gerar CSR, submeter, guardar a key).
-- [ ] `krankerl package` (corre `npm ci`, `l10n.py --check` e o build) e
-  assinar o tarball (`openssl dgst -sha512 -sign ...`).
-- [ ] Teste de instalação limpa do tarball em **NC 31** e **NC 33** (o range
-  declarado) — dashboard, alerts, orphans, vista pessoal, widget.
-- [ ] Upload da release + tag `v0.3.0` no GitHub.
+> ⚠️ **Known limitation:** revocations are **permanent** — the share
+> disappears from `oc_share`. Soft delete (item #2 below) is what fixes
+> this, and the README documents it as a limitation.
 
 ---
 
-## Pós-lançamento — só se houver tração
+## Before the App Store submission
 
-Ordenado por impacto. As specs ficam registadas aqui para não se perder o
-raciocínio já feito.
+The first item is the only remaining *content* task; the rest is release
+mechanics.
 
-| # | Feature | Depende de | Esforço | Impacto |
-|---|---------|-----------|---------|---------|
-| 1 | Acknowledge/exceções nos alertas | migration | 2-3 dias | Alto |
-| 2 | Soft delete de partilhas | migration | 4-5 dias | Alto |
-| 3 | Notificar o owner nas remediações do admin | — | 1-2 dias | Médio+ |
-| 4 | Transferir ownership (órfãs) | — | 2-3 dias | Médio+ |
-| 5 | Digest semanal por email para admins | — | 2 dias | Médio |
-| 6 | Histórico/trend de exposição | — | 2-3 dias | Médio |
-| 7 | Relatórios de compliance por email | (6) | 3-4 dias | Médio |
-| 8 | Políticas por grupo | migration | 4-5 dias | Médio |
-| 9 | Relatório PDF/HTML para auditorias externas | — | 3-4 dias | Médio- |
+- [ ] **Screenshots with clean demo data.** The current ones (2026-07-08)
+  contain test paths and predate the newest features (new alert rules,
+  category filter, copy link, restyled personal view). Retake all 7 with
+  plausible demo data (`_seed.php` helps) and drop them into `screenshots/`
+  under the same names — the README and `info.xml` already point at them.
+- [ ] Push the repository to `github.com/kreotropic/share_audit` — the
+  screenshot URLs in `info.xml` point at
+  `raw.githubusercontent.com/.../master/screenshots/`; the App Store
+  validates them on upload.
+- [ ] Register the app on [apps.nextcloud.com](https://apps.nextcloud.com)
+  and obtain the **signing certificate** (generate the CSR, submit it, keep
+  the key safe).
+- [ ] `krankerl package` (runs `npm ci`, `l10n.py --check` and the build)
+  and sign the tarball (`openssl dgst -sha512 -sign ...`).
+- [ ] Clean-install test of the tarball on **NC 31** and **NC 33** (the
+  declared range) — dashboard, alerts, orphans, personal view, widget.
+- [ ] Upload the release + tag `v0.3.0` on GitHub.
 
-> **Nota sobre migrations:** #1, #2 e #8 precisam todos da primeira
-> migration da app (`lib/Migration/`). Se dois deles avançarem próximos um
-> do outro, coordenar numa só leva para não multiplicar migrations.
+---
 
-### 1. Acknowledge / exceções nos alertas
+## Post-launch — only if the app gains traction
 
-A lacuna funcional nº 1 identificada em revisão: todas as instâncias têm
-links públicos *intencionalmente* sem password (página pública, newsletter).
-Sem forma de marcar "isto é aceite", o contador de alertas nunca chega a
-zero — e um contador permanentemente vermelho deixa de ser olhado ao fim de
-duas semanas.
+Ordered by impact. The specs are recorded here so the thinking already done
+is not lost.
 
-- Tabela `oc_shareaudit_ack` (`share_id`, `rule_code`, `acknowledged_by`,
-  `acknowledged_at`, `note` opcional)
-- `getAlerts()` exclui (ou marca como "aceite", com filtro mostrar/esconder)
-  os pares `(share_id, rule_code)` presentes na tabela — não desaparecem,
-  saem da contagem ativa
-- `AckController` admin-only: `POST /api/alerts/{id}/ack`, `DELETE` para
-  remover a exceção
-- UI: botão "Aceitar" por alerta e filtro "mostrar aceites" (auditável)
+| # | Feature | Depends on | Effort | Impact |
+|---|---------|-----------|--------|--------|
+| 1 | Alert acknowledgements/exceptions | migration | 2-3 days | High |
+| 2 | Soft delete for shares | migration | 4-5 days | High |
+| 3 | Notify the owner on admin remediations | — | 1-2 days | Medium+ |
+| 4 | Ownership transfer (orphans) | — | 2-3 days | Medium+ |
+| 5 | Weekly email digest for admins | — | 2 days | Medium |
+| 6 | Exposure history / trend | — | 2-3 days | Medium |
+| 7 | Compliance reports by email | (6) | 3-4 days | Medium |
+| 8 | Per-group policies | migration | 4-5 days | Medium |
+| 9 | PDF/HTML report for external audits | — | 3-4 days | Medium- |
 
-### 2. Soft delete de partilhas (reciclagem)
+> **Note on migrations:** #1, #2 and #8 all need the app's first migration
+> (`lib/Migration/`). If two of them land close together, coordinate them
+> into a single batch instead of multiplying migrations.
 
-Revogar é irreversível — desaparece da `oc_share`. O issue upstream #50734
-descreve um utilizador a editar a BD à mão para recuperar links.
+### 1. Alert acknowledgements / exceptions
 
-- Tabela `oc_shareaudit_deleted` com todos os campos da partilha +
-  `deleted_at`, `deleted_by`, `purge_after`, `note`; TTL configurável
-  (30/60/90 dias) e `PurgeDeletedSharesJob` (TimedJob diário)
+The #1 functional gap identified in review: every instance has public links
+that are *intentionally* passwordless (a public page, a newsletter). With no
+way to mark "this is accepted", the alert counter never reaches zero — and a
+permanently red counter stops being looked at after two weeks.
+
+- Table `oc_shareaudit_ack` (`share_id`, `rule_code`, `acknowledged_by`,
+  `acknowledged_at`, optional `note`)
+- `getAlerts()` excludes (or marks as "accepted", with a show/hide filter)
+  the `(share_id, rule_code)` pairs present in the table — they don't
+  disappear, they leave the active count
+- Admin-only `AckController`: `POST /api/alerts/{id}/ack`, `DELETE` to
+  remove the exception
+- UI: an "Accept" button per alert and a "show accepted" filter (auditable)
+
+### 2. Soft delete for shares (recycle bin)
+
+Revoking is irreversible — the share disappears from `oc_share`. Upstream
+issue #50734 describes a user hand-editing the database to recover links.
+
+- Table `oc_shareaudit_deleted` with every share field plus `deleted_at`,
+  `deleted_by`, `purge_after`, `note`; configurable TTL (30/60/90 days) and
+  a daily `PurgeDeletedSharesJob` (TimedJob)
 - `SoftDeleteService` (softDelete / restore / permanentDelete /
-  purgeExpired) + `SoftDeleteController` + vista "Recently deleted shares"
-  com countdown e bulk restore/purge
-- **Desafios registados:** preservar o token ao restaurar (o
-  `createShare()` gera token novo — criar via API e fazer `UPDATE` do token;
-  fallback: aceitar token novo e notificar o owner); registar um listener de
-  `BeforeShareDeletedEvent` para capturar também as eliminações feitas pela
-  interface nativa do Nextcloud; monitorizar o crescimento da tabela em
-  instâncias grandes.
+  purgeExpired) + `SoftDeleteController` + a "Recently deleted shares" view
+  with a countdown and bulk restore/purge
+- **Recorded challenges:** preserving the token on restore
+  (`createShare()` generates a new token — create via the API and then
+  `UPDATE` the token; fallback: accept the new token and notify the owner);
+  registering a `BeforeShareDeletedEvent` listener so deletions made
+  through Nextcloud's native UI are captured too; monitoring table growth
+  on large instances.
 
-### 3. Notificar o owner nas remediações do admin
+### 3. Notify the owner on admin remediations
 
-Hoje, qualquer remediação do admin (`setPassword` / `setExpiration` /
-`revoke`) muda a partilha de outra pessoa sem aviso — o dono ganha uma
-password que não conhece ou perde o link sem explicação.
+Today, any admin remediation (`setPassword` / `setExpiration` / `revoke`)
+changes someone else's share without warning — the owner gains a password
+they don't know, or loses the link with no explanation.
 
-- `INotificationManager::notify()` ao `uid_owner` em **toda** a ação de
-  `ShareActionController`, com mensagem específica por ação
-- Ação alternativa **"pedir ao dono para corrigir"**: notificação com
-  deep-link para a vista pessoal do próprio dono — é o que muda a app de
-  "ferramenta de polícia" para "ferramenta de governança"
-- "Notify all owners" nas bulk actions
+- `INotificationManager::notify()` to the `uid_owner` on **every**
+  `ShareActionController` action, with an action-specific message
+- Alternative action **"ask the owner to fix it"**: a notification with a
+  deep link to the owner's own personal view — this is what turns the app
+  from a "policing tool" into a "governance tool"
+- "Notify all owners" among the bulk actions
 
-### 4. Transferir ownership de partilhas órfãs
+### 4. Ownership transfer for orphan shares
 
-A alternativa **não destrutiva** ao bulk revoke de órfãs: reatribuir a
-partilha quando alguém sai e um colega assume o trabalho.
+The **non-destructive** alternative to bulk-revoking orphans: reassign the
+share when someone leaves and a colleague takes over the work.
 
-- `OrphanShareService::transferShare(shareId, newOwnerId)` — atualiza
-  `uid_owner`/`uid_initiator`, verificando antes que o novo owner tem acesso
-  ao ficheiro (filecache, grupo ou external storage)
-- `POST /api/orphans/transfer` + modal de seleção de utilizador
-- **LDAP/AD:** utilizadores desativados no AD podem aparecer *enabled* no
-  Nextcloud se o sync não mapear o estado — documentar
-- UX de referência: `occ files:transfer-ownership`
+- `OrphanShareService::transferShare(shareId, newOwnerId)` — updates
+  `uid_owner`/`uid_initiator`, first verifying the new owner can access the
+  file (filecache, group, or external storage)
+- `POST /api/orphans/transfer` + a user-picker modal
+- **LDAP/AD:** users disabled in AD can show up as *enabled* in Nextcloud
+  if the sync doesn't map the state — document it
+- UX reference: `occ files:transfer-ownership`
 
-### 5. Digest semanal por email para admins
+### 5. Weekly email digest for admins
 
-Distinto do #7 (mais formal, depende de histórico): um digest leve —
-`TimedJob` semanal + `IMailer` com **novos** links inseguros, **novas**
-órfãs e a evolução do score desde o digest anterior (basta guardar o
-snapshot da semana anterior, não precisa da série temporal do #6). É o que
-mantém a app usada depois da segunda semana; implementar antes ou em
-paralelo com o #7, não depois.
+Distinct from #7 (more formal, depends on history): a light digest —
+weekly `TimedJob` + `IMailer` with **new** insecure links, **new** orphans
+and the score's movement since the previous digest (storing just the
+previous week's snapshot is enough; it doesn't need #6's full time series).
+This is what keeps the app in use past the second week; build it before or
+alongside #7, not after.
 
-### 6. Histórico / trend de exposição
+### 6. Exposure history / trend
 
-- Tabela `oc_shareaudit_exposure_history`, background job diário a gravar os
-  contadores por categoria, `getExposureTrend(days)` + gráfico de linha
-- Não é reconstruível retroativamente (partilhas revogadas desaparecem da
-  `oc_share`) — daí os snapshots
-- Justificação de negócio: "estamos a melhorar" é o argumento que o admin
-  mostra à gestão — vale mais cedo do que a tabela de esforço sugere
+- Table `oc_shareaudit_exposure_history`, a daily background job recording
+  the per-category counters, `getExposureTrend(days)` + a line chart
+- Not reconstructible retroactively (revoked shares vanish from
+  `oc_share`) — hence the snapshots
+- Business case: "we are improving" is the argument the admin shows
+  management — worth more, earlier, than the effort table alone suggests
 
-### 7. Relatórios de compliance por email
+### 7. Compliance reports by email
 
-Resumo periódico agendado (links inseguros, órfãs, score) aos
-administradores; estende o `ReportService` + `TimedJob`. Beneficia do #6
-para mostrar deltas ("+12 links públicos desde o último relatório").
+A scheduled periodic summary (insecure links, orphans, score) to the
+administrators; extends `ReportService` + a `TimedJob`. Benefits from #6 to
+show deltas ("+12 public links since the last report").
 
-### 8. Políticas por grupo
+### 8. Per-group policies
 
-Regras/exceções por grupo em vez de só globais — ex.: o grupo `Finance`
-nunca pode ter links públicos sem password, independentemente da regra
-global. Nenhuma ferramenta NC nativa faz isto visualmente.
+Rules/exceptions per group instead of global-only — e.g. the `Finance`
+group can never have passwordless public links, regardless of the global
+rule. No native NC tool does this visually.
 
-- Tabela `oc_shareaudit_group_policy` (`group_id`, `rule_code`, `mode`:
+- Table `oc_shareaudit_group_policy` (`group_id`, `rule_code`, `mode`:
   `enforce`/`forbid`/`inherit`)
-- `SecurityAnalyzerService::issuesFor()` resolve a regra efetiva cruzando
-  owner/initiator com `IGroupManager::getUserGroupIds()` antes do default
-  global
-- UI: secção "Políticas por grupo" em Settings
+- `SecurityAnalyzerService::issuesFor()` resolves the effective rule by
+  crossing owner/initiator with `IGroupManager::getUserGroupIds()` before
+  falling back to the global default
+- UI: a "Per-group policies" section in Settings
 
-### 9. Relatório PDF/HTML para auditorias externas
+### 9. PDF/HTML report for external audits
 
-O CSV é para o admin trabalhar os dados; um relatório formatado — cabeçalho
-com instância, data/hora, período, resumo executivo e hash simples de
-integridade — é para entregar a um auditor. Gerar HTML server-side com os
-agregados já existentes; decidir antes de implementar se um HTML standalone
-com print stylesheet chega ou se vale a pena uma dependência de PDF.
-Aplicar o mesmo critério do CSV: **sem tokens** no relatório.
+The CSV is for the admin to work the data; a formatted report — header with
+the instance name, generation date/time, covered period, an executive
+summary and a simple integrity hash — is for handing to an auditor.
+Generate the HTML server-side from the aggregates that already exist;
+decide before implementing whether a standalone HTML with a print
+stylesheet is enough or a PDF-rendering dependency is worth it. Apply the
+same criterion as the CSV: **no tokens** in the report.
 
 ---
 
-## Adiado por decisão (revisitar com evidência de instâncias maiores)
+## Deferred by decision (revisit with evidence from larger instances)
 
-- **Streaming no export CSV** — hoje materializa até 100k linhas
-  normalizadas em memória; um `StreamResponse` com fetch por chunks
-  eliminaria o pico. Adiado: sem evidência de instâncias desse tamanho.
-- **Índices em `share_with` (autocomplete/recipient search, `ILIKE %…%`) e
-  `path` (ordenação)** — tolerável a ~300 utilizadores. Quando justificar,
-  adicionar via migration — coordenar com a primeira migration da app
-  (#1/#2/#8 acima).
+- **Streaming CSV export** — currently materializes up to 100k normalized
+  rows in memory; a `StreamResponse` fetching in chunks would eliminate the
+  peak. Deferred: no evidence of instances that size.
+- **Indexes on `share_with` (autocomplete/recipient search, `ILIKE %…%`)
+  and `path` (sorting)** — tolerable at ~300 users. When justified, add via
+  migration — coordinate with the app's first migration (#1/#2/#8 above).
