@@ -44,7 +44,12 @@ Tudo o que se segue já está implementado e a funcionar:
 - **Widget** no dashboard do Nextcloud com os links que precisam de atenção
 - Toggle no admin (tab Settings) para desativar esta vista e o widget em toda
   a instância, para quem prefere manter a auditoria de partilhas como
-  assunto exclusivo de administração
+  assunto exclusivo de administração. Desativado, a ligação "My shares
+  audit" deixa de aparecer de todo na sidebar de Settings → Personal (não
+  é só uma página com aviso "desativado") — `PersonalSection` lança
+  `QueryException` no construtor quando desativado, que é exatamente o
+  que `\OC\Settings\Manager::getSections()` já apanha e ignora
+  silenciosamente para uma secção opcional.
 
 **Publicação**
 - i18n **EN + pt‑PT** (com `build/l10n.py` para gerar os bundles frontend;
@@ -171,18 +176,27 @@ desde o último relatório").
 
 ## Backlog menor
 
-- Paginação/seletor "Por página" nas restantes vistas (Orphans, Lookup)
-- Encurtar o título do widget — trunca no painel estreito do dashboard
-  ("Shares needing a…")
+- ~~Paginação/seletor "Por página" nas restantes vistas (Orphans, Lookup)~~ —
+  feito (2026-07-11): Orphans já tinha o `PageSizeSelect`; Lookup (Access
+  lookup / `RecipientDrilldown.vue`) ganhou o mesmo padrão, com
+  `RecipientLookupService::getShares()` agora paginado no servidor
+  (`page`/`limit`, `limit=0` devolve tudo numa página) em vez do limite fixo
+  de 500 sem paginação.
+- ~~Encurtar o título do widget — trunca no painel estreito do dashboard
+  ("Shares needing a…")~~ — feito (2026-07-11): `MyAlertsWidget::getTitle()`
+  passou a "Share alerts".
 - Screenshots com dados de demonstração limpos (atualmente há paths de teste)
 - ~~Testes: a app não tem suite de testes (`phpunit`)~~ — feito
   (2026-07-10, ver `QUALITY_REVIEW_PLAN.md` M-Q1): `tests/Unit/` cobre
-  `SecurityAnalyzerService::issuesFor()` e o early-return de
-  `ShareMapper::countInsecureLinks()`; `ShareCollectorService` continua sem
-  testes próprios (é maioritariamente normalização de dados sem lógica
-  condicional de peso).
-- Truncagem do label "Hiperligação pública" no gráfico "Partilhas por tipo"
-  (a coluna de labels do `HBarChart` está a 120px nessa vista)
+  `SecurityAnalyzerService::issuesFor()`, o early-return de
+  `ShareMapper::countInsecureLinks()`, `ShareCollectorService` e
+  `DisplayNameResolver`.
+- ~~Truncagem do label "Hiperligação pública" no gráfico "Partilhas por
+  tipo"~~ — feito (2026-07-11): `TypeBarChart.vue` passou a pedir
+  `label-width="170px"` ao `HBarChart` (era o default de 120px). Ajuste
+  raciocinado a partir do comprimento das labels (pt_PT é a mais longa),
+  não confirmado por screenshot — sem browser disponível neste ambiente
+  (ver nota abaixo).
 - Falta índice em `share_with` (autocomplete/recipient search, `ILIKE %...%`)
   e em `path` (ordenação). Numa instância de ~300 users é tolerável (dezenas
   de milhares de linhas); decisão adiada até haver evidência de instâncias

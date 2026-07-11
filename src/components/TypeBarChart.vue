@@ -1,5 +1,5 @@
 <template>
-	<HBarChart :rows="rows" />
+	<HBarChart :rows="rows" label-width="170px" />
 </template>
 
 <script>

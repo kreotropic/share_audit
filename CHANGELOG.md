@@ -45,7 +45,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   explicit warning about what that means.
 - Admin setting to turn the personal "My shares audit" page and its
   dashboard widget off instance-wide, for admins who want sharing audits to
-  stay an admin-only concern.
+  stay an admin-only concern. Turning it off also hides the "My shares
+  audit" entry from the Settings → Personal sidebar entirely, instead of
+  leaving a link that only leads to a "disabled" notice.
+- Access lookup (recipient drill-down) now has the same page-size selector
+  and pagination as the rest of the app, backed by a paginated
+  `RecipientLookupService::getShares()`, instead of a fixed unpaginated
+  500-row cap with a "narrow your search" warning.
 - Two new configurable security-alert rules: a public link open for
   anonymous upload without a password (file drop, or full create+update
   access), and a native group share granting edit or reshare permission to
@@ -62,10 +68,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - Several UI strings introduced alongside the above were missing from
   `l10n/*.json`, so pt_PT users saw English text on the newest features.
+- The dashboard widget's title/empty-state text and the admin settings
+  section name ("Share Audit" in the sidebar) were never translatable at
+  all — `build/l10n.py` only scanned the frontend (`src/`), missing every
+  PHP-side `IL10N::t()` call (`lib/Dashboard/MyAlertsWidget.php`,
+  `lib/Settings/AdminSection.php`). It now also scans `lib/**/*.php`, and
+  the 5 strings this caught are translated.
 - The "with expiration" / "without expiration" filter (All shares column
   filter, and the underlying flag used by exports) now treats an
   already-expired date as "without expiration" instead of counting it as
   still protected.
+- The dashboard widget's title no longer truncates in the narrow widget
+  panel ("Shares needing attention" → "Share alerts").
+- The "Public link" label (and its longer pt_PT translation) no longer
+  gets ellipsis-truncated in the dashboard's "Shares by type" chart.
 
 ## [0.2.1]
 

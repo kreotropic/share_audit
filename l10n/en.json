@@ -1,7 +1,12 @@
 {
     "translations": {
         "Share Audit Dashboard": "Share Audit Dashboard",
+        "Share Audit": "Share Audit",
         "Overview and audit of every share on this instance.": "Overview and audit of every share on this instance.",
+        "Share alerts": "Share alerts",
+        "None of your shares need attention.": "None of your shares need attention.",
+        "No expiration": "No expiration",
+        "Sensitive file": "Sensitive file",
         "Dashboard": "Dashboard",
         "All shares": "All shares",
         "Security alerts": "Security alerts",
@@ -202,7 +207,6 @@
         "Items per page": "Items per page",
         "Lookup & Orphans": "Lookup & Orphans",
         "Search user, group or email to see what they can reach…": "Search user, group or email to see what they can reach…",
-        "Showing the first {shown} of {total} shares. Narrow your search to see the rest.": "Showing the first {shown} of {total} shares. Narrow your search to see the rest.",
         "All shares, sortable and filterable by column.": "All shares, sortable and filterable by column.",
         "Already expired": "Already expired",
         "Clear the filter to see the other insecure links.": "Clear the filter to see the other insecure links.",

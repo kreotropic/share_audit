@@ -3,7 +3,11 @@
 l10n helper for the share_audit_dashboard app.
 
 What it does:
-  1. Extracts every translatable string from src/ (t()/n() calls).
+  1. Extracts every translatable string from src/ (t()/n() calls) AND from
+     lib/ (PHP-side $this-><prop>->t()/->n() calls on an IL10N instance —
+     e.g. dashboard widget titles, settings section names — which Nextcloud
+     also looks up in these same l10n/*.json files, not just the frontend
+     bundle).
   2. Reports strings used in code but missing from l10n/en.json (must be
      translated by hand) and strings in l10n/en.json no longer used in code.
   3. Regenerates every l10n/<lang>.js from its l10n/<lang>.json, in the
@@ -40,6 +44,12 @@ _APP = r"(?:'share_audit_dashboard'|APP)"
 _T = re.compile(r"[^\w.]t\(\s*" + _APP + r"\s*,\s*" + _STR)
 _N = re.compile(r"[^\w.]n\(\s*" + _APP + r"\s*,\s*" + _STR + r"\s*,\s*" + _STR)
 
+# PHP-side: $this-><prop>->t('...') / ->n('...', '...', ...) on an IL10N
+# instance (property name varies — $l10n, $l, ...). No APP argument: IL10N
+# is already scoped to this app when Nextcloud constructs it.
+_PHP_T = re.compile(r"\$this->\w+->t\(\s*" + _STR)
+_PHP_N = re.compile(r"\$this->\w+->n\(\s*" + _STR + r"\s*,\s*" + _STR)
+
 
 def extract_source_keys() -> set[str]:
     """Return every translatable key in the canonical Nextcloud form.
@@ -58,6 +68,14 @@ def extract_source_keys() -> set[str]:
         for m in _N.finditer(text):
             keys.add(f"_{m.group(1)}_::_{m.group(2)}_")
         for m in _T.finditer(text):
+            keys.add(m.group(1))
+
+    php_pattern = os.path.join(ROOT, "lib", "**", "*.php")
+    for path in glob.glob(php_pattern, recursive=True):
+        text = open(path, encoding="utf-8").read()
+        for m in _PHP_N.finditer(text):
+            keys.add(f"_{m.group(1)}_::_{m.group(2)}_")
+        for m in _PHP_T.finditer(text):
             keys.add(m.group(1))
     return keys
 

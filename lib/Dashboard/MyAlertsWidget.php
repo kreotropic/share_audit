@@ -42,7 +42,9 @@ class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2, IIconWidget {
     }
 
     public function getTitle(): string {
-        return $this->l10n->t('Shares needing attention');
+        // Short on purpose: the widget panel is narrow and truncates
+        // anything much longer ("Shares needing a…").
+        return $this->l10n->t('Share alerts');
     }
 
     public function getOrder(): int {

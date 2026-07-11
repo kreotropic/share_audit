@@ -1,4 +1,4 @@
-# Checklist global — estado dos planos (2026-07-10)
+# Checklist global — estado dos planos (2026-07-11)
 
 Ponto da situação combinando [SECURITY_REVIEW_PLAN.md](SECURITY_REVIEW_PLAN.md)
 (High/Medium), [SECURITY_REVIEW_PLAN_LOW.md](SECURITY_REVIEW_PLAN_LOW.md)
@@ -9,7 +9,7 @@ qualidade) e [ROADMAP.md](ROADMAP.md). Cada documento continua a ser a fonte
 de verdade para o detalhe de cada item — isto é só o resumo para saber
 rapidamente o que falta.
 
-**Total: 47 feitos · 2 adiados · 16 por fazer**
+**Total: 50 feitos · 2 adiados · 13 por fazer**
 
 > ✅ A 2ª revisão (2026-07-09) validou a execução dos planos de 2026-07-08;
 > os 6 itens que resultaram (R1–R6, incluindo os 3 que bloqueavam a
@@ -31,6 +31,16 @@ rapidamente o que falta.
 > fora; G2 (acknowledge) foi deliberadamente deixado de fora por implicar a
 > primeira migration da app (decisão de esquema a confirmar antes de
 > avançar). Ver a nota de execução em `FEATURE_GAPS_PLAN.md`.
+>
+> ✅ (2026-07-11) 3 dos 4 itens abertos do `ROADMAP.md` "Backlog menor"
+> feitos: paginação/seletor no Access lookup (Orphans já tinha), título do
+> widget encurtado, truncagem do label "Hiperligação pública" corrigida
+> (`label-width` — ver nota de verificação abaixo). Só falta "Screenshots
+> com dados de demonstração limpos", propositadamente fora desta ronda.
+> De caminho, corrigido um bug de UX reportado diretamente pelo
+> utilizador: a vista pessoal continuava a aparecer na sidebar de
+> Settings → Personal mesmo desativada pelo admin — ver `ROADMAP.md`
+> secção "Vista pessoal".
 
 ---
 
@@ -140,7 +150,7 @@ planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
 
 ---
 
-## ROADMAP.md — 0/11
+## ROADMAP.md — 5/11
 
 ### Pós-lançamento (só se houver tração)
 
@@ -155,40 +165,53 @@ planos); nenhum bloqueia nada, mas C1 é um bug de verdade.
 
 ### Backlog menor
 
-- [ ] Paginação/seletor "Por página" em Orphans e Lookup.
-- [ ] Encurtar o título do widget (trunca no painel estreito).
+- [x] Paginação/seletor "Por página" em Orphans e Lookup. Feito
+      (2026-07-11): Orphans já tinha; Lookup ganhou o mesmo `PageSizeSelect`
+      + paginação real no servidor (`RecipientLookupService::getShares()`
+      aceita `page`/`limit` em vez do limite fixo de 500).
+- [x] Encurtar o título do widget (trunca no painel estreito). Feito
+      (2026-07-11): "Shares needing attention" → "Share alerts".
 - [ ] Screenshots com dados de demonstração limpos.
 - [x] Suite de testes (`phpunit`) — maior retorno em
       `SecurityAnalyzerService` e `ShareCollectorService`. Feito via
       `QUALITY_REVIEW_PLAN.md` M-Q1 (2026-07-10); `ShareCollectorService`
       ganhou o seu próprio `tests/Unit/ShareCollectorServiceTest.php` ao
       corrigir G5.2 (hasExpiration) na mesma sessão.
-- [ ] Truncagem do label "Hiperligação pública" no gráfico "Partilhas por
-      tipo".
+- [x] Truncagem do label "Hiperligação pública" no gráfico "Partilhas por
+      tipo". Feito (2026-07-11): `label-width` 120px → 170px. Raciocinado
+      pelo comprimento das labels pt_PT, **não confirmado por screenshot**
+      — sem browser disponível no ambiente (Playwright instalado mas sem
+      libs no host, sem sessão autenticada disponível para testar via
+      Docker); vale um olho humano rápido antes do próximo release.
 - [x] Índice em `share_with`/`path` (= P5) — decisão já tomada: adiar até
       haver instâncias maiores.
+
+**Também corrigido nesta ronda (2026-07-11), fora do backlog escrito —
+feedback direto do utilizador ao usar a app:** a secção "My shares audit"
+continuava a aparecer na sidebar de Settings → Personal mesmo com a vista
+desativada (só a página é que mostrava o aviso). `PersonalSection` agora
+lança `QueryException` no construtor quando desativado — o mecanismo que
+`\OC\Settings\Manager::getSections()` já trata como "secção opcional,
+esconder da sidebar" — em vez de continuar a mostrar uma ligação morta.
 
 ---
 
 ## Sugestão de próximo passo
 
-1. **PRE_RELEASE_PLAN.md está fechado (R1–R6)** — nada resta a bloquear a
-   submissão à App Store; `l10n.py --check` está verde e faz parte do
-   `krankerl package`.
-2. **QUALITY_REVIEW_PLAN.md está fechado (C1, C2, M-Q1–M-Q3)** — auditoria
-   de qualidade sem itens pendentes; a app ganhou testes automatizados e CI
-   pela primeira vez nesta ronda.
-3. Rever o diff (nada foi commitado) e cortar o **0.3.0** — inclui a
-   correção do exposure score (C1), os cabeçalhos SPDX (C2), os testes/CI
-   novos (que não vão no tarball — `vendor`/`tests`/`phpunit.xml`/`.github`
-   estão no `.nextcloudignore`), o rate limit em falta (M-Q2), a correção do
-   `hasExpiration` (G5.2/G5.3) e as duas regras de alerta novas (G4:
-   `group_share_editable`, `public_upload`) — 38 testes phpunit, tudo verde.
-4. **G2 (acknowledge)** é agora o único item de maior impacto que resta e o
-   próximo passo natural — é a primeira migration da app, por isso foi
-   deixado fora do trabalho autónomo desta sessão. Quando avançar, tem de
-   cobrir as duas regras novas de G4 também (ver nota em
+1. **PRE_RELEASE_PLAN.md e QUALITY_REVIEW_PLAN.md estão fechados** — nada
+   resta a bloquear a submissão à App Store; `l10n.py --check` e o phpunit
+   (49 testes) correm em CI a cada push.
+2. **Backlog menor quase fechado** (5/6 — falta só as screenshots) e o bug
+   de UX da sidebar da vista pessoal corrigido — ver notas acima
+   (2026-07-11). Por commitar: rever o diff antes de dar `git commit`
+   (nada foi commitado automaticamente nesta sessão).
+3. Antes do próximo release, confirmar visualmente a correção da truncagem
+   do label "Hiperligação pública" (`TypeBarChart.vue`) — foi raciocinada
+   a partir do comprimento do texto, não confirmada por screenshot (sem
+   browser disponível neste ambiente de desenvolvimento).
+4. **G2 (acknowledge)** continua a ser o único item de maior impacto que
+   resta e o próximo passo natural — é a primeira migration da app. Quando
+   avançar, tem de cobrir as duas regras novas de G4 também (ver nota em
    `FEATURE_GAPS_PLAN.md`), e pode reutilizar o padrão de testes já criado
    (M-Q1) para a nova lógica de `acknowledged`. G2 **não espera** pelo soft
-   delete do roadmap (#1), que está condicional a tração e sem previsão —
-   ver `QUALITY_REVIEW_PLAN.md`.
+   delete do roadmap (#1), que está condicional a tração e sem previsão.

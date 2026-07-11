@@ -9,16 +9,31 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Settings;
 
+use OCA\ShareAuditDashboard\Service\SettingsService;
+use OCP\AppFramework\QueryException;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\Settings\IIconSection;
 
 class PersonalSection implements IIconSection {
 
+    /**
+     * @throws QueryException when the admin turned the personal view off
+     *         (SettingsService::isPersonalViewEnabled()). \OC\Settings\
+     *         Manager::getSections() specifically catches QueryException
+     *         around this construction and silently drops the section from
+     *         the sidebar on failure — the supported way for an optional
+     *         settings section to hide itself, instead of always showing a
+     *         link that leads to a "disabled" notice.
+     */
     public function __construct(
         private IL10N $l,
         private IURLGenerator $url,
+        private SettingsService $settings,
     ) {
+        if (!$this->settings->isPersonalViewEnabled()) {
+            throw new QueryException('Personal view disabled by administrator');
+        }
     }
 
     public function getID(): string {
