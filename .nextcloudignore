@@ -1,32 +1,38 @@
+# Excluded from the App Store tarball (krankerl package).
+# Ships: appinfo/, lib/, js/, css/, img/, l10n/, templates/,
+# README.md, CHANGELOG.md, ROADMAP.md, LICENSE.
+
+# Dependencies and sources (compiled js/ ships instead)
 node_modules
 vendor
 src
-tests
 build
-screenshots
-l10n/*.bak
-.git
-.gitignore
-.nextcloudignore
+
+# Tests and CI
+tests
+phpunit.xml
+.phpunit.result.cache
 .github
-.vscode
+
+# Dev/build config
 webpack.config.js
 babel.config.js
 package.json
 package-lock.json
 composer.json
 composer.lock
-phpunit.xml
-.phpunit.result.cache
 krankerl.toml
-_smoke.php
-_seed.php
-_seedp.php
-_reset.php
+
+# Repo housekeeping
+.git
+.gitignore
+.nextcloudignore
+.vscode
+
+# Local dev scripts and artifacts
+_*.php
 js/*.map
-STATUS.md
-SECURITY_REVIEW_PLAN.md
-SECURITY_REVIEW_PLAN_LOW.md
-FEATURE_GAPS_PLAN.md
-PRE_RELEASE_PLAN.md
-QUALITY_REVIEW_PLAN.md
+l10n/*.bak
+
+# Screenshots ship via GitHub raw URLs in info.xml, not in the tarball
+screenshots

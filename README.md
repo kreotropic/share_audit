@@ -27,15 +27,29 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
   stat card or exposure category to jump straight into the filtered list.
 - **All shares** — a filterable, sortable, server‑side paginated table of every
   share on the instance. Filters live in the column headers (type, path, owner,
-  recipient, password, expiration). Export the filtered view to **CSV**.
-- **Security alerts** — public links with no password, no expiration, or exposing
-  a sensitive file type. Fix them individually or in **bulk**: add a generated
-  password, set an expiration, or revoke. The alert rules are configurable.
+  recipient, password, expiration); every row links straight to the file in
+  **Files**. Export the filtered view to **CSV** — public‑link tokens are only
+  included with an explicit opt‑in and warning, since a token is a bare
+  credential.
+- **Security alerts** — five configurable rules: public link with **no
+  password**, with **no expiration**, exposing a **sensitive file type**,
+  open for **anonymous upload without a password** (file drop), and a group
+  share granting **edit/reshare to a large group** (member threshold
+  configurable). Links **expiring soon** or **already expired** are flagged
+  too. Click a bar in the category breakdown to filter the list; copy the
+  public URL or open the file straight from each alert. Fix issues
+  individually or in **bulk**: add a generated password, set an expiration
+  (7/30/90 days), or revoke.
 - **Lookup & Orphans** — search a user, group or email and see **every file and
-  folder they can reach**, with *revoke all access* (built for audits and
-  offboarding suppliers); plus shares still owned by **disabled or deleted
-  accounts**, with bulk revoke — a classic offboarding risk Nextcloud does not
-  surface.
+  folder they can reach** (paginated), with *revoke all access* (built for
+  audits and offboarding suppliers); plus shares still owned by **disabled or
+  deleted accounts**, with bulk revoke — a classic offboarding risk Nextcloud
+  does not surface.
+- **Auditable by design** — every revocation made through the app (single,
+  bulk, orphan cleanup, revoke‑all) goes through Nextcloud's share manager,
+  so federated unshares, activity entries and app hooks all run — and is
+  recorded in the audit log when the `admin_audit` app is enabled: who
+  revoked what, when.
 
 ### For every user (Settings → Personal → My shares audit)
 
@@ -81,6 +95,11 @@ passwords are shown **once** — copy them immediately, they are not stored or s
 again.
 
 ## Known Limitations
+
+- **Revocations are permanent.** Revoking a share deletes it — there is no
+  recycle bin yet (a soft‑delete with restore is the top item on the
+  [roadmap](ROADMAP.md)). The confirmation step and the audit‑log trail are
+  the current safety nets; double‑check before bulk revokes.
 
 - **It audits Nextcloud shares, not raw filesystem permissions.** The dashboard
   reads the shares Nextcloud records (the `oc_share` table): user, group, public
@@ -133,12 +152,26 @@ npm run watch      # rebuild on change
 ### Translations build
 
 After editing a translation, regenerate the frontend `l10n/*.js` bundles from the
-`l10n/*.json` sources (and check for missing/orphaned strings):
+`l10n/*.json` sources (and check for missing/orphaned strings — the scan covers
+both the Vue sources under `src/` and the PHP-side `IL10N::t()` calls under
+`lib/`):
 
 ```bash
 python3 build/l10n.py           # regenerate all l10n/<lang>.js
-python3 build/l10n.py --check   # CI: fail if strings are missing
+python3 build/l10n.py --check   # fail if strings are missing (also gates packaging)
 ```
+
+### Tests and CI
+
+```bash
+composer install                # dev dependencies (nextcloud/ocp, phpunit)
+vendor/bin/phpunit -c phpunit.xml
+```
+
+Every push runs the GitHub Actions workflow in `.github/workflows/ci.yml`:
+l10n coverage check, PHP lint + unit tests, and the frontend production build.
+`krankerl package` runs the l10n check again before building the release
+tarball.
 
 ## Contributing
 
@@ -160,13 +193,15 @@ Pull requests welcome! Please open an issue first to discuss significant changes
 
 *The snapshots above showcase the admin all-shares table, the security-alerts bulk
 fixes, the exposure overview, the access-lookup audit, the per-user personal view,
-and the dashboard widget. These images are picked up by the App Store crawler to
-showcase the app.*
+and the dashboard widget. The App Store listing uses the same images via the
+URLs declared in `appinfo/info.xml`.*
 
 ## Roadmap
 
-Planned features (soft delete / recycle bin for shares, ownership transfer, email
-compliance reports, and more) are documented in [ROADMAP.md](ROADMAP.md).
+Planned features (alert acknowledgements/exceptions, soft delete / recycle bin
+for shares, owner notifications, ownership transfer, email digests and
+compliance reports, per-group policies, and more) are documented in
+[ROADMAP.md](ROADMAP.md).
 
 ## Changelog
 

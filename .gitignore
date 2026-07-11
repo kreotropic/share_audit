@@ -1,5 +1,14 @@
+# Dependencies
 /node_modules/
 /vendor/
+
+# Build/test artifacts
 /js/*.map
 /.phpunit.result.cache
-_smoke.php
+/l10n/*.bak
+
+# Local dev scripts (seed/reset/smoke) — never part of the repo
+/_*.php
+
+# Editor
+/.vscode/
