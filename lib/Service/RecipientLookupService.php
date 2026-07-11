@@ -33,6 +33,14 @@ class RecipientLookupService {
      */
     private const BATCH_SIZE = 500;
 
+    /**
+     * How many display-name matches (users, and separately groups) feed the
+     * exact-id share lookup in search(). Bounds the size of the IN()
+     * clause; an autocomplete query matching more than this many accounts
+     * is too vague for the extra ids to add signal anyway.
+     */
+    private const NAME_MATCH_LIMIT = 50;
+
     /** Share types that carry a recipient in share_with (links have none). */
     private const RECIPIENT_TYPES = [
         IShare::TYPE_USER, IShare::TYPE_GROUP, IShare::TYPE_EMAIL,
@@ -62,8 +70,13 @@ class RecipientLookupService {
     }
 
     /**
-     * Autocomplete: recipients whose id/email matches the query, grouped by
-     * (share_with, share_type) with a share count.
+     * Autocomplete: recipients whose id, email OR display name matches the
+     * query, grouped by (share_with, share_type) with a share count.
+     *
+     * share_with only stores the internal id. On an LDAP/AD-backed instance
+     * that is an opaque GUID, so searching by a person's name would never
+     * match it — the query is therefore also resolved against user and
+     * group display names first, and those ids are matched exactly.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -76,13 +89,40 @@ class RecipientLookupService {
         }
         $like = '%' . $this->db->escapeLikeParameter($query) . '%';
 
+        $matchedUids = array_map(
+            static fn ($user) => $user->getUID(),
+            $this->userManager->searchDisplayName($query, self::NAME_MATCH_LIMIT),
+        );
+        $matchedGids = array_map(
+            static fn ($group) => $group->getGID(),
+            $this->groupManager->search($query, self::NAME_MATCH_LIMIT),
+        );
+
         $qb = $this->db->getQueryBuilder();
+        $recipientMatches = [$qb->expr()->iLike('share_with', $qb->createNamedParameter($like))];
+        if ($matchedUids !== []) {
+            $recipientMatches[] = $qb->expr()->andX(
+                $qb->expr()->eq('share_type',
+                    $qb->createNamedParameter(IShare::TYPE_USER, IQueryBuilder::PARAM_INT)),
+                $qb->expr()->in('share_with',
+                    $qb->createNamedParameter($matchedUids, IQueryBuilder::PARAM_STR_ARRAY)),
+            );
+        }
+        if ($matchedGids !== []) {
+            $recipientMatches[] = $qb->expr()->andX(
+                $qb->expr()->eq('share_type',
+                    $qb->createNamedParameter(IShare::TYPE_GROUP, IQueryBuilder::PARAM_INT)),
+                $qb->expr()->in('share_with',
+                    $qb->createNamedParameter($matchedGids, IQueryBuilder::PARAM_STR_ARRAY)),
+            );
+        }
+
         $qb->select('share_with', 'share_type')
             ->selectAlias($qb->func()->count('*'), 'cnt')
             ->from('share')
             ->where($qb->expr()->in('share_type',
                 $qb->createNamedParameter(self::RECIPIENT_TYPES, IQueryBuilder::PARAM_INT_ARRAY)))
-            ->andWhere($qb->expr()->iLike('share_with', $qb->createNamedParameter($like)))
+            ->andWhere($qb->expr()->orX(...$recipientMatches))
             ->groupBy('share_with', 'share_type')
             ->orderBy('cnt', 'DESC')
             ->setMaxResults($limit);

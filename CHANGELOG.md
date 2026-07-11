@@ -66,6 +66,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   table styling).
 
 ### Fixed
+- On LDAP/AD-backed instances, where internal account ids are opaque GUIDs,
+  names were effectively invisible in two places: every listing's owner and
+  recipient columns showed the raw uid (they now resolve display names,
+  batched per unique id, with the id kept as a secondary line), and the
+  Access lookup search could never find a person by name because it only
+  matched the stored `share_with` id — it now also resolves the query
+  against user and group display names and matches those ids exactly.
 - Several UI strings introduced alongside the above were missing from
   `l10n/*.json`, so pt_PT users saw English text on the newest features.
 - The dashboard widget's title/empty-state text and the admin settings
