@@ -54,6 +54,17 @@
 			</section>
 
 			<section class="sad-settings__block">
+				<h3>{{ t('share_audit_dashboard', 'Recycle bin') }}</h3>
+				<p class="settings-hint">
+					{{ t('share_audit_dashboard', 'A revoked share (through this app, or unshared natively) is kept in the "Deleted shares" tab for this many days before being permanently removed, so it can be restored if that was a mistake.') }}
+				</p>
+				<NcTextField v-model.number="retentionDays"
+					type="number"
+					class="sad-settings__ext"
+					:label="t('share_audit_dashboard', 'Days')" />
+			</section>
+
+			<section class="sad-settings__block">
 				<h3>{{ t('share_audit_dashboard', 'Personal view') }}</h3>
 				<p class="settings-hint">
 					{{ t('share_audit_dashboard',
@@ -108,6 +119,7 @@ export default {
 			saveError: null,
 			sensitiveExtensions: '',
 			groupShareMinMembers: 20,
+			retentionDays: 30,
 			rules: {
 				no_password: true,
 				no_expiration: true,
@@ -123,6 +135,7 @@ export default {
 			const data = await fetchSettings()
 			this.sensitiveExtensions = data.sensitiveExtensions
 			this.groupShareMinMembers = data.groupShareMinMembers ?? this.groupShareMinMembers
+			this.retentionDays = data.retentionDays ?? this.retentionDays
 			this.rules = { ...this.rules, ...data.rules }
 			this.personalViewEnabled = data.personalViewEnabled
 		} catch (e) {
@@ -147,6 +160,7 @@ export default {
 					rulePublicUpload: this.rules.public_upload,
 					personalViewEnabled: this.personalViewEnabled,
 					groupShareMinMembers: this.groupShareMinMembers,
+					retentionDays: this.retentionDays,
 				})
 				this.saved = true
 				this.$emit('saved')

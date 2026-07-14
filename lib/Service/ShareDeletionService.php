@@ -57,6 +57,7 @@ class ShareDeletionService {
         private LoggerInterface $logger,
         private ShareAuditLogger $auditLogger,
         private SecurityAnalyzerService $analyzer,
+        private SoftDeleteService $softDelete,
     ) {
     }
 
@@ -158,6 +159,14 @@ class ShareDeletionService {
      * @param int[] $ids
      */
     private function deleteDirect(array $ids): int {
+        // This is the one deletion path that never touches IShareManager, so
+        // BeforeShareDeletedEvent (SoftDeleteListener) never fires for it —
+        // capture explicitly before the row is gone. The rows given to this
+        // whole call chain (see deleteRows()'s docblock) may only carry
+        // id/share_type/uid_owner, so re-select full rows here rather than
+        // relying on what the caller happened to pass in.
+        $this->captureBeforeRawDelete($ids);
+
         $children = $this->db->getQueryBuilder();
         $children->delete('share')
             ->where($children->expr()->in('parent',
@@ -169,5 +178,29 @@ class ShareDeletionService {
             ->where($qb->expr()->in('id',
                 $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
         return $qb->executeStatement();
+    }
+
+    /**
+     * @param int[] $ids
+     */
+    private function captureBeforeRawDelete(array $ids): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from('share')
+            ->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+        $result = $qb->executeQuery();
+        $rows = $result->fetchAll();
+        $result->closeCursor();
+
+        foreach ($rows as $row) {
+            try {
+                $this->softDelete->captureRow($row);
+            } catch (\Throwable $e) {
+                // Same rule as SoftDeleteListener: never let a capture
+                // failure block the deletion the caller asked for.
+                $this->logger->error('Soft-delete capture failed for share {id} (direct-delete fallback): {exception}', [
+                    'id' => $row['id'] ?? '?', 'exception' => $e,
+                ]);
+            }
+        }
     }
 }

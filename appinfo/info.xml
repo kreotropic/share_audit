@@ -28,7 +28,7 @@ fix them in bulk. Regular users get a personal view to audit and clean up the fi
 
 Unlike the CLI‑only sharelisting app, everything is available in the browser.
     ]]></description>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <licence>agpl</licence>
     <author mail="ricardo.ferreira@jofebar.com">Ricardo Ferreira</author>
     <namespace>ShareAuditDashboard</namespace>
@@ -52,6 +52,10 @@ Unlike the CLI‑only sharelisting app, everything is available in the browser.
     <dashboard>
         <widget>OCA\ShareAuditDashboard\Dashboard\MyAlertsWidget</widget>
     </dashboard>
+
+    <background-jobs>
+        <job>OCA\ShareAuditDashboard\BackgroundJob\PurgeDeletedSharesJob</job>
+    </background-jobs>
 
     <settings>
         <admin-section>OCA\ShareAuditDashboard\Settings\AdminSection</admin-section>

@@ -31,6 +31,9 @@ class SettingsService {
     /** Default threshold (member count) above which an editable group share is flagged. */
     private const DEFAULT_GROUP_SHARE_MIN_MEMBERS = 20;
 
+    /** Default days a revoked share stays in the recycle bin before being purged. */
+    private const DEFAULT_RETENTION_DAYS = 30;
+
     public function __construct(
         private IAppConfig $config,
     ) {
@@ -79,6 +82,19 @@ class SettingsService {
     }
 
     /**
+     * Days a revoked share stays in the recycle bin (Deleted shares tab)
+     * before PurgeDeletedSharesJob permanently removes it.
+     */
+    public function getRetentionDays(): int {
+        $value = $this->config->getValueInt(
+            Application::APP_ID,
+            'retention_days',
+            self::DEFAULT_RETENTION_DAYS,
+        );
+        return max(1, $value);
+    }
+
+    /**
      * Full settings payload for the frontend.
      *
      * @return array<string, mixed>
@@ -93,6 +109,7 @@ class SettingsService {
             'groupShareMinMembers' => $this->getGroupShareMinMembers(),
             'rules' => $rules,
             'personalViewEnabled' => $this->isPersonalViewEnabled(),
+            'retentionDays' => $this->getRetentionDays(),
         ];
     }
 
@@ -106,6 +123,7 @@ class SettingsService {
         array $rules,
         bool $personalViewEnabled = true,
         int $groupShareMinMembers = self::DEFAULT_GROUP_SHARE_MIN_MEMBERS,
+        int $retentionDays = self::DEFAULT_RETENTION_DAYS,
     ): void {
         $this->config->setValueString(
             Application::APP_ID,
@@ -122,6 +140,7 @@ class SettingsService {
             'personal_view_enabled',
             $personalViewEnabled ? 'yes' : 'no',
         );
+        $this->config->setValueInt(Application::APP_ID, 'retention_days', max(1, $retentionDays));
     }
 
     /**

@@ -1,13 +1,14 @@
 # Share Audit Dashboard — Roadmap
 
-## Estado atual (v0.3.0)
+## Estado atual (v0.4.0)
 
-**Fases 1–3 concluídas, mais a 2ª revisão pré-submissão (R1–R6).** A app está
-funcionalmente completa e sem bloqueios conhecidos para lançamento na App
-Store — ver [PRE_RELEASE_PLAN.md](PRE_RELEASE_PLAN.md) e
-[CHANGELOG.md](CHANGELOG.md) (0.3.0) para o detalhe do que essa ronda
-corrigiu (cache de alertas, `min-version` 31, lotes no revoke-all, etc.).
-Tudo o que se segue já está implementado e a funcionar:
+**Fases 1–3 concluídas, mais a 2ª revisão pré-submissão (R1–R6) e a feature
+#1 do pós-lançamento (Soft delete).** A app está funcionalmente completa e
+sem bloqueios conhecidos para lançamento na App Store — ver
+[PRE_RELEASE_PLAN.md](PRE_RELEASE_PLAN.md) e [CHANGELOG.md](CHANGELOG.md)
+(0.3.0) para o detalhe do que essa ronda corrigiu (cache de alertas,
+`min-version` 31, lotes no revoke-all, etc.). Tudo o que se segue já está
+implementado e a funcionar:
 
 ### Entregue
 
@@ -55,8 +56,50 @@ Tudo o que se segue já está implementado e a funcionar:
 - `min-version` 31 (NC 30 já não é suportado — o revoke de órfãs depende de
   um parâmetro que só existe a partir do NC 31)
 
-> ⚠️ **Nota importante:** as revogações são **permanentes** — a partilha
-> desaparece da `oc_share`. O soft delete (abaixo) é o que resolve isto.
+**Soft delete de partilhas (reciclagem)** — DONE & verified 2026-07-14
+- Nova tabela `oc_shareaudit_deleted` (primeira migration da app,
+  `lib/Migration/Version0004Date...`), `DeletedShare`/`DeletedShareMapper`
+  (Entity/QBMapper — único sítio da app a usar esse padrão em vez de SQL cru,
+  por ser uma tabela própria da app com CRUD simples)
+- `SoftDeleteService`: captura (de um `IShare` vivo ou de uma linha crua),
+  listagem paginada, `restore()`, `purge()`/`purgeMany()`, `purgeExpired()`
+  (chamado diariamente por `PurgeDeletedSharesJob`, registado em
+  `<background-jobs>` no info.xml)
+- **Captura universal via evento**: `SoftDeleteListener` ouve
+  `OCP\Share\Events\BeforeShareDeletedEvent` — cobre TODAS as revogações
+  desta app (todas passam por `IShareManager::deleteShare()`) e também
+  revogações nativas (Files app, outras apps, `occ`, API OCS de sharing).
+  Verificado ao vivo: uma partilha apagada via
+  `DELETE /ocs/v2.php/apps/files_sharing/api/v1/shares/{id}` (sem tocar
+  nesta app) apareceu corretamente na reciclagem. O único caminho que não
+  passa por este evento é `ShareDeletionService::deleteDirect()` (fallback
+  quando o provider falha) — capturado explicitamente aí, re-selecionando a
+  linha completa antes do `DELETE` cru.
+- **Restore()** recria a partilha via `IShareManager::createShare()`
+  (permissions/provider/mount points tratados normalmente) e depois faz um
+  `UPDATE` cru só às colunas `token`/`password` para repor os valores
+  originais — `setPassword()`/`setToken()` num share novo tratá-los-iam como
+  valor em texto simples e re-hash/gerar-novo-token, o que quebraria a
+  password e mudaria sempre o URL. Se esse `UPDATE` falhar (ex.: o token
+  original foi reutilizado entretanto por outro link — é `UNIQUE`), a
+  partilha continua criada, só com token novo — reportado ao frontend como
+  `tokenChanged` em vez de falhar.
+- `FileNodeResolver`: wrapper fino sobre `IRootFolder`, existe só para
+  isolar essa dependência (que estende `OC\Hooks\Emitter`, indisponível num
+  ambiente `composer install` puro — mockar `IRootFolder` diretamente parte
+  o PHPUnit tanto no host como na CI) do resto do código, mantendo
+  `SoftDeleteService` testável sem uma instância NC real.
+- Retenção configurável (`Settings` → secção "Reciclagem", default 30 dias)
+- Frontend: nova tab "Deleted shares" (`DeletedShares.vue`, mesmo padrão de
+  `OrphanShares.vue`), badge com contagem (populado logo no load do
+  Dashboard, tal como alerts/orphans), restore individual ou em lote,
+  eliminação definitiva em lote com confirmação, countdown de dias até
+  purge automático
+- Testes: `tests/Unit/SoftDeleteServiceTest.php` (10 testes — captura,
+  restore com todos os caminhos de falha, purge)
+
+> A nota anterior sobre revogações serem permanentes já não se aplica —
+> toda a revogação (desta app ou nativa) passa primeiro pela reciclagem.
 
 ---
 
@@ -68,54 +111,14 @@ raciocínio já feito.
 
 | # | Feature | Depende de | Esforço | Impacto |
 |---|---------|-----------|---------|---------|
-| 1 | Soft delete de partilhas | — | 4-5 dias | Alto |
-| 2 | Transferir ownership (órfãs) | — | 2-3 dias | Médio+ |
-| 3 | Notificar owner (alertas) | — | 1-2 dias | Médio |
-| 4 | Histórico/trend de exposição | — | 2-3 dias | Médio |
-| 5 | Relatórios de compliance por email | (4) | 3-4 dias | Médio |
+| 1 | Transferir ownership (órfãs) | — | 2-3 dias | Médio+ |
+| 2 | Notificar owner (alertas) | — | 1-2 dias | Médio |
+| 3 | Histórico/trend de exposição | — | 2-3 dias | Médio |
+| 4 | Relatórios de compliance por email | (3) | 3-4 dias | Médio |
 
 ---
 
-### 1. Soft delete de partilhas (reciclagem)
-
-**Problema.** Revogar uma partilha é irreversível — desaparece da `oc_share`.
-Se o admin ou o utilizador se arrepende, tem de recriar manualmente. O issue
-#50734 descreve um utilizador a editar a base de dados diretamente para
-recuperar links expirados.
-
-**Solução.** Em vez de eliminar imediatamente, mover para uma tabela de retenção
-com TTL configurável (30/60/90 dias). O acesso é cortado de imediato, mas os
-dados ficam preservados numa vista "Recently deleted shares", com **Restaurar**
-ou **Eliminar permanentemente**. Um background job diário faz o purge.
-
-**Nova tabela** `oc_shareaudit_deleted`: `original_share_id`, `share_type`,
-`share_with`, `uid_owner`, `uid_initiator`, `item_type`, `file_source`,
-`file_target`, `permissions`, `token`, `password`, `expiration`, `stime`,
-`deleted_at`, `deleted_by`, `purge_after`, `note`.
-
-**Backend:** `SoftDeleteService` (softDelete / restore / permanentDelete /
-purgeExpired), `PurgeDeletedSharesJob` (TimedJob diário),
-`SoftDeleteController` (GET lista, POST restore, DELETE permanente, DELETE purge).
-Requer a primeira **migration** da app (`lib/Migration/`).
-
-**Frontend:** `DeletedShares.vue` — tabela com countdown ("eliminação permanente
-em X dias"), filtros, e ações bulk (restore selected / purge all expired).
-
-**Desafios:**
-- **Preservar o token.** Ao restaurar um link público, o URL original devia
-  continuar a funcionar. O `IShareManager::createShare()` gera token novo.
-  Recomendação: criar via API e depois fazer `UPDATE` do token; fallback para
-  aceitar token novo e notificar o owner.
-- **Interceptar revogações nativas.** O verdadeiro valor está em registar um
-  listener para `OCP\Share\Events\BeforeShareDeletedEvent`, copiando para a
-  tabela de retenção **antes** da eliminação — assim funciona mesmo quando a
-  partilha é apagada pela interface nativa do Nextcloud, não só pela app.
-- **Crescimento da tabela.** O purge diário controla, mas monitorizar em
-  instâncias grandes.
-
----
-
-### 2. Transferir ownership de partilhas órfãs
+### 1. Transferir ownership de partilhas órfãs
 
 Já existe a deteção e o bulk revoke; falta a alternativa **não destrutiva**:
 reatribuir a partilha a outro utilizador quando alguém sai e um colega assume
@@ -134,7 +137,7 @@ o trabalho.
 
 ---
 
-### 3. Notificar o owner (ação nos alertas)
+### 2. Notificar o owner (ação nos alertas)
 
 Terceira ação para o alerta *"Sensitive file type"*, onde revogar ou pôr
 password pode ser demasiado agressivo: avisar quem partilhou.
@@ -146,7 +149,7 @@ password pode ser demasiado agressivo: avisar quem partilhou.
 
 ---
 
-### 4. Histórico / trend de exposição
+### 3. Histórico / trend de exposição
 
 A secção Exposure mostra o estado **atual**. Falta a evolução ao longo do tempo.
 
@@ -159,7 +162,7 @@ A secção Exposure mostra o estado **atual**. Falta a evolução ao longo do te
 
 ---
 
-### 5. Relatórios de compliance por email
+### 4. Relatórios de compliance por email
 
 Envio agendado de um resumo periódico (links inseguros, órfãs, score de
 exposição) aos administradores. O `ReportService` atual só gera o CSV da lista —
@@ -186,6 +189,6 @@ desde o último relatório").
 - Falta índice em `share_with` (autocomplete/recipient search, `ILIKE %...%`)
   e em `path` (ordenação). Numa instância de ~300 users é tolerável (dezenas
   de milhares de linhas); decisão adiada até haver evidência de instâncias
-  maiores. Quando justificar, adicionar via migration — coordenar com a
-  feature "Soft delete" acima, que já vai precisar da primeira migration da
-  app de qualquer forma.
+  maiores. Quando justificar, adicionar via migration (a app já tem a
+  primeira, `Version0004...`, do soft delete — a próxima seria
+  `Version0005...`).

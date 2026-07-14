@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\AppInfo;
 
 use OCA\ShareAuditDashboard\Dashboard\MyAlertsWidget;
+use OCA\ShareAuditDashboard\Listener\SoftDeleteListener;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCP\Share\Events\BeforeShareDeletedEvent;
 
 /**
  * Bootstrap for the Share Audit Dashboard app.
@@ -32,6 +34,7 @@ class Application extends App implements IBootstrap {
 
     public function register(IRegistrationContext $context): void {
         $context->registerDashboardWidget(MyAlertsWidget::class);
+        $context->registerEventListener(BeforeShareDeletedEvent::class, SoftDeleteListener::class);
     }
 
     public function boot(IBootContext $context): void {

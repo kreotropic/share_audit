@@ -42,5 +42,10 @@ return [
         ['name' => 'recipient#search', 'url' => '/api/recipients/search', 'verb' => 'GET'],
         ['name' => 'recipient#shares', 'url' => '/api/recipients/shares', 'verb' => 'GET'],
         ['name' => 'recipient#revokeAll', 'url' => '/api/recipients/revoke-all', 'verb' => 'POST'],
+        // Recycle bin of revoked shares (soft delete).
+        ['name' => 'softDelete#index', 'url' => '/api/deleted', 'verb' => 'GET'],
+        ['name' => 'softDelete#restore', 'url' => '/api/deleted/{id}/restore', 'verb' => 'POST'],
+        ['name' => 'softDelete#purge', 'url' => '/api/deleted/{id}', 'verb' => 'DELETE'],
+        ['name' => 'softDelete#purgeMany', 'url' => '/api/deleted/purge', 'verb' => 'POST'],
     ],
 ];

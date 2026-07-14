@@ -60,6 +60,49 @@
             "%n partilhas revogadas."
         ],
         "Could not revoke the selected shares.": "Não foi possível revogar as partilhas selecionadas.",
+        "Deleted shares": "Partilhas eliminadas",
+        "Shares revoked through this app or unshared natively, kept here for a while so they can be restored.": "Partilhas revogadas através desta app ou removidas nativamente, mantidas aqui durante algum tempo para poderem ser restauradas.",
+        "Recycle bin is empty": "A reciclagem está vazia",
+        "Shares you revoke show up here before being permanently removed.": "As partilhas que revogar aparecem aqui antes de serem eliminadas em definitivo.",
+        "Restore selected": "Restaurar selecionadas",
+        "Delete permanently": "Eliminar em definitivo",
+        "_Permanently delete %n share?_::_Permanently delete %n shares?_": [
+            "Eliminar %n partilha em definitivo?",
+            "Eliminar %n partilhas em definitivo?"
+        ],
+        "Deleted": "Eliminado",
+        "Purge in": "Elimina em",
+        "Revoked shares kept for a limited time, selectable for bulk restore or permanent deletion.": "Partilhas revogadas mantidas por tempo limitado, selecionáveis para restauro ou eliminação definitiva em lote.",
+        "by {name}": "por {name}",
+        "today": "hoje",
+        "_in %n day_::_in %n days_": [
+            "daqui a %n dia",
+            "daqui a %n dias"
+        ],
+        "Restore": "Restaurar",
+        "Could not load deleted shares.": "Não foi possível carregar as partilhas eliminadas.",
+        "Restored, but the original link URL could not be kept — it now has a new one.": "Restaurada, mas não foi possível manter o URL da hiperligação original — tem agora um novo.",
+        "Share restored.": "Partilha restaurada.",
+        "Could not restore this share — the original file may no longer exist.": "Não foi possível restaurar esta partilha — o ficheiro original pode já não existir.",
+        "_Restored %n share._::_Restored %n shares._": [
+            "%n partilha restaurada.",
+            "%n partilhas restauradas."
+        ],
+        "_%n got a new link URL._::_%n got new link URLs._": [
+            "%n ficou com um novo URL de hiperligação.",
+            "%n ficaram com novos URLs de hiperligação."
+        ],
+        "_%n could not be restored._::_%n could not be restored._": [
+            "%n não pôde ser restaurada.",
+            "%n não puderam ser restauradas."
+        ],
+        "_Permanently deleted %n share._::_Permanently deleted %n shares._": [
+            "%n partilha eliminada em definitivo.",
+            "%n partilhas eliminadas em definitivo."
+        ],
+        "Could not permanently delete the selected shares.": "Não foi possível eliminar em definitivo as partilhas selecionadas.",
+        "Recycle bin": "Reciclagem",
+        "A revoked share (through this app, or unshared natively) is kept in the \"Deleted shares\" tab for this many days before being permanently removed, so it can be restored if that was a mistake.": "Uma partilha revogada (através desta app, ou removida nativamente) fica na tab \"Partilhas eliminadas\" durante este número de dias antes de ser eliminada em definitivo, para poder ser restaurada caso tenha sido um engano.",
         "_%n item needs attention_::_%n items need attention_": [
             "%n item precisa de atenção",
             "%n itens precisam de atenção"

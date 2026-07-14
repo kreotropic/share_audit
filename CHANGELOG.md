@@ -3,6 +3,19 @@
 All notable changes to Share Audit Dashboard are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0]
+
+### Added
+- **Soft delete (recycle bin) for shares.** A revoked share — whether
+  revoked through this app or unshared through native Nextcloud (Files app,
+  another app, `occ`, the sharing OCS API) — is now kept for a configurable
+  retention window (default 30 days, `Settings` → Recycle bin) before being
+  permanently purged, instead of disappearing immediately and irreversibly.
+  New "Deleted shares" tab: restore an entry (recreates the share, and best-
+  effort preserves the original public-link URL and password) or delete it
+  permanently, individually or in bulk. A daily background job purges
+  expired entries. This is the app's first database migration.
+
 ## [0.3.0]
 
 ### Security

@@ -160,6 +160,42 @@ export async function revokeOrphans(ids) {
 }
 
 /**
+ * Fetch the paginated list of recycled (soft-deleted) shares.
+ */
+export async function fetchDeletedShares(params = {}) {
+	const { data } = await axios.get(base('/api/deleted'), { params })
+	return data
+}
+
+/**
+ * Restore a recycled share. Response may include `tokenChanged: true` for a
+ * link share whose original token could not be preserved (see
+ * SoftDeleteService::restore()) — the caller should surface that.
+ */
+export async function restoreDeletedShare(id) {
+	const { data } = await axios.post(base('/api/deleted/' + id + '/restore'))
+	return data
+}
+
+/**
+ * Permanently delete one recycled entry.
+ */
+export async function purgeDeletedShare(id) {
+	const { data } = await axios.delete(base('/api/deleted/' + id))
+	return data
+}
+
+/**
+ * Permanently delete several recycled entries at once.
+ *
+ * @param {number[]} ids
+ */
+export async function purgeDeletedShares(ids) {
+	const { data } = await axios.post(base('/api/deleted/purge'), { ids })
+	return data
+}
+
+/**
  * Fetch the configurable security-alert rules.
  */
 export async function fetchSettings() {
