@@ -223,7 +223,6 @@ OC.L10N.register(
     "Shares owned by a disabled or deleted account, selectable for bulk revoke." : "Shares owned by a disabled or deleted account, selectable for bulk revoke.",
     "Enable the personal audit view for every user" : "Enable the personal audit view for every user",
     "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention." : "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.",
-    "Personal view" : "Personal view",
-    "This feature has been disabled by your administrator." : "This feature has been disabled by your administrator."
+    "Personal view" : "Personal view"
 },
 "nplurals=2; plural=(n != 1);");

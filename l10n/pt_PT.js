@@ -223,7 +223,6 @@ OC.L10N.register(
     "Shares owned by a disabled or deleted account, selectable for bulk revoke." : "Partilhas pertencentes a uma conta desativada ou eliminada, selecionáveis para revogação em massa.",
     "Enable the personal audit view for every user" : "Ativar a vista de auditoria pessoal para todos os utilizadores",
     "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention." : "Permite que cada utilizador audite e corrija as suas próprias partilhas em Definições → Pessoal, e veja um widget no painel com as hiperligações que precisam de atenção.",
-    "Personal view" : "Vista pessoal",
-    "This feature has been disabled by your administrator." : "Esta funcionalidade foi desativada pelo administrador."
+    "Personal view" : "Vista pessoal"
 },
 "nplurals=2; plural=(n != 1);");

@@ -21,13 +21,18 @@ class PersonalSettings implements ISettings {
     }
 
     public function getForm(): TemplateResponse {
-        return new TemplateResponse('share_audit_dashboard', 'personal', [
-            'enabled' => $this->settings->isPersonalViewEnabled(),
-        ]);
+        return new TemplateResponse('share_audit_dashboard', 'personal');
     }
 
-    public function getSection(): string {
-        return 'share_audit_dashboard';
+    /**
+     * Returning null (rather than the section id) drops this settings entry
+     * from its section entirely, so the "My shares audit" nav link itself
+     * disappears from Settings → Personal when the admin has turned the
+     * feature off — not just its content — see ISettings::getSection()'s
+     * docblock ("null to not show the setting").
+     */
+    public function getSection(): ?string {
+        return $this->settings->isPersonalViewEnabled() ? 'share_audit_dashboard' : null;
     }
 
     public function getPriority(): int {

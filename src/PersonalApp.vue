@@ -8,16 +8,11 @@
 			</p>
 		</div>
 
-		<NcNoteCard v-if="!enabled" type="info" class="sad-personal__disabled">
-			{{ t('share_audit_dashboard', 'This feature has been disabled by your administrator.') }}
-		</NcNoteCard>
+		<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
+
+		<NcNoteCard v-else-if="error" type="error">{{ error }}</NcNoteCard>
 
 		<template v-else>
-			<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
-
-			<NcNoteCard v-else-if="error" type="error">{{ error }}</NcNoteCard>
-
-			<template v-else>
 				<div class="sad-cards">
 					<div class="sad-card sad-card--total">
 						<span class="sad-card__icon" v-html="icons.total" />
@@ -125,7 +120,6 @@
 						</table>
 					</div>
 				</section>
-				</template>
 			</template>
 	</div>
 </template>
@@ -161,15 +155,6 @@ export default {
 		AlertCard,
 		BulkActionBar,
 	},
-	props: {
-		// Server-rendered flag (see templates/personal.php): whether the admin
-		// left this feature on. Passed in rather than fetched, so a disabled
-		// instance never issues any of the API calls below.
-		enabled: {
-			type: Boolean,
-			default: true,
-		},
-	},
 	data() {
 		return {
 			loading: true,
@@ -191,9 +176,7 @@ export default {
 		},
 	},
 	async mounted() {
-		if (this.enabled) {
-			await this.loadAll()
-		}
+		await this.loadAll()
 	},
 	methods: {
 		t,
@@ -337,10 +320,6 @@ export default {
 .sad-header__sub {
 	margin: 0;
 	max-width: none;
-}
-
-.sad-personal__disabled {
-	margin-top: 16px;
 }
 
 // Same card shape/spacing as StatsCards.vue's dashboard cards.
