@@ -162,8 +162,13 @@ class ShareApiController extends AdminController {
      *
      * A $limit of 0 (or less) returns every matching alert on a single page,
      * so the "select all" bulk action can span the whole (filtered) set.
+     *
+     * $sort defaults to 'severity' (today's behaviour: critical > warning >
+     * info, as ranked by SecurityAnalyzerService::getAlerts()). Passing
+     * 'created' re-sorts by share creation date instead, direction per
+     * $sortDir — lets an admin triage the oldest risky shares first.
      */
-    public function alerts(int $page = 1, int $limit = 25, string $issue = ''): JSONResponse {
+    public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc'): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
@@ -172,6 +177,10 @@ class ShareApiController extends AdminController {
         $filtered = $issue !== ''
             ? array_values(array_filter($all, static fn ($alert) => in_array($issue, array_column($alert['issues'], 'code'), true)))
             : $all;
+        if ($sort === 'created') {
+            $direction = $sortDir === 'asc' ? 1 : -1;
+            usort($filtered, static fn ($a, $b) => $direction * (($a['created'] ?? 0) <=> ($b['created'] ?? 0)));
+        }
         $total = count($filtered);
         $offset = max(0, ($page - 1) * $limit);
         return new JSONResponse([

@@ -74,6 +74,12 @@
 						@toggle-all="toggleAll"
 						@clear="selectedIds = []">
 						<template #trailing>
+							<PageSizeSelect v-model="sortOption"
+								:options="sortOptions"
+								:label="t('share_audit_dashboard', 'Sort by')"
+								:width="220"
+								:disabled="busy"
+								:aria-label="t('share_audit_dashboard', 'Sort alerts by')" />
 							<PageSizeSelect v-model="pageSize"
 								:options="pageSizeOptions"
 								:width="120"
@@ -162,6 +168,12 @@ export default {
 				{ id: 'all', label: t('share_audit_dashboard', 'All') },
 			],
 			pageSize: { id: 25, label: '25' },
+			sortOptions: [
+				{ id: 'severity', label: t('share_audit_dashboard', 'Severity (default)') },
+				{ id: 'created_asc', label: t('share_audit_dashboard', 'Oldest first') },
+				{ id: 'created_desc', label: t('share_audit_dashboard', 'Newest first') },
+			],
+			sortOption: { id: 'severity', label: t('share_audit_dashboard', 'Severity (default)') },
 			selectedIds: [],
 			generatedPasswords: [],
 			notice: null,
@@ -200,6 +212,13 @@ export default {
 		apiLimit() {
 			return this.isAll ? 0 : this.pageSize.id
 		},
+		// Maps the selected sort option to the API's sort/sortDir params.
+		apiSort() {
+			return this.sortOption.id === 'severity' ? 'severity' : 'created'
+		},
+		apiSortDir() {
+			return this.sortOption.id === 'created_asc' ? 'asc' : 'desc'
+		},
 		totalPages() {
 			if (this.isAll) {
 				return 1
@@ -222,6 +241,11 @@ export default {
 			this.selectedIds = []
 			this.load()
 		},
+		'sortOption.id'() {
+			this.page = 1
+			this.selectedIds = []
+			this.load()
+		},
 	},
 	mounted() {
 		this.load()
@@ -231,7 +255,7 @@ export default {
 		n,
 		async load() {
 			try {
-				const data = await fetchAlerts({ page: this.page, limit: this.apiLimit, issue: this.activeIssue })
+				const data = await fetchAlerts({ page: this.page, limit: this.apiLimit, issue: this.activeIssue, sort: this.apiSort, sortDir: this.apiSortDir })
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
 				this.total = data.total ?? this.items.length
