@@ -106,4 +106,32 @@ class ShareCollectorServiceTest extends TestCase {
 
         $this->assertSame('alice', $result['items'][0]['ownerDisplayName']);
     }
+
+    // -------------------------------------------------------------------
+    // getShares() — ownerSearch expanded to matching uids, so a search for
+    // the display name shown in the Owner column (e.g. "Renato") also
+    // matches an LDAP-style opaque uid like "FBEAD109".
+    // -------------------------------------------------------------------
+
+    public function testGetSharesExpandsOwnerSearchToMatchingUids(): void {
+        $this->mapper->method('countShares')->willReturn(0);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+        $this->displayNames->expects($this->once())->method('searchUids')
+            ->with('Renato')->willReturn(['FBEAD109']);
+
+        $this->mapper->expects($this->once())->method('findShares')
+            ->with($this->callback(fn (array $filters) => $filters['ownerSearchUids'] === ['FBEAD109']),
+                25, 0, 'created', 'desc')
+            ->willReturn([]);
+
+        $this->collector()->getShares(['ownerSearch' => 'Renato'], 1, 25);
+    }
+
+    public function testGetSharesSkipsOwnerSearchExpansionWhenNoTerm(): void {
+        $this->mapper->method('findShares')->willReturn([]);
+        $this->mapper->method('countShares')->willReturn(0);
+        $this->displayNames->expects($this->never())->method('searchUids');
+
+        $this->collector()->getShares([], 1, 25);
+    }
 }

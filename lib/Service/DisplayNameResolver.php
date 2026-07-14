@@ -47,4 +47,23 @@ class DisplayNameResolver {
         }
         return $result;
     }
+
+    /**
+     * Uids of accounts whose display name contains $term. On LDAP/SAML/AD
+     * instances the uid is often an opaque identifier (a UUID or an internal
+     * code) while the table shows the human-readable display name — an
+     * owner-column search for what's on screen must therefore also match
+     * against display names, not just the raw uid column.
+     *
+     * @return list<string>
+     */
+    public function searchUids(string $term, int $limit = 50): array {
+        if ($term === '') {
+            return [];
+        }
+        return array_map(
+            static fn ($user) => $user->getUID(),
+            $this->userManager->searchDisplayName($term, $limit),
+        );
+    }
 }

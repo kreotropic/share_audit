@@ -451,6 +451,10 @@ class ShareMapper {
      *                  a user who created a share on a folder owned by
      *                  someone else is still responsible for it
      *  - search:       string LIKE match on file path or recipient
+     *  - ownerSearch:  string LIKE match on uid_owner, OR'd with
+     *                  ownerSearchUids when present
+     *  - ownerSearchUids: string[] uids whose display name matched
+     *                  ownerSearch (see ShareCollectorService)
      *  - hasPassword:  bool
      *  - hasExpiration:bool
      *  - createdSince: int unix timestamp
@@ -503,11 +507,24 @@ class ShareMapper {
         }
 
         // Per-column search (from the table-header filters).
-        foreach (['pathSearch' => 'f.path', 'ownerSearch' => 's.uid_owner', 'recipientSearch' => 's.share_with'] as $key => $column) {
+        foreach (['pathSearch' => 'f.path', 'recipientSearch' => 's.share_with'] as $key => $column) {
             if (!empty($filters[$key])) {
                 $like = '%' . $this->db->escapeLikeParameter((string)$filters[$key]) . '%';
                 $qb->andWhere($qb->expr()->iLike($column, $qb->createNamedParameter($like)));
             }
+        }
+
+        // Owner column search: the table shows the resolved display name,
+        // not the raw uid, so match against either — see
+        // ShareCollectorService::withOwnerSearchUids().
+        if (!empty($filters['ownerSearch'])) {
+            $like = '%' . $this->db->escapeLikeParameter((string)$filters['ownerSearch']) . '%';
+            $ownerConditions = [$qb->expr()->iLike('s.uid_owner', $qb->createNamedParameter($like))];
+            if (!empty($filters['ownerSearchUids'])) {
+                $ownerConditions[] = $qb->expr()->in('s.uid_owner',
+                    $qb->createNamedParameter($filters['ownerSearchUids'], IQueryBuilder::PARAM_STR_ARRAY));
+            }
+            $qb->andWhere($qb->expr()->orX(...$ownerConditions));
         }
 
         if (array_key_exists('hasPassword', $filters) && $filters['hasPassword'] !== null) {

@@ -155,6 +155,7 @@ class ShareCollectorService {
         $page = max(1, $page);
         $limit = max(1, min(500, $limit));
         $offset = ($page - 1) * $limit;
+        $filters = $this->withOwnerSearchUids($filters);
 
         $rows = $this->mapper->findShares($filters, $limit, $offset, $sort, $dir);
 
@@ -186,8 +187,25 @@ class ShareCollectorService {
         string $dir = 'desc',
         int $max = 100000,
     ): array {
+        $filters = $this->withOwnerSearchUids($filters);
         $rows = $this->mapper->findShares($filters, $max, 0, $sort, $dir);
         return array_map(fn (array $row) => $this->normalizeRow($row, $includeTokens), $rows);
+    }
+
+    /**
+     * Expands an 'ownerSearch' filter term into the uids of accounts whose
+     * display name matches it, so ShareMapper can match the owner column
+     * against either the raw uid or what's actually shown in the table (see
+     * DisplayNameResolver::searchUids docblock).
+     *
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    private function withOwnerSearchUids(array $filters): array {
+        if (!empty($filters['ownerSearch'])) {
+            $filters['ownerSearchUids'] = $this->displayNames->searchUids((string)$filters['ownerSearch']);
+        }
+        return $filters;
     }
 
     /**

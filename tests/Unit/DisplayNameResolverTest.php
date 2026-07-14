@@ -77,4 +77,18 @@ class DisplayNameResolverTest extends TestCase {
         $names = $this->resolver->resolveMany(['alice', 'bob', 'alice']);
         $this->assertSame(['alice' => 'Alice Silva', 'bob' => 'Bob Santos'], $names);
     }
+
+    public function testSearchUidsReturnsUidsOfMatchingDisplayNames(): void {
+        $renato = $this->createMock(IUser::class);
+        $renato->method('getUID')->willReturn('FBEAD109');
+        $this->userManager->method('searchDisplayName')->with('Renato', 50)
+            ->willReturn([$renato]);
+
+        $this->assertSame(['FBEAD109'], $this->resolver->searchUids('Renato'));
+    }
+
+    public function testSearchUidsReturnsEmptyArrayForEmptyTerm(): void {
+        $this->userManager->expects($this->never())->method('searchDisplayName');
+        $this->assertSame([], $this->resolver->searchUids(''));
+    }
 }
