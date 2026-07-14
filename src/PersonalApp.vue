@@ -107,7 +107,11 @@
 								<tr v-for="share in shares" :key="share.id">
 									<td><NcChip :text="categoryLabel(share.category)" :no-close="true" /></td>
 									<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
-									<td>{{ recipientOf(share) }}</td>
+									<td>
+										{{ recipientOf(share) }}
+										<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
+											class="sad-table__uid">{{ share.recipient }}</span>
+									</td>
 									<td class="sad-table__perms">{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}</td>
 									<td>{{ formatDate(share.created) }}</td>
 									<td>{{ share.expiration || '—' }}</td>
@@ -244,7 +248,7 @@ export default {
 		},
 		recipientOf(share) {
 			if (share.recipient) {
-				return share.recipient
+				return share.recipientDisplayName || share.recipient
 			}
 			return share.category === 'link' ? t('share_audit_dashboard', '(public)') : '—'
 		},
@@ -306,9 +310,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.sad-personal {
-	max-width: 1000px;
-}
+// No max-width here — same as the admin App.vue root, this page should use
+// the full available width (previously capped at 1000px, which left dead
+// space on wide viewports and forced the shares table into an unnecessary
+// horizontal scroll instead of just showing more).
 
 // Title and subtitle share a baseline, separated by a middot — same pattern
 // as App.vue's header, since this is likewise a top-level mount.
@@ -474,6 +479,12 @@ export default {
 	max-width: 300px;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.sad-table__uid {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
 }
 
 .sad-table__perms {
