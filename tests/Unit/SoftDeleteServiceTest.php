@@ -12,6 +12,7 @@ use OCA\ShareAuditDashboard\Db\DeletedShare;
 use OCA\ShareAuditDashboard\Db\DeletedShareMapper;
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
 use OCA\ShareAuditDashboard\Service\FileNodeResolver;
+use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\SoftDeleteService;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -46,6 +47,7 @@ class SoftDeleteServiceTest extends TestCase {
     private SettingsService&MockObject $settings;
     private IUserSession&MockObject $userSession;
     private DisplayNameResolver&MockObject $displayNames;
+    private SecurityAnalyzerService&MockObject $analyzer;
     private SoftDeleteService $service;
 
     protected function setUp(): void {
@@ -57,6 +59,7 @@ class SoftDeleteServiceTest extends TestCase {
         $this->settings = $this->createMock(SettingsService::class);
         $this->userSession = $this->createMock(IUserSession::class);
         $this->displayNames = $this->createMock(DisplayNameResolver::class);
+        $this->analyzer = $this->createMock(SecurityAnalyzerService::class);
 
         $this->service = new SoftDeleteService(
             $this->mapper,
@@ -67,6 +70,7 @@ class SoftDeleteServiceTest extends TestCase {
             $this->settings,
             $this->userSession,
             $this->displayNames,
+            $this->analyzer,
             $this->createMock(LoggerInterface::class),
         );
     }
@@ -188,6 +192,7 @@ class SoftDeleteServiceTest extends TestCase {
 
         $this->shareManager->expects($this->never())->method('createShare');
         $this->mapper->expects($this->never())->method('delete');
+        $this->analyzer->expects($this->never())->method('invalidate');
 
         $result = $this->service->restore(1);
 
@@ -205,6 +210,7 @@ class SoftDeleteServiceTest extends TestCase {
         $this->shareManager->method('createShare')->willThrowException(new \RuntimeException('nope'));
 
         $this->mapper->expects($this->never())->method('delete');
+        $this->analyzer->expects($this->never())->method('invalidate');
 
         $result = $this->service->restore(1);
 
@@ -215,6 +221,7 @@ class SoftDeleteServiceTest extends TestCase {
         $this->mapper->method('find')->with(1)->willThrowException(new DoesNotExistException('gone'));
 
         $this->shareManager->expects($this->never())->method('newShare');
+        $this->analyzer->expects($this->never())->method('invalidate');
 
         $result = $this->service->restore(1);
 
@@ -248,6 +255,10 @@ class SoftDeleteServiceTest extends TestCase {
         $this->db->method('getQueryBuilder')->willReturn($qb);
 
         $this->mapper->expects($this->once())->method('delete')->with($entity);
+        // The restored share is exactly as risky as before it was revoked —
+        // without invalidating the alerts cache, the Security alerts list
+        // and its tab badge stay stale for up to CACHE_TTL seconds.
+        $this->analyzer->expects($this->once())->method('invalidate')->with('bob', 'bob');
 
         $result = $this->service->restore(1);
 

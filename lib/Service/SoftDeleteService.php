@@ -54,6 +54,7 @@ class SoftDeleteService {
         private SettingsService $settings,
         private IUserSession $userSession,
         private DisplayNameResolver $displayNames,
+        private SecurityAnalyzerService $analyzer,
         private LoggerInterface $logger,
     ) {
     }
@@ -210,6 +211,10 @@ class SoftDeleteService {
 
         $tokenRestored = $this->restoreRawColumns((int)$created->getId(), $entity);
         $this->mapper->delete($entity);
+        // The restored share is exactly as risky as it was before revocation
+        // (no password/expiration carry no less risk back) — without this,
+        // the alerts list/badge stays stale for up to CACHE_TTL seconds.
+        $this->analyzer->invalidate($entity->getUidOwner(), $entity->getUidInitiator());
 
         return ['success' => true, 'id' => (int)$created->getId(), 'tokenChanged' => !$tokenRestored];
     }
