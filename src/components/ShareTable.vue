@@ -79,7 +79,11 @@
 						<span v-if="share.ownerDisplayName && share.ownerDisplayName !== share.owner"
 							class="sad-table__uid">{{ share.owner }}</span>
 					</td>
-					<td>{{ recipientOf(share) }}</td>
+					<td>
+						{{ recipientOf(share) }}
+						<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
+							class="sad-table__uid">{{ share.recipient }}</span>
+					</td>
 					<td class="sad-table__perms">
 						{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}
 					</td>
@@ -211,7 +215,7 @@ export default {
 		},
 		recipientOf(share) {
 			if (share.recipient) {
-				return share.recipient
+				return share.recipientDisplayName || share.recipient
 			}
 			return share.category === 'link' ? t('share_audit_dashboard', '(public)') : '—'
 		},

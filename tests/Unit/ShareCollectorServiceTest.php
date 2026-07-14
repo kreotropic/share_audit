@@ -13,6 +13,7 @@ use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
 use OCA\ShareAuditDashboard\Service\PathFormatter;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
+use OCP\Share\IShare;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -131,6 +132,83 @@ class ShareCollectorServiceTest extends TestCase {
         $this->mapper->method('findShares')->willReturn([]);
         $this->mapper->method('countShares')->willReturn(0);
         $this->displayNames->expects($this->never())->method('searchUids');
+
+        $this->collector()->getShares([], 1, 25);
+    }
+
+    // -------------------------------------------------------------------
+    // getShares() — recipientDisplayName attachment. A recipient is only
+    // resolved for TYPE_USER (via resolveMany) and TYPE_GROUP (via
+    // resolveManyGroups) — every other recipient shape (email, federated
+    // address, link/room token) is already human-readable as stored.
+    // -------------------------------------------------------------------
+
+    public function testGetSharesAttachesRecipientDisplayNameForUserShare(): void {
+        $this->mapper->method('findShares')->willReturn([array_merge(
+            $this->row(null),
+            ['share_type' => IShare::TYPE_USER, 'share_with' => 'FBEAD109'],
+        )]);
+        $this->mapper->method('countShares')->willReturn(1);
+        $this->displayNames->method('resolveMany')->willReturn(['FBEAD109' => 'Renato Silva']);
+
+        $result = $this->collector()->getShares([], 1, 25);
+
+        $this->assertSame('Renato Silva', $result['items'][0]['recipientDisplayName']);
+    }
+
+    public function testGetSharesAttachesRecipientDisplayNameForGroupShare(): void {
+        $this->mapper->method('findShares')->willReturn([array_merge(
+            $this->row(null),
+            ['share_type' => IShare::TYPE_GROUP, 'share_with' => 'marketing'],
+        )]);
+        $this->mapper->method('countShares')->willReturn(1);
+        $this->displayNames->method('resolveManyGroups')->willReturn(['marketing' => 'Marketing Team']);
+
+        $result = $this->collector()->getShares([], 1, 25);
+
+        $this->assertSame('Marketing Team', $result['items'][0]['recipientDisplayName']);
+    }
+
+    public function testGetSharesDoesNotResolveRecipientForEmailShare(): void {
+        $this->mapper->method('findShares')->willReturn([array_merge(
+            $this->row(null),
+            ['share_type' => IShare::TYPE_EMAIL, 'share_with' => 'someone@example.com'],
+        )]);
+        $this->mapper->method('countShares')->willReturn(1);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+
+        $result = $this->collector()->getShares([], 1, 25);
+
+        $this->assertArrayNotHasKey('recipientDisplayName', $result['items'][0]);
+    }
+
+    // -------------------------------------------------------------------
+    // getShares() — recipientSearch expanded to matching uids/gids, so a
+    // search for what's shown in the Recipient column also matches an
+    // opaque uid/gid — same reasoning as ownerSearch above.
+    // -------------------------------------------------------------------
+
+    public function testGetSharesExpandsRecipientSearchToMatchingIds(): void {
+        $this->mapper->method('countShares')->willReturn(0);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+        $this->displayNames->expects($this->once())->method('searchUids')
+            ->with('Renato')->willReturn(['FBEAD109']);
+        $this->displayNames->expects($this->once())->method('searchGroupIds')
+            ->with('Renato')->willReturn(['renato-fans']);
+
+        $this->mapper->expects($this->once())->method('findShares')
+            ->with($this->callback(
+                fn (array $filters) => $filters['recipientSearchIds'] === ['FBEAD109', 'renato-fans']
+            ), 25, 0, 'created', 'desc')
+            ->willReturn([]);
+
+        $this->collector()->getShares(['recipientSearch' => 'Renato'], 1, 25);
+    }
+
+    public function testGetSharesSkipsRecipientSearchExpansionWhenNoTerm(): void {
+        $this->mapper->method('findShares')->willReturn([]);
+        $this->mapper->method('countShares')->willReturn(0);
+        $this->displayNames->expects($this->never())->method('searchGroupIds');
 
         $this->collector()->getShares([], 1, 25);
     }

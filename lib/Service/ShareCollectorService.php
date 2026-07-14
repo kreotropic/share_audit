@@ -91,24 +91,44 @@ class ShareCollectorService {
     }
 
     /**
-     * Attach ownerDisplayName (and initiatorDisplayName, when present) to a
-     * list of already-normalized rows, resolving each unique uid once
-     * regardless of how many rows share it — see DisplayNameResolver.
+     * Attach ownerDisplayName (and initiatorDisplayName, recipientDisplayName
+     * when present) to a list of already-normalized rows, resolving each
+     * unique uid/gid once regardless of how many rows share it — see
+     * DisplayNameResolver.
+     *
+     * Recipient is only resolved for TYPE_USER (uid) and TYPE_GROUP (gid)
+     * shares — every other recipient shape (email address, federated
+     * user@server, link/room token) is already human-readable as stored, and
+     * resolving it against IUserManager/IGroupManager would just be a wasted
+     * round trip that always misses.
      *
      * @param array<int, array<string, mixed>> $items normalizeRow() output
      * @return array<int, array<string, mixed>>
      */
     private function withDisplayNames(array $items): array {
         $uids = [];
+        $gids = [];
         foreach ($items as $item) {
             $uids[] = $item['owner'] ?? null;
             $uids[] = $item['initiator'] ?? null;
+            if (($item['type'] ?? null) === IShare::TYPE_USER) {
+                $uids[] = $item['recipient'] ?? null;
+            } elseif (($item['type'] ?? null) === IShare::TYPE_GROUP) {
+                $gids[] = $item['recipient'] ?? null;
+            }
         }
         $names = $this->displayNames->resolveMany($uids);
+        $groupNames = $this->displayNames->resolveManyGroups($gids);
         foreach ($items as &$item) {
             $item['ownerDisplayName'] = $names[$item['owner']] ?? $item['owner'];
             if (($item['initiator'] ?? '') !== '') {
                 $item['initiatorDisplayName'] = $names[$item['initiator']] ?? $item['initiator'];
+            }
+            $recipient = $item['recipient'] ?? '';
+            if ($recipient !== '' && $item['type'] === IShare::TYPE_USER) {
+                $item['recipientDisplayName'] = $names[$recipient] ?? $recipient;
+            } elseif ($recipient !== '' && $item['type'] === IShare::TYPE_GROUP) {
+                $item['recipientDisplayName'] = $groupNames[$recipient] ?? $recipient;
             }
         }
         unset($item);
@@ -156,6 +176,7 @@ class ShareCollectorService {
         $limit = max(1, min(500, $limit));
         $offset = ($page - 1) * $limit;
         $filters = $this->withOwnerSearchUids($filters);
+        $filters = $this->withRecipientSearchIds($filters);
 
         $rows = $this->mapper->findShares($filters, $limit, $offset, $sort, $dir);
 
@@ -188,6 +209,7 @@ class ShareCollectorService {
         int $max = 100000,
     ): array {
         $filters = $this->withOwnerSearchUids($filters);
+        $filters = $this->withRecipientSearchIds($filters);
         $rows = $this->mapper->findShares($filters, $max, 0, $sort, $dir);
         return array_map(fn (array $row) => $this->normalizeRow($row, $includeTokens), $rows);
     }
@@ -204,6 +226,26 @@ class ShareCollectorService {
     private function withOwnerSearchUids(array $filters): array {
         if (!empty($filters['ownerSearch'])) {
             $filters['ownerSearchUids'] = $this->displayNames->searchUids((string)$filters['ownerSearch']);
+        }
+        return $filters;
+    }
+
+    /**
+     * Expands a 'recipientSearch' filter term into the uids/gids of
+     * accounts/groups whose display name matches it — a recipient can be
+     * either, so both DisplayNameResolver searches are combined. Same
+     * reasoning as withOwnerSearchUids() above.
+     *
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    private function withRecipientSearchIds(array $filters): array {
+        if (!empty($filters['recipientSearch'])) {
+            $term = (string)$filters['recipientSearch'];
+            $filters['recipientSearchIds'] = array_merge(
+                $this->displayNames->searchUids($term),
+                $this->displayNames->searchGroupIds($term),
+            );
         }
         return $filters;
     }

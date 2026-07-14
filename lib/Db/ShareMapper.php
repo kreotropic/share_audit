@@ -455,6 +455,10 @@ class ShareMapper {
      *                  ownerSearchUids when present
      *  - ownerSearchUids: string[] uids whose display name matched
      *                  ownerSearch (see ShareCollectorService)
+     *  - recipientSearch: string LIKE match on share_with, OR'd with
+     *                  recipientSearchIds when present
+     *  - recipientSearchIds: string[] uids/gids whose display name matched
+     *                  recipientSearch (see ShareCollectorService)
      *  - hasPassword:  bool
      *  - hasExpiration:bool
      *  - createdSince: int unix timestamp
@@ -507,11 +511,9 @@ class ShareMapper {
         }
 
         // Per-column search (from the table-header filters).
-        foreach (['pathSearch' => 'f.path', 'recipientSearch' => 's.share_with'] as $key => $column) {
-            if (!empty($filters[$key])) {
-                $like = '%' . $this->db->escapeLikeParameter((string)$filters[$key]) . '%';
-                $qb->andWhere($qb->expr()->iLike($column, $qb->createNamedParameter($like)));
-            }
+        if (!empty($filters['pathSearch'])) {
+            $like = '%' . $this->db->escapeLikeParameter((string)$filters['pathSearch']) . '%';
+            $qb->andWhere($qb->expr()->iLike('f.path', $qb->createNamedParameter($like)));
         }
 
         // Owner column search: the table shows the resolved display name,
@@ -525,6 +527,18 @@ class ShareMapper {
                     $qb->createNamedParameter($filters['ownerSearchUids'], IQueryBuilder::PARAM_STR_ARRAY));
             }
             $qb->andWhere($qb->expr()->orX(...$ownerConditions));
+        }
+
+        // Recipient column search: same reasoning as ownerSearch above — a
+        // user/group recipient is shown by display name, not raw uid/gid.
+        if (!empty($filters['recipientSearch'])) {
+            $like = '%' . $this->db->escapeLikeParameter((string)$filters['recipientSearch']) . '%';
+            $recipientConditions = [$qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like))];
+            if (!empty($filters['recipientSearchIds'])) {
+                $recipientConditions[] = $qb->expr()->in('s.share_with',
+                    $qb->createNamedParameter($filters['recipientSearchIds'], IQueryBuilder::PARAM_STR_ARRAY));
+            }
+            $qb->andWhere($qb->expr()->orX(...$recipientConditions));
         }
 
         if (array_key_exists('hasPassword', $filters) && $filters['hasPassword'] !== null) {

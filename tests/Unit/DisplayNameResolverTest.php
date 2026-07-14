@@ -9,6 +9,8 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Tests\Unit;
 
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
+use OCP\IGroup;
+use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserManager;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,17 +19,25 @@ use PHPUnit\Framework\TestCase;
 class DisplayNameResolverTest extends TestCase {
 
     private IUserManager&MockObject $userManager;
+    private IGroupManager&MockObject $groupManager;
     private DisplayNameResolver $resolver;
 
     protected function setUp(): void {
         $this->userManager = $this->createMock(IUserManager::class);
-        $this->resolver = new DisplayNameResolver($this->userManager);
+        $this->groupManager = $this->createMock(IGroupManager::class);
+        $this->resolver = new DisplayNameResolver($this->userManager, $this->groupManager);
     }
 
     private function user(string $displayName): IUser&MockObject {
         $user = $this->createMock(IUser::class);
         $user->method('getDisplayName')->willReturn($displayName);
         return $user;
+    }
+
+    private function group(string $gid): IGroup&MockObject {
+        $group = $this->createMock(IGroup::class);
+        $group->method('getGID')->willReturn($gid);
+        return $group;
     }
 
     public function testResolvesToDisplayName(): void {
@@ -90,5 +100,35 @@ class DisplayNameResolverTest extends TestCase {
     public function testSearchUidsReturnsEmptyArrayForEmptyTerm(): void {
         $this->userManager->expects($this->never())->method('searchDisplayName');
         $this->assertSame([], $this->resolver->searchUids(''));
+    }
+
+    public function testResolveManyGroupsResolvesToDisplayName(): void {
+        $this->groupManager->method('getDisplayName')->with('marketing')->willReturn('Marketing Team');
+        $names = $this->resolver->resolveManyGroups(['marketing']);
+        $this->assertSame(['marketing' => 'Marketing Team'], $names);
+    }
+
+    public function testResolveManyGroupsFallsBackToGidWhenGroupIsGone(): void {
+        $this->groupManager->method('getDisplayName')->with('ghost-group')->willReturn(null);
+        $names = $this->resolver->resolveManyGroups(['ghost-group']);
+        $this->assertSame(['ghost-group' => 'ghost-group'], $names);
+    }
+
+    public function testResolveManyGroupsIgnoresNullAndEmptyGids(): void {
+        $this->groupManager->expects($this->never())->method('getDisplayName');
+        $names = $this->resolver->resolveManyGroups([null, '', null]);
+        $this->assertSame([], $names);
+    }
+
+    public function testSearchGroupIdsReturnsGidsOfMatchingDisplayNames(): void {
+        $this->groupManager->method('search')->with('Market', 50)
+            ->willReturn([$this->group('marketing')]);
+
+        $this->assertSame(['marketing'], $this->resolver->searchGroupIds('Market'));
+    }
+
+    public function testSearchGroupIdsReturnsEmptyArrayForEmptyTerm(): void {
+        $this->groupManager->expects($this->never())->method('search');
+        $this->assertSame([], $this->resolver->searchGroupIds(''));
     }
 }
