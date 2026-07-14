@@ -63,8 +63,12 @@ class RecipientLookupService {
     }
 
     /**
-     * Autocomplete: recipients whose id/email matches the query, grouped by
-     * (share_with, share_type) with a share count.
+     * Autocomplete: recipients whose id/email OR resolved display name
+     * matches the query, grouped by (share_with, share_type) with a share
+     * count. On an LDAP/SAML instance share_with is often an opaque uid
+     * (e.g. a UUID) while the result label shown to the admin is the
+     * display name — searching must match either, same reasoning as
+     * ShareCollectorService::withOwnerSearchUids()/withRecipientSearchIds().
      *
      * @return array<int, array<string, mixed>>
      */
@@ -76,14 +80,24 @@ class RecipientLookupService {
             return [];
         }
         $like = '%' . $this->db->escapeLikeParameter($query) . '%';
+        $matchingIds = array_merge(
+            $this->displayNames->searchUids($query, $limit),
+            $this->displayNames->searchGroupIds($query, $limit),
+        );
 
         $qb = $this->db->getQueryBuilder();
+        $conditions = [$qb->expr()->iLike('share_with', $qb->createNamedParameter($like))];
+        if ($matchingIds !== []) {
+            $conditions[] = $qb->expr()->in('share_with',
+                $qb->createNamedParameter($matchingIds, IQueryBuilder::PARAM_STR_ARRAY));
+        }
+
         $qb->select('share_with', 'share_type')
             ->selectAlias($qb->func()->count('*'), 'cnt')
             ->from('share')
             ->where($qb->expr()->in('share_type',
                 $qb->createNamedParameter(self::RECIPIENT_TYPES, IQueryBuilder::PARAM_INT_ARRAY)))
-            ->andWhere($qb->expr()->iLike('share_with', $qb->createNamedParameter($like)))
+            ->andWhere($qb->expr()->orX(...$conditions))
             ->groupBy('share_with', 'share_type')
             ->orderBy('cnt', 'DESC')
             ->setMaxResults($limit);
