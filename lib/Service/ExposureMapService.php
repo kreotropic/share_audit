@@ -34,8 +34,8 @@ class ExposureMapService {
     /**
      * Risk weight per category (0 = safe … 2 = most exposed). 'other' covers
      * any share_type not in CATEGORY above (a type added in a future
-     * Nextcloud version, e.g. ScienceMesh federation) — see
-     * QUALITY_REVIEW_PLAN.md C1. It must NOT default to 'internal'/weight 0:
+     * Nextcloud version, e.g. ScienceMesh federation). It must NOT default
+     * to 'internal'/weight 0:
      * an unrecognized type is not known to be safe, so it is weighted the
      * same as 'external' rather than assumed internal.
      */

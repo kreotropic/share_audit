@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 /**
+ * SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/**
  * Routes for the Share Audit Dashboard admin API.
  *
  * All endpoints are served from the app's own index.php route space and are

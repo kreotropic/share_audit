@@ -23,10 +23,9 @@ use PHPUnit\Framework\TestCase;
  * Covers SecurityAnalyzerService::issuesFor() (private, exercised through
  * getAlerts()): the four-way branch on expiration state (none / future /
  * expiring soon / already expired) crossed with the configurable rule
- * toggles — see QUALITY_REVIEW_PLAN.md M-Q1, which flagged this as the
- * highest-value place for coverage given how easy it'd be to break silently.
- * Also covers the two FEATURE_GAPS_PLAN.md G4 rules (public_upload,
- * group_share_editable), added after M-Q1 in the same session.
+ * toggles — the highest-value place for coverage given how easy it'd be to
+ * break silently. Also covers the two newest rules (public_upload,
+ * group_share_editable).
  */
 class SecurityAnalyzerServiceTest extends TestCase {
 
@@ -282,7 +281,7 @@ class SecurityAnalyzerServiceTest extends TestCase {
     }
 
     // -------------------------------------------------------------------
-    // Caching + invalidation (see R2 in PRE_RELEASE_PLAN.md).
+    // Caching + invalidation.
     // -------------------------------------------------------------------
 
     public function testSecondCallWithinTtlDoesNotHitTheMapperAgain(): void {
@@ -314,7 +313,7 @@ class SecurityAnalyzerServiceTest extends TestCase {
     }
 
     // -------------------------------------------------------------------
-    // public_upload — FEATURE_GAPS_PLAN.md G4.
+    // public_upload.
     // -------------------------------------------------------------------
 
     public function testFileDropWithoutPasswordIsFlagged(): void {
@@ -369,7 +368,7 @@ class SecurityAnalyzerServiceTest extends TestCase {
     }
 
     // -------------------------------------------------------------------
-    // group_share_editable — FEATURE_GAPS_PLAN.md G4.
+    // group_share_editable.
     // -------------------------------------------------------------------
 
     public function testLargeEditableGroupIsFlagged(): void {

@@ -1,3 +1,8 @@
+/**
+ * SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import { translate as t, getCanonicalLocale } from '@nextcloud/l10n'
 
 const APP = 'share_audit_dashboard'
@@ -25,8 +30,7 @@ export function categoryLabel(category) {
  * Explains what the "Other" category groups: share types this version of
  * the app doesn't have a specific bucket for (e.g. one added in a newer
  * Nextcloud release). Shared by every chart/card that has an "other" slice,
- * so it doesn't read as an unexplained, slightly alarming leftover bucket —
- * see QUALITY_REVIEW_PLAN.md G5.3.
+ * so it doesn't read as an unexplained, slightly alarming leftover bucket.
  *
  * @return {string}
  */

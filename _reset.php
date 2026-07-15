@@ -1,5 +1,10 @@
 <?php
 /**
+ * SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/**
  * Dev-only: deletes every user except the instance admin (cascades to their
  * files and shares). Not part of the app — excluded from packaging via
  * .nextcloudignore.

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
 l10n helper for the share_audit_dashboard app.
 

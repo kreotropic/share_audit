@@ -1,3 +1,7 @@
+<!--
+  - SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+  -->
 <template>
 	<li class="sad-alert" :class="'sad-alert--' + alert.severity">
 		<div class="sad-alert__main">

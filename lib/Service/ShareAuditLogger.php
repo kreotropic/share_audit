@@ -18,7 +18,7 @@ use OCP\Log\Audit\CriticalActionPerformedEvent;
  * enabled) so "who revoked what" survives even for bulk actions — a "Revoke
  * all access" on a large group is otherwise irreversible *and* silent. Not a
  * replacement for the soft-delete roadmap item, just the minimal safety net
- * until that exists (see FEATURE_GAPS_PLAN.md G1).
+ * until that exists.
  */
 class ShareAuditLogger {
 

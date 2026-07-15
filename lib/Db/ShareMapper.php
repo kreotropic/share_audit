@@ -309,7 +309,7 @@ class ShareMapper {
      *
      * Deliberately scoped to native groups only, not circles (share_type 7):
      * circle membership needs the Circles app's own API, not IGroupManager —
-     * out of scope for now (see QUALITY_REVIEW_PLAN.md's G4 notes).
+     * out of scope for now.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -558,8 +558,8 @@ class ShareMapper {
             // future — a share whose expiration already passed is, for
             // filtering purposes, indistinguishable from one that never had
             // one: the date no longer protects anything, it's just waiting
-            // to be purged. See QUALITY_REVIEW_PLAN.md G5.2 (same date
-            // comparison as SecurityAnalyzerService's already_expired issue).
+            // to be purged (same date comparison as SecurityAnalyzerService's
+            // already_expired issue).
             $now = $qb->createNamedParameter((new \DateTimeImmutable())->format('Y-m-d H:i:s'));
             if ($filters['hasExpiration']) {
                 $qb->andWhere($qb->expr()->isNotNull('s.expiration'))

@@ -30,7 +30,7 @@ use PHPUnit\Framework\TestCase;
  * would silently become "every type-3 share with no password OR no
  * expiration OR an expiration at/before the cutoff" regardless of which
  * rules are actually enabled — an over-count on the dashboard's security
- * badge. See QUALITY_REVIEW_PLAN.md M-Q1.
+ * badge.
  */
 class ShareMapperTest extends TestCase {
 
@@ -160,7 +160,7 @@ class ShareMapperTest extends TestCase {
 
     // -------------------------------------------------------------------
     // applyFilters() — hasExpiration must mean "future expiration", not
-    // just "column is not null" — see QUALITY_REVIEW_PLAN.md G5.2.
+    // just "column is not null".
     // -------------------------------------------------------------------
 
     public function testHasExpirationTrueRequiresAFutureDateNotJustNonNull(): void {

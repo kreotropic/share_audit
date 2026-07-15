@@ -1,3 +1,7 @@
+<!--
+  - SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+  -->
 <template>
 	<div>
 		<!-- Each section renders its own title, so the title can share a row

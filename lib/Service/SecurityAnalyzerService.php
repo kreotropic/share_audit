@@ -19,7 +19,7 @@ use OCP\IGroupManager;
  * Detects shares that represent a governance / security risk. Originally
  * scoped to public links (type 3) missing a password or expiration date, or
  * exposing a sensitive file type; also covers two share_type-independent
- * risks (see G4 in FEATURE_GAPS_PLAN.md): a public link open for anonymous
+ * risks: a public link open for anonymous
  * upload without a password, and a native group share with edit/reshare
  * permission granted to a very large group.
  */
@@ -273,9 +273,9 @@ class SecurityAnalyzerService {
         } else {
             // Independent of the no_expiration toggle: a link *with* an
             // expiration set is only actually protected while that date is
-            // still in the future and not imminent — see FEATURE_GAPS_PLAN.md
-            // Q4 (ShareCollectorService/ShareMapper's own "hasExpiration" flag
-            // and filter follow the same rule — see G5.2).
+            // still in the future and not imminent
+            // (ShareCollectorService/ShareMapper's own "hasExpiration" flag
+            // and filter follow the same rule).
             $expiresAt = $this->parseExpiration($row['expiration']);
             if ($expiresAt !== null) {
                 $now = new \DateTimeImmutable();
@@ -322,7 +322,7 @@ class SecurityAnalyzerService {
      * A passwordless public link open for anonymous upload: either "file
      * drop" (create without read — the visitor can only add files, not see
      * what's already there) or full create+update (they can add AND modify
-     * existing files) — see FEATURE_GAPS_PLAN.md G4. Both are only a
+     * existing files). Both are only a
      * meaningfully distinct risk from plain no_password when a password
      * *would* otherwise gate them, so this always requires no password;
      * with one set, upload is limited to whoever has the password anyway

@@ -1,4 +1,8 @@
 <?xml version="1.0"?>
+<!--
+  - SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+  -->
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>share_audit_dashboard</id>
@@ -29,7 +33,7 @@ fix them in bulk. Regular users get a personal view to audit and clean up the fi
 Unlike the CLI‑only sharelisting app, everything is available in the browser.
     ]]></description>
     <version>0.3.0</version>
-    <licence>agpl</licence>
+    <licence>AGPL-3.0-or-later</licence>
     <author mail="ricardo.ferreira@jofebar.com">Ricardo Ferreira</author>
     <namespace>ShareAuditDashboard</namespace>
     <category>monitoring</category>

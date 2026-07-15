@@ -20,8 +20,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * normalizeRow() only has one branch of conditional logic worth a test on
  * its own (the rest is straight field mapping) — the "hasExpiration" flag,
- * fixed in QUALITY_REVIEW_PLAN.md G5.2 to mean "still has a future
- * expiration" rather than just "the column isn't null". getShares() also
+ * which means "still has a future expiration" rather than just "the column
+ * isn't null". getShares() also
  * gets a test for its ownerDisplayName attachment (see DisplayNameResolver).
  */
 class ShareCollectorServiceTest extends TestCase {

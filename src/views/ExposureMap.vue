@@ -1,3 +1,7 @@
+<!--
+  - SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+  -->
 <template>
 	<div>
 		<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
@@ -98,7 +102,7 @@ export default {
 			// Only shown when non-zero: groups share types this version of the
 			// app doesn't recognize yet (e.g. added in a newer Nextcloud release).
 			// Treated as at least as exposed as "External" rather than assumed
-			// safe — see QUALITY_REVIEW_PLAN.md C1.
+			// safe.
 			if (c.other > 0) {
 				segments.push({
 					key: 'other',

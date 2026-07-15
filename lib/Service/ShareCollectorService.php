@@ -282,7 +282,7 @@ class ShareCollectorService {
             'hasPassword' => !empty($row['password']),
             // Matches the ShareMapper::applyFilters() "hasExpiration" filter:
             // an expiration in the past is, for this purpose, the same as no
-            // expiration at all (see QUALITY_REVIEW_PLAN.md G5.2).
+            // expiration at all.
             'hasExpiration' => $this->hasFutureExpiration($row['expiration'] ?? null),
             'name' => $row['share_name'] ?? null,
         ];

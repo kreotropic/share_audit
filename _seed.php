@@ -1,5 +1,10 @@
 <?php
 /**
+ * SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/**
  * Dev-only: creates demo users (demoNN) with files and shares (user/group/
  * link/email) spread randomly across the last 365 days, for manually
  * exercising the dashboard, trend chart, alerts and orphan detection. Not

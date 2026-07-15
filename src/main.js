@@ -1,3 +1,8 @@
+/**
+ * SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import { createApp } from 'vue'
 import App from './App.vue'
 import PersonalApp from './PersonalApp.vue'
