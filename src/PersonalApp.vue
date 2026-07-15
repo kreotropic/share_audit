@@ -12,16 +12,11 @@
 			</p>
 		</div>
 
-		<NcNoteCard v-if="!enabled" type="info" class="sad-personal__disabled">
-			{{ t('share_audit_dashboard', 'This feature has been disabled by your administrator.') }}
-		</NcNoteCard>
+		<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
+
+		<NcNoteCard v-else-if="error" type="error">{{ error }}</NcNoteCard>
 
 		<template v-else>
-			<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
-
-			<NcNoteCard v-else-if="error" type="error">{{ error }}</NcNoteCard>
-
-			<template v-else>
 				<div class="sad-cards">
 					<div class="sad-card sad-card--total">
 						<span class="sad-card__icon" v-html="icons.total" />
@@ -111,7 +106,11 @@
 								<tr v-for="share in shares" :key="share.id">
 									<td><NcChip :text="categoryLabel(share.category)" :no-close="true" /></td>
 									<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
-									<td>{{ recipientOf(share) }}</td>
+									<td>
+										{{ recipientOf(share) }}
+										<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
+											class="sad-table__uid">{{ share.recipient }}</span>
+									</td>
 									<td class="sad-table__perms">{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}</td>
 									<td>{{ formatDate(share.created) }}</td>
 									<td>{{ share.expiration || '—' }}</td>
@@ -125,7 +124,6 @@
 						</table>
 					</div>
 				</section>
-				</template>
 			</template>
 	</div>
 </template>
@@ -161,15 +159,6 @@ export default {
 		AlertCard,
 		BulkActionBar,
 	},
-	props: {
-		// Server-rendered flag (see templates/personal.php): whether the admin
-		// left this feature on. Passed in rather than fetched, so a disabled
-		// instance never issues any of the API calls below.
-		enabled: {
-			type: Boolean,
-			default: true,
-		},
-	},
 	data() {
 		return {
 			loading: true,
@@ -191,9 +180,7 @@ export default {
 		},
 	},
 	async mounted() {
-		if (this.enabled) {
-			await this.loadAll()
-		}
+		await this.loadAll()
 	},
 	methods: {
 		t,
@@ -248,7 +235,7 @@ export default {
 		},
 		recipientOf(share) {
 			if (share.recipient) {
-				return share.recipient
+				return share.recipientDisplayName || share.recipient
 			}
 			return share.category === 'link' ? t('share_audit_dashboard', '(public)') : '—'
 		},
@@ -310,9 +297,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.sad-personal {
-	max-width: 1000px;
-}
+// No max-width here — same as the admin App.vue root, this page should use
+// the full available width (previously capped at 1000px, which left dead
+// space on wide viewports and forced the shares table into an unnecessary
+// horizontal scroll instead of just showing more).
 
 // Title and subtitle share a baseline, separated by a middot — same pattern
 // as App.vue's header, since this is likewise a top-level mount.
@@ -336,10 +324,6 @@ export default {
 .sad-header__sub {
 	margin: 0;
 	max-width: none;
-}
-
-.sad-personal__disabled {
-	margin-top: 16px;
 }
 
 // Same card shape/spacing as StatsCards.vue's dashboard cards.
@@ -478,6 +462,12 @@ export default {
 	max-width: 300px;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.sad-table__uid {
+	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
 }
 
 .sad-table__perms {

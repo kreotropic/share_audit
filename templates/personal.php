@@ -11,8 +11,8 @@ script('share_audit_dashboard', 'share_audit_dashboard-main');
 style('share_audit_dashboard', 'admin');
 ?>
 
-<div id="share-audit-personal"
-    class="section"
-    data-enabled="<?php p($_['enabled'] ? '1' : '0'); ?>">
-    <!-- The personal Vue 3 app is mounted here. -->
+<div id="share-audit-personal" class="section">
+    <!-- The personal Vue 3 app is mounted here. Only rendered at all when
+         PersonalSettings::getSection() returns non-null, i.e. the admin has
+         the personal view enabled — see that class' docblock. -->
 </div>

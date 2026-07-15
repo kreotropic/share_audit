@@ -229,7 +229,6 @@
         "Enable the personal audit view for every user": "Enable the personal audit view for every user",
         "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.": "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.",
         "Personal view": "Personal view",
-        "This feature has been disabled by your administrator.": "This feature has been disabled by your administrator.",
         "Risky shares": "Risky shares",
         "None of your shares need attention.": "None of your shares need attention."
     },
