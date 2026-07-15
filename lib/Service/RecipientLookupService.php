@@ -120,13 +120,25 @@ class RecipientLookupService {
     }
 
     /**
-     * All shares granting access to a given recipient, normalized.
+     * All shares granting access to a given recipient, normalized and paginated.
      *
-     * @return array{recipient: array<string,mixed>, items: array<int, array<string, mixed>>, total: int}
+     * A $limit of 0 (or less) returns every matching share on a single page,
+     * same convention as OrphanShareService::getOrphanShares().
+     *
+     * @return array{recipient: array<string,mixed>, items: array<int, array<string, mixed>>, total: int, page: int, limit: int}
      */
-    public function getShares(string $shareWith, int $shareType): array {
+    public function getShares(string $shareWith, int $shareType, int $page = 1, int $limit = 25): array {
+        $page = max(1, $page);
+        $all = $limit <= 0;
+        $limit = $all ? 0 : max(1, min(500, $limit));
+
         $filters = ['shareWith' => $shareWith, 'shareType' => $shareType];
-        $rows = $this->mapper->findShares($filters, 500, 0);
+        $total = $this->mapper->countShares($filters);
+        $rows = $this->mapper->findShares(
+            $filters,
+            $all ? max(1, $total) : $limit,
+            $all ? 0 : ($page - 1) * $limit,
+        );
         $items = array_map([$this->collector, 'normalizeRow'], $rows);
 
         $names = $this->displayNames->resolveMany(array_column($items, 'owner'));
@@ -143,7 +155,9 @@ class RecipientLookupService {
                 'label' => $this->displayName($shareWith, $shareType),
             ],
             'items' => $items,
-            'total' => $this->mapper->countShares($filters),
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
         ];
     }
 

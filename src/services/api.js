@@ -86,10 +86,12 @@ export async function searchRecipients(q) {
 }
 
 /**
- * Every share granting access to a recipient.
+ * Shares granting access to a recipient, paginated.
+ *
+ * @param {object} params { page, limit } — limit 0 returns every share on one page
  */
-export async function recipientShares(shareWith, shareType) {
-	const { data } = await axios.get(base('/api/recipients/shares'), { params: { shareWith, shareType } })
+export async function recipientShares(shareWith, shareType, params = {}) {
+	const { data } = await axios.get(base('/api/recipients/shares'), { params: { shareWith, shareType, ...params } })
 	return data
 }
 

@@ -187,11 +187,13 @@
         "Email": "Email",
         "Federated": "Federado",
         "Group": "Grupo",
+        "No expiration": "Sem expiração",
         "No expiration date": "Sem data de expiração",
         "No password": "Sem palavra-passe",
         "Public link": "Hiperligação pública",
         "Read": "Ler",
         "Reshare": "Repartilhar",
+        "Sensitive file": "Ficheiro sensível",
         "Sensitive file type": "Tipo de ficheiro sensível",
         "Talk": "Talk",
         "User": "Utilizador",
@@ -207,7 +209,6 @@
         "Items per page": "Itens por página",
         "Lookup & Orphans": "Pesquisa e órfãs",
         "Search user, group or email to see what they can reach…": "Pesquisar utilizador, grupo ou email para ver a que tem acesso…",
-        "Showing the first {shown} of {total} shares. Narrow your search to see the rest.": "A mostrar as primeiras {shown} de {total} partilhas. Refine a pesquisa para ver as restantes.",
         "All shares, sortable and filterable by column.": "Todas as partilhas, ordenáveis e filtráveis por coluna.",
         "Already expired": "Já expirou",
         "Clear the filter to see the other insecure links.": "Limpe o filtro para ver as outras hiperligações inseguras.",
@@ -228,7 +229,9 @@
         "Enable the personal audit view for every user": "Ativar a vista de auditoria pessoal para todos os utilizadores",
         "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.": "Permite que cada utilizador audite e corrija as suas próprias partilhas em Definições → Pessoal, e veja um widget no painel com as hiperligações que precisam de atenção.",
         "Personal view": "Vista pessoal",
-        "This feature has been disabled by your administrator.": "Esta funcionalidade foi desativada pelo administrador."
+        "This feature has been disabled by your administrator.": "Esta funcionalidade foi desativada pelo administrador.",
+        "Risky shares": "Partilhas de risco",
+        "None of your shares need attention.": "Nenhuma das suas partilhas precisa de atenção."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

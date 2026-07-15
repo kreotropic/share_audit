@@ -158,11 +158,13 @@ OC.L10N.register(
     "Email" : "Email",
     "Federated" : "Federated",
     "Group" : "Group",
+    "No expiration" : "No expiration",
     "No expiration date" : "No expiration date",
     "No password" : "No password",
     "Public link" : "Public link",
     "Read" : "Read",
     "Reshare" : "Reshare",
+    "Sensitive file" : "Sensitive file",
     "Sensitive file type" : "Sensitive file type",
     "Talk" : "Talk",
     "User" : "User",
@@ -178,7 +180,6 @@ OC.L10N.register(
     "Items per page" : "Items per page",
     "Lookup & Orphans" : "Lookup & Orphans",
     "Search user, group or email to see what they can reach…" : "Search user, group or email to see what they can reach…",
-    "Showing the first {shown} of {total} shares. Narrow your search to see the rest." : "Showing the first {shown} of {total} shares. Narrow your search to see the rest.",
     "All shares, sortable and filterable by column." : "All shares, sortable and filterable by column.",
     "Already expired" : "Already expired",
     "Clear the filter to see the other insecure links." : "Clear the filter to see the other insecure links.",
@@ -199,6 +200,8 @@ OC.L10N.register(
     "Enable the personal audit view for every user" : "Enable the personal audit view for every user",
     "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention." : "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.",
     "Personal view" : "Personal view",
-    "This feature has been disabled by your administrator." : "This feature has been disabled by your administrator."
+    "This feature has been disabled by your administrator." : "This feature has been disabled by your administrator.",
+    "Risky shares" : "Risky shares",
+    "None of your shares need attention." : "None of your shares need attention."
 },
 "nplurals=2; plural=(n != 1);");

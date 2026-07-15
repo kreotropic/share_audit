@@ -44,13 +44,15 @@ class RecipientController extends AdminController {
 
     /**
      * GET /api/recipients/shares — shares granting access to a recipient.
+     *
+     * A $limit of 0 (or less) returns every matching share on a single page.
      */
     #[UserRateLimit(limit: 60, period: 60)]
-    public function shares(string $shareWith = '', int $shareType = -1): JSONResponse {
+    public function shares(string $shareWith = '', int $shareType = -1, int $page = 1, int $limit = 25): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        return new JSONResponse($this->lookup->getShares($shareWith, $shareType));
+        return new JSONResponse($this->lookup->getShares($shareWith, $shareType, $page, $limit));
     }
 
     /**

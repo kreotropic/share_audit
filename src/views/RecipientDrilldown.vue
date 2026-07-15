@@ -48,6 +48,10 @@
 					</span>
 				</h3>
 				<span class="sad-recipient__spacer" />
+				<PageSizeSelect v-model="pageSize"
+					:options="pageSizeOptions"
+					:width="120"
+					:disabled="loading || revoking" />
 				<template v-if="total > 0">
 					<template v-if="!confirming">
 						<NcButton type="error" :disabled="revoking" @click="confirming = true">
@@ -73,16 +77,6 @@
 			</NcNoteCard>
 
 			<NcLoadingIcon v-if="loading" :size="32" class="sad-loading" />
-
-			<!-- The backend caps the listing; never let the count imply we showed
-			     everything, or an offboarding audit would silently miss shares. -->
-			<NcNoteCard v-if="!loading && total > items.length"
-				type="warning"
-				class="sad-recipient__truncated">
-				{{ t('share_audit_dashboard',
-					'Showing the first {shown} of {total} shares. Narrow your search to see the rest.',
-					{ shown: items.length, total }) }}
-			</NcNoteCard>
 
 			<div v-if="!loading && items.length" class="sad-table-wrapper">
 				<table class="sad-table">
@@ -118,6 +112,19 @@
 					</tbody>
 				</table>
 			</div>
+
+			<div v-if="!loading && total > apiLimit" class="sad-pagination">
+				<span class="sad-pagination__info">{{ rangeLabel }}</span>
+				<div class="sad-pagination__controls">
+					<NcButton :disabled="page <= 1" @click="goto(page - 1)">
+						{{ t('share_audit_dashboard', 'Previous') }}
+					</NcButton>
+					<span class="sad-pagination__page">{{ page }} / {{ totalPages }}</span>
+					<NcButton :disabled="page >= totalPages" @click="goto(page + 1)">
+						{{ t('share_audit_dashboard', 'Next') }}
+					</NcButton>
+				</div>
+			</div>
 		</template>
 	</div>
 </template>
@@ -129,6 +136,7 @@ import NcChip from '@nextcloud/vue/components/NcChip'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
+import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
 import { searchRecipients, recipientShares, revokeRecipientAll } from '../services/api.js'
 
@@ -145,6 +153,7 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		NcTextField,
+		PageSizeSelect,
 	},
 	data() {
 		return {
@@ -157,12 +166,54 @@ export default {
 			selected: null,
 			items: [],
 			total: 0,
+			page: 1,
+			pageSizeOptions: [
+				{ id: 5, label: '5' },
+				{ id: 15, label: '15' },
+				{ id: 25, label: '25' },
+				{ id: 50, label: '50' },
+				{ id: 'all', label: t('share_audit_dashboard', 'All') },
+			],
+			pageSize: { id: 25, label: '25' },
 			loading: false,
 			revoking: false,
 			confirming: false,
 			notice: null,
 			searchTimer: null,
 		}
+	},
+	computed: {
+		isAll() {
+			return this.pageSize.id === 'all'
+		},
+		// Numeric limit sent to the API; 0 means "return every share".
+		apiLimit() {
+			return this.isAll ? 0 : this.pageSize.id
+		},
+		totalPages() {
+			if (this.isAll) {
+				return 1
+			}
+			return Math.max(1, Math.ceil(this.total / this.apiLimit))
+		},
+		rangeLabel() {
+			if (this.total === 0) {
+				return ''
+			}
+			const from = this.isAll ? 1 : (this.page - 1) * this.apiLimit + 1
+			const to = this.isAll ? this.total : Math.min(this.total, this.page * this.apiLimit)
+			return t('share_audit_dashboard', '{from}–{to} of {total}', { from, to, total: this.total })
+		},
+	},
+	watch: {
+		// A different page size invalidates the current page.
+		'pageSize.id'() {
+			if (!this.selected) {
+				return
+			}
+			this.page = 1
+			this.loadShares()
+		},
 	},
 	methods: {
 		t,
@@ -190,11 +241,18 @@ export default {
 		},
 		async select(recipient) {
 			this.selected = recipient
+			this.page = 1
+			await this.loadShares()
+		},
+		async loadShares() {
 			this.confirming = false
 			this.notice = null
 			this.loading = true
 			try {
-				const data = await recipientShares(recipient.shareWith, recipient.shareType)
+				const data = await recipientShares(this.selected.shareWith, this.selected.shareType, {
+					page: this.page,
+					limit: this.apiLimit,
+				})
 				this.items = data.items
 				this.total = data.total
 			} catch (e) {
@@ -203,10 +261,18 @@ export default {
 				this.loading = false
 			}
 		},
+		goto(page) {
+			if (page < 1 || page > this.totalPages || page === this.page) {
+				return
+			}
+			this.page = page
+			this.loadShares()
+		},
 		clearSelection() {
 			this.selected = null
 			this.items = []
 			this.total = 0
+			this.page = 1
 			this.confirming = false
 			this.notice = null
 		},
@@ -233,6 +299,7 @@ export default {
 				}
 				this.items = []
 				this.total = 0
+				this.page = 1
 				this.confirming = false
 				// Refresh the autocomplete so the recipient disappears if empty.
 				if (this.query.trim().length >= 2) {
@@ -411,5 +478,26 @@ export default {
 .sad-table__perms {
 	white-space: normal;
 	min-width: 140px;
+}
+
+.sad-pagination {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 16px;
+}
+
+.sad-pagination__controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.sad-pagination__info,
+.sad-pagination__page {
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
 }
 </style>
