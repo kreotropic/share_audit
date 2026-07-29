@@ -42,6 +42,18 @@ class ShareMapper {
         'password' => 's.password',
     ];
 
+    /**
+     * The sort keys whose column is nullable — and therefore the ones the two
+     * supported databases would otherwise disagree about. MySQL sorts NULL
+     * before every value; PostgreSQL sorts it after. Ordering by the raw
+     * column alone means "sort by expiry" hands back a different page on each
+     * engine, which is why these get an explicit nulls-last key instead.
+     *
+     * path belongs here because it comes from a LEFT JOIN: a share whose file
+     * has left the cache has no path at all.
+     */
+    private const NULLABLE_SORT_COLUMNS = ['path', 'recipient', 'expires'];
+
     public function __construct(
         private IDBConnection $db,
     ) {
@@ -142,6 +154,10 @@ class ShareMapper {
                 $qb->createNamedParameter(self::EXCLUDED_TYPES, IQueryBuilder::PARAM_INT_ARRAY)))
             ->groupBy('uid_owner')
             ->orderBy('cnt', 'DESC')
+            // Without a tiebreaker the LIMIT decides *which* of the owners
+            // tied at the cutoff make the list at all, not merely their order,
+            // and each database answers that differently.
+            ->addOrderBy('uid_owner', 'ASC')
             ->setMaxResults($limit);
 
         $result = $qb->executeQuery();
@@ -169,6 +185,8 @@ class ShareMapper {
             ->where($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)))
             ->groupBy('uid_owner')
             ->orderBy('cnt', 'DESC')
+            // See topOwners(): the tiebreaker decides membership, not just order.
+            ->addOrderBy('uid_owner', 'ASC')
             ->setMaxResults($limit);
 
         $result = $qb->executeQuery();
@@ -220,6 +238,16 @@ class ShareMapper {
         // is semantically random — sort by "has a password" instead.
         if ($sort === 'password') {
             $qb->orderBy($qb->createFunction('CASE WHEN s.password IS NULL THEN 0 ELSE 1 END'), $direction);
+        } elseif (in_array($sort, self::NULLABLE_SORT_COLUMNS, true)) {
+            // Rows with no value park at the end whichever way the column
+            // itself runs: "never expires" is not an imminent expiry date, and
+            // a public link is not a recipient sorted under the empty string.
+            // Deliberately independent of $direction — reversing the sort
+            // should reorder the rows that have a value, not drag the ones
+            // that do not up to the top.
+            $column = self::SORT_COLUMNS[$sort];
+            $qb->orderBy($qb->createFunction("CASE WHEN $column IS NULL THEN 1 ELSE 0 END"), 'ASC')
+                ->addOrderBy($column, $direction);
         } else {
             $qb->orderBy(self::SORT_COLUMNS[$sort] ?? 's.stime', $direction);
         }

@@ -100,6 +100,11 @@ class RecipientLookupService {
             ->andWhere($qb->expr()->orX(...$conditions))
             ->groupBy('share_with', 'share_type')
             ->orderBy('cnt', 'DESC')
+            // Same reason as ShareMapper::topOwners(): with a LIMIT, an
+            // untied-broken sort decides which recipients are offered as
+            // autocomplete results at all, and the databases disagree.
+            ->addOrderBy('share_with', 'ASC')
+            ->addOrderBy('share_type', 'ASC')
             ->setMaxResults($limit);
 
         $result = $qb->executeQuery();
