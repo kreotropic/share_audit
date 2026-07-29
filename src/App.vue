@@ -35,12 +35,15 @@
 				@drilldown="onDrilldown"
 				@open-shares="onOpenShares"
 				@alerts-count="alertsCount = $event"
-				@orphan-count="orphanCount = $event" />
+				@orphan-count="orphanCount = $event"
+				@deleted-count="deletedCount = $event" />
 			<ShareList v-else-if="activeTab === 'shares'" :preset-types="sharesPreset" />
 			<SecurityAlerts v-else-if="activeTab === 'alerts'"
 				@alerts-count="alertsCount = $event" />
 			<LookupAndOrphans v-else-if="activeTab === 'lookup'"
 				@orphan-count="orphanCount = $event" />
+			<DeletedShares v-else-if="activeTab === 'deleted'"
+				@deleted-count="deletedCount = $event" />
 			<Settings v-else-if="activeTab === 'settings'" @saved="onSettingsSaved" />
 		</div>
 	</div>
@@ -53,6 +56,7 @@ import Dashboard from './views/Dashboard.vue'
 import ShareList from './views/ShareList.vue'
 import SecurityAlerts from './views/SecurityAlerts.vue'
 import LookupAndOrphans from './views/LookupAndOrphans.vue'
+import DeletedShares from './views/DeletedShares.vue'
 import Settings from './views/Settings.vue'
 
 const DRILLDOWN_TYPES = {
@@ -69,6 +73,7 @@ export default {
 		ShareList,
 		SecurityAlerts,
 		LookupAndOrphans,
+		DeletedShares,
 		Settings,
 	},
 	data() {
@@ -76,6 +81,7 @@ export default {
 			activeTab: 'dashboard',
 			alertsCount: 0,
 			orphanCount: 0,
+			deletedCount: 0,
 			sharesPreset: null,
 		}
 	},
@@ -86,6 +92,7 @@ export default {
 				{ id: 'shares', label: t('share_audit_dashboard', 'All shares') },
 				{ id: 'alerts', label: t('share_audit_dashboard', 'Security alerts') },
 				{ id: 'lookup', label: t('share_audit_dashboard', 'Lookup & Orphans') },
+				{ id: 'deleted', label: t('share_audit_dashboard', 'Deleted shares') },
 				{ id: 'settings', label: t('share_audit_dashboard', 'Settings') },
 			]
 		},
@@ -114,6 +121,9 @@ export default {
 			}
 			if (id === 'lookup') {
 				return this.orphanCount
+			}
+			if (id === 'deleted') {
+				return this.deletedCount
 			}
 			return 0
 		},
@@ -207,7 +217,8 @@ export default {
 	background-color: var(--sad-critical);
 }
 
-.sad-badge--lookup {
+.sad-badge--lookup,
+.sad-badge--deleted {
 	background-color: var(--sad-type-other);
 }
 </style>

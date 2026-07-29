@@ -14,6 +14,7 @@ use OCA\ShareAuditDashboard\Service\ReportService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
+use OCA\ShareAuditDashboard\Service\SoftDeleteService;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
@@ -36,6 +37,7 @@ class ShareApiController extends AdminController {
         private ReportService $report,
         private SettingsService $settings,
         private OrphanShareService $orphanService,
+        private SoftDeleteService $softDelete,
         IUserSession $userSession,
         IGroupManager $groupManager,
     ) {
@@ -51,6 +53,7 @@ class ShareApiController extends AdminController {
         }
         $stats = $this->collector->getStats();
         $stats['orphanCount'] = $this->orphanService->countOrphanShares();
+        $stats['deletedCount'] = $this->softDelete->count();
         return new JSONResponse($stats);
     }
 
@@ -218,6 +221,7 @@ class ShareApiController extends AdminController {
         bool $rulePublicUpload = true,
         bool $personalViewEnabled = true,
         int $groupShareMinMembers = 20,
+        int $retentionDays = 30,
     ): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
@@ -228,7 +232,7 @@ class ShareApiController extends AdminController {
             'sensitive_file' => $ruleSensitiveFile,
             'group_share_editable' => $ruleGroupShareEditable,
             'public_upload' => $rulePublicUpload,
-        ], $personalViewEnabled, $groupShareMinMembers);
+        ], $personalViewEnabled, $groupShareMinMembers, $retentionDays);
         return new JSONResponse($this->settings->getSettings());
     }
 

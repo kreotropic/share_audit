@@ -125,7 +125,7 @@ export default {
 		ExposureDonut,
 		ExposureMap,
 	},
-	emits: ['navigate', 'alerts-count', 'orphan-count', 'drilldown', 'open-shares'],
+	emits: ['navigate', 'alerts-count', 'orphan-count', 'deleted-count', 'drilldown', 'open-shares'],
 	data() {
 		return {
 			loading: true,
@@ -172,6 +172,7 @@ export default {
 			this.stats = await fetchStats()
 			this.$emit('alerts-count', this.stats.alertsCount)
 			this.$emit('orphan-count', this.stats.orphanCount ?? 0)
+			this.$emit('deleted-count', this.stats.deletedCount ?? 0)
 		} catch (e) {
 			this.error = t('share_audit_dashboard', 'Could not load share statistics.')
 		} finally {

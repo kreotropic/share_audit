@@ -32,7 +32,7 @@ fix them in bulk. Regular users get a personal view to audit and clean up the fi
 
 Unlike the CLI‑only sharelisting app, everything is available in the browser.
     ]]></description>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <licence>AGPL-3.0-or-later</licence>
     <author mail="rsfneg@gmail.com">Ricardo Ferreira</author>
     <namespace>ShareAuditDashboard</namespace>
@@ -50,17 +50,26 @@ Unlike the CLI‑only sharelisting app, everything is available in the browser.
 
     <dependencies>
         <php min-version="8.1"/>
-        <nextcloud min-version="31" max-version="33"/>
+        <nextcloud min-version="31" max-version="34"/>
     </dependencies>
+
+    <!-- Order matters below: info.xsd declares these as a sequence
+         (background-jobs, then settings, then dashboard) and, inside settings,
+         admin before admin-section before personal before personal-section.
+         Nextcloud's own parser ignores order; the App Store validates against
+         the schema and rejects the file otherwise. -->
+    <background-jobs>
+        <job>OCA\ShareAuditDashboard\BackgroundJob\PurgeDeletedSharesJob</job>
+    </background-jobs>
+
+    <settings>
+        <admin>OCA\ShareAuditDashboard\Settings\AdminSettings</admin>
+        <admin-section>OCA\ShareAuditDashboard\Settings\AdminSection</admin-section>
+        <personal>OCA\ShareAuditDashboard\Settings\PersonalSettings</personal>
+        <personal-section>OCA\ShareAuditDashboard\Settings\PersonalSection</personal-section>
+    </settings>
 
     <dashboard>
         <widget>OCA\ShareAuditDashboard\Dashboard\MyAlertsWidget</widget>
     </dashboard>
-
-    <settings>
-        <admin-section>OCA\ShareAuditDashboard\Settings\AdminSection</admin-section>
-        <admin>OCA\ShareAuditDashboard\Settings\AdminSettings</admin>
-        <personal-section>OCA\ShareAuditDashboard\Settings\PersonalSection</personal-section>
-        <personal>OCA\ShareAuditDashboard\Settings\PersonalSettings</personal>
-    </settings>
 </info>
