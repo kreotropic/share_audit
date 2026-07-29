@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!--
-  - SPDX-FileCopyrightText: 2025 Ricardo Ferreira <ricardo.ferreira@jofebar.com>
+  - SPDX-FileCopyrightText: 2025 Ricardo Ferreira <rsfneg@gmail.com>
   - SPDX-License-Identifier: AGPL-3.0-or-later
   -->
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -34,7 +34,7 @@ Unlike the CLI‑only sharelisting app, everything is available in the browser.
     ]]></description>
     <version>0.3.0</version>
     <licence>AGPL-3.0-or-later</licence>
-    <author mail="ricardo.ferreira@jofebar.com">Ricardo Ferreira</author>
+    <author mail="rsfneg@gmail.com">Ricardo Ferreira</author>
     <namespace>ShareAuditDashboard</namespace>
     <category>monitoring</category>
     <category>security</category>
