@@ -41,6 +41,13 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
   offboarding suppliers); plus shares still owned by **disabled or deleted
   accounts**, with bulk revoke — a classic offboarding risk Nextcloud does not
   surface.
+- **Deleted shares** — a recycle bin for revoked shares. Unsharing in Nextcloud
+  is normally immediate and irreversible; here a removed share is kept for a
+  retention window (30 days by default, configurable) and can be **restored** or
+  purged, individually or in bulk. It catches every removal on the instance, not
+  just the ones made through this app — unsharing from the Files app, another
+  app, `occ` or the sharing API lands in the bin just the same. A daily
+  background job clears out anything past its retention date.
 
 ### For every user (Settings → Personal → My shares audit)
 
@@ -73,7 +80,7 @@ php occ app:enable share_audit_dashboard
 ### Web Interface
 
 - **Admins:** **Settings → Administration → Share Audit** — Dashboard, All shares,
-  Security alerts, Lookup & Orphans, and Settings.
+  Security alerts, Lookup & Orphans, Deleted shares, and Settings.
 - **Users:** **Settings → Personal → My shares audit**.
 
 Everything is available in the browser; there are no OCC commands to learn.
@@ -83,7 +90,8 @@ Everything is available in the browser; there are no OCC commands to learn.
 In **Security alerts** (admin) and **My shares audit** (user) you can act on many
 links at once: generate a password, set an expiration, or revoke. Generated
 passwords are shown **once** — copy them immediately, they are not stored or shown
-again.
+again. Revoking is recoverable: the share goes to **Deleted shares** for the
+retention window rather than disappearing outright.
 
 ## Known Limitations
 
@@ -99,6 +107,12 @@ again.
 - **Generated passwords are shown once.** When a bulk or single "add password"
   action creates a password, copy it right away — it is not shown again.
 
+- **Restoring a share usually, but not always, keeps its public link URL.** The
+  original token and password are put back as they were, so an already-circulated
+  link keeps working. The exception is if that token was taken by a link created
+  while this one sat in the bin: the share is still restored, but with a fresh
+  token and no password, and the result says so rather than failing silently.
+
 ## Translations
 
 The app interface is available in:
@@ -111,8 +125,10 @@ and regenerate the matching `l10n/<locale>.js` with `python3 build/l10n.py`.
 
 ## Requirements
 
-- Nextcloud 31–33
-- PHP 8.1 or later
+- Nextcloud 31–34
+- PHP 8.1 or later (tested up to PHP 8.5, which Nextcloud 34 ships with)
+- MySQL/MariaDB or PostgreSQL — both are tested by running the same fixture on
+  each and diffing the app's output, so the two return identical results
 
 ## License
 
@@ -123,6 +139,20 @@ and regenerate the matching `l10n/<locale>.js` with `python3 build/l10n.py`.
 The frontend is Vue 3 + `@nextcloud/vue`; the backend reads `oc_share` directly
 via a mapper and exposes an admin‑only (and a per‑user) JSON API. See the code
 under `lib/` and `src/`.
+
+### Tests
+
+```bash
+composer install
+vendor/bin/phpunit
+```
+
+The suite must pass on both supported databases. Sorting is where they part
+company — MySQL places `NULL` before every value and PostgreSQL after it — so any
+new `ORDER BY` over a nullable column needs an explicit "nulls last" key, and any
+`ORDER BY` paired with a `LIMIT` needs a tiebreaker, or the two engines return
+different rows rather than merely a different order. See
+`ShareMapper::NULLABLE_SORT_COLUMNS`.
 
 ### Frontend build
 
@@ -170,8 +200,10 @@ showcase the app.*
 
 ## Roadmap
 
-Planned features (soft delete / recycle bin for shares, ownership transfer, email
-compliance reports, and more) are documented in [ROADMAP.md](ROADMAP.md).
+Planned features (ownership transfer, email compliance reports, acknowledging an
+alert as an accepted exception, and more) are documented in
+[ROADMAP.md](ROADMAP.md). Soft delete / recycle bin, once the top item there, has
+shipped — see **Deleted shares** above.
 
 ## Changelog
 
