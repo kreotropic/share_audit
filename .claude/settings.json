@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//home/ricardo/nextcloud-dev/apps/folder_protection/tests/Unit/**)",
-      "Read(//home/ricardo/nextcloud-dev/apps/folder_protection/tests/Integration/**)"
-    ]
-  }
-}

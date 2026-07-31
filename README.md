@@ -154,6 +154,10 @@ new `ORDER BY` over a nullable column needs an explicit "nulls last" key, and an
 different rows rather than merely a different order. See
 `ShareMapper::NULLABLE_SORT_COLUMNS`.
 
+For an end-to-end check there is a disposable instance per engine and a
+deterministic share fixture to give both — see
+[build/README.md](build/README.md).
+
 ### Frontend build
 
 Compiled JavaScript is committed to the repository, so a build is only needed when

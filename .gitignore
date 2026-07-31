@@ -5,3 +5,4 @@
 /vendor/
 /js/*.map
 /.phpunit.result.cache
+/.claude/

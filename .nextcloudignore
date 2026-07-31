@@ -28,6 +28,7 @@ phpunit.xml
 .gitignore
 .nextcloudignore
 .vscode
+.claude
 krankerl.toml
 .reuse
 REUSE.toml

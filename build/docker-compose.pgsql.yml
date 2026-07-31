@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2025 Ricardo Ferreira <rsfneg@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Disposable PostgreSQL Nextcloud instance for checking that Share Audit
+# Dashboard behaves identically on both supported engines. See build/README.md.
+#
+# Ports and names are deliberately distinct from every other app's dev
+# tooling, so several of these can run side by side without colliding.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: shareaudit-pg-db
+    restart: unless-stopped
+    volumes:
+      - pgdb:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud
+
+  app:
+    # Keep this in step with the instance you compare against: identical
+    # Nextcloud versions are what make the two outputs diffable. Nextcloud
+    # refuses to start on a *lower* version than its data already has, so
+    # lowering this against an existing instance means `down -v` first.
+    image: nextcloud:34-apache
+    container_name: shareaudit-pg-app
+    restart: unless-stopped
+    ports:
+      - 8083:80
+    depends_on:
+      - db
+    volumes:
+      - pgnextcloud:/var/www/html
+      - ..:/var/www/html/custom_apps/share_audit_dashboard
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud
+      - NEXTCLOUD_ADMIN_USER=ncadmin
+      - NEXTCLOUD_ADMIN_PASSWORD=shareaudit-pgsql-verify
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost
+
+volumes:
+  pgdb:
+  pgnextcloud:

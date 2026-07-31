@@ -20,6 +20,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   effort preserves the original public-link URL and password) or delete it
   permanently, individually or in bulk. A daily background job purges
   expired entries. This is the app's first database migration.
+- **Nextcloud 34 support** (`max-version` raised from 33 to 34).
+
+### Fixed
+- **Sort order is now deterministic across MySQL/MariaDB and PostgreSQL.**
+  MySQL sorts `NULL` before every value and PostgreSQL after it, so sorting
+  the shares table by path, recipient or expiration could return the same
+  rows in a different order on each engine — or, combined with a `LIMIT`
+  (top sharers, recipient autocomplete), a genuinely different *set* of
+  rows, since an unbroken tie at the cutoff was decided arbitrarily per
+  engine. Nullable sort columns now get an explicit "nulls last" tiebreaker,
+  and every grouped query paired with a `LIMIT` has a deterministic
+  secondary sort key. Verified by running an identical fixture against both
+  engines and diffing every read path (`build/README.md`).
 
 ## [0.3.0] - 2026-07-15
 
@@ -84,6 +97,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   filter, and the underlying flag used by exports) now treats an
   already-expired date as "without expiration" instead of counting it as
   still protected.
+- The "My shares audit" personal settings page was capped at `max-width:
+  1000px` (unlike the admin view), forcing an unnecessary horizontal scroll
+  on wide viewports; it now uses the full width. Its Recipient column also
+  never read `recipientDisplayName` from the API response, always showing
+  the raw uid/UUID instead of the person's name.
+- The personal view's nav link stayed visible with a "disabled by your
+  administrator" notice when an admin turned the feature off, instead of
+  disappearing entirely — `PersonalSettings::getSection()` now returns
+  `null` in that case, per `ISettings::getSection()`'s own contract.
 
 ## [0.2.1]
 

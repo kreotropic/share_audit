@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2025 Ricardo Ferreira <rsfneg@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Disposable MariaDB Nextcloud instance, the counterpart to
+# docker-compose.pgsql.yml. Together they let the same fixture be compared
+# across both supported engines. See build/README.md.
+services:
+  db:
+    image: mariadb:10.11
+    container_name: shareaudit-my-db
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    volumes:
+      - mydb:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=nextcloud
+      - MYSQL_PASSWORD=nextcloud
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+
+  app:
+    # See the note in docker-compose.pgsql.yml about keeping the two in step.
+    image: nextcloud:34-apache
+    container_name: shareaudit-my-app
+    restart: unless-stopped
+    ports:
+      - 8084:80
+    depends_on:
+      - db
+    volumes:
+      - mynextcloud:/var/www/html
+      - ..:/var/www/html/custom_apps/share_audit_dashboard
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud
+      - NEXTCLOUD_ADMIN_USER=ncadmin
+      - NEXTCLOUD_ADMIN_PASSWORD=shareaudit-mysql-verify
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost
+
+volumes:
+  mydb:
+  mynextcloud:
