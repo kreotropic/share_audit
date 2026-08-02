@@ -5,286 +5,292 @@
 
 # Share Audit Dashboard — Roadmap
 
-## Estado atual (v0.4.0)
+## Current state (v0.4.0)
 
-A app está **publicada na App Store** (`min-version` 31, `max-version` 34) e
-funcionalmente completa: três rondas de revisão (segurança, pré-submissão e
-auditoria de qualidade linha a linha) foram executadas e fechadas antes da
-0.3.0 — ver [CHANGELOG.md](CHANGELOG.md) para o detalhe do que corrigiram em
-cada versão. A 0.4.0 acrescentou o soft delete (reciclagem) de partilhas e
-suporte a Nextcloud 34. A app tem suite de testes (`phpunit`, `tests/Unit/`,
-73 testes) e CI (`.github/workflows/ci.yml`: l10n, php, frontend). Tudo o
-que se segue já está implementado e a funcionar:
+The app is **published on the App Store** (`min-version` 31, `max-version`
+34) and functionally complete: three review rounds (security, pre-submission
+and a line-by-line quality audit) were run and closed before 0.3.0 — see
+[CHANGELOG.md](CHANGELOG.md) for what each version fixed. 0.4.0 added soft
+delete (recycle bin) for shares and Nextcloud 34 support. The app has a test
+suite (`phpunit`, `tests/Unit/`, 73 tests) and CI
+(`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
+already implemented and working:
 
-### Entregue
+### Delivered
 
-**Dashboard (Painel)**
-- Contadores por tipo de partilha (cards clicáveis → abrem "All shares" já filtrado)
-- Tendência de criação de partilhas (últimos 12 meses)
-- Donut Interno vs Externo + Top sharers
-- Secção **Exposure** embutida: score 0–100, exposição por alcance
-  (interno / externo / público) com drill-down por categoria, e ranking de
-  maior exposição pública
+**Dashboard**
+- Counters per share type (clickable cards → open "All shares" pre-filtered)
+- Share creation trend (last 12 months)
+- Internal vs external donut + top sharers
+- Embedded **Exposure** section: 0–100 score, reach breakdown (internal /
+  external / public) with per-category drill-down, and a ranking of top
+  public exposure
 
 **All shares**
-- Tabela de todas as partilhas da instância
-- Filtros nos cabeçalhos das colunas (tipo, path, owner, destinatário,
-  password, expiração), ordenação e paginação **server-side**
-- Exportação **CSV** da vista filtrada (respeita os filtros ativos)
-- Ordenação determinística entre MySQL/MariaDB e PostgreSQL (0.4.0)
+- Table of every share on the instance
+- Column-header filters (type, path, owner, recipient, password,
+  expiration), sorting and **server-side** pagination
+- **CSV** export of the filtered view (respects active filters)
+- Deterministic sort order across MySQL/MariaDB and PostgreSQL (0.4.0)
 
 **Security alerts**
-- Deteção de links públicos sem password, sem expiração, a expor tipos de
-  ficheiro sensíveis, já expirados / a expirar em breve, com upload anónimo
-  sem password (file drop), e partilhas de grupo com edit/reshare para grupos
-  grandes — com **regras configuráveis** (tab Settings)
-- Breakdown por categoria (gráfico de barras)
-- Ações individuais e em **bulk**: gerar password, definir expiração (7/30/90d),
-  revogar. Passwords geradas mostradas uma única vez.
-- Copiar URL do link público e "Open in Files" em cada alerta
-- Todas as revogações e remediações ficam registadas no canal de auditoria do
-  Nextcloud (requer a app `admin_audit` ativa)
+- Detects public links with no password, no expiration, exposing a
+  sensitive file type, already expired / expiring soon, open to anonymous
+  upload without a password (file drop), and group shares with edit/reshare
+  granted to large groups — with **configurable rules** (Settings tab)
+- Breakdown by category (bar chart)
+- Individual and **bulk** actions: generate a password, set an expiration
+  (7/30/90d), revoke. Generated passwords are shown once.
+- Copy public-link URL and "Open in Files" on each alert
+- Every revocation and remediation is logged to Nextcloud's audit channel
+  (requires the `admin_audit` app enabled)
 
 **Lookup & Orphans**
-- **Orphan shares**: partilhas cujo owner está desativado ou eliminado, com
-  bulk revoke e badge no dashboard
-- **Access lookup** (drill-down reversa): pesquisa por utilizador, grupo ou
-  email e lista **todos os ficheiros/pastas a que esse destinatário acede**,
-  com *revoke all access* (em lotes server-side de 500)
+- **Orphan shares**: shares whose owner is disabled or deleted, with bulk
+  revoke and a dashboard badge
+- **Access lookup** (reverse drill-down): search by user, group or email
+  and list **every file/folder that recipient can reach**, with *revoke all
+  access* (server-side batches of 500)
 
-**Deleted shares — reciclagem (0.4.0)**
-- Revogar (nesta app, ou nativamente via Files/`occ`/OCS API) já não é
-  irreversível: a partilha fica retida (TTL configurável em Settings, 30
-  dias por defeito) numa tab "Deleted shares" antes do purge definitivo
-- **Restaurar** (recria a partilha e preserva, best-effort, o token/URL do
-  link público original) ou **eliminar permanentemente**, individualmente
-  ou em bulk
-- Purge diário automático (`TimedJob`) das entradas expiradas
-- Primeira migration de base de dados da app (`oc_shareaudit_deleted`)
+**Deleted shares — recycle bin (0.4.0)**
+- Revoking a share (through this app, or natively via Files/`occ`/the
+  sharing OCS API) is no longer irreversible: it's kept for a configurable
+  retention window (30 days by default, in Settings) in a "Deleted shares"
+  tab before permanent purge
+- **Restore** (recreates the share, and best-effort preserves the original
+  public-link URL/token) or **delete permanently**, individually or in bulk
+- Daily automatic purge (`TimedJob`) of expired entries
+- The app's first database migration (`oc_shareaudit_deleted`)
 
-**Vista pessoal (Personal settings → My shares audit)**
-- Cada utilizador audita e corrige as suas próprias partilhas de risco
-- **Widget** no dashboard do Nextcloud com os links que precisam de atenção
-- Toggle no admin (tab Settings) para desativar esta vista e o widget em toda
-  a instância, para quem prefere manter a auditoria de partilhas como
-  assunto exclusivo de administração
+**Personal view (Personal settings → My shares audit)**
+- Each user audits and fixes their own risky shares
+- **Widget** on the Nextcloud dashboard showing links that need attention
+- Admin toggle (Settings tab) to disable this view and the widget
+  instance-wide, for admins who want share auditing to stay an
+  administration-only concern
 
-**Publicação**
-- i18n **EN + pt‑PT** (com `build/l10n.py` para gerar os bundles frontend;
-  `--check` corre no CI e como parte do `krankerl package`, falha o build em
-  vez de depender de disciplina)
-- README, screenshots, `krankerl.toml` + `.nextcloudignore` para packaging
-- `min-version` 31 (NC 30 já não é suportado — o revoke de órfãs depende de
-  um parâmetro que só existe a partir do NC 31), `max-version` 34
-
----
-
-## Próxima iteração — G2: acknowledge/exceção nos alertas
-
-O item de maior impacto que resta, e **não** depende de tração na App Store.
-
-**Problema:** na prática, todas as instâncias têm links públicos
-intencionalmente sem password (página pública, newsletter). Sem forma de
-marcar "isto é aceite", o contador de alertas nunca chega a zero — e um
-contador permanentemente vermelho deixa de ser olhado ao fim de ~2 semanas.
-
-**Correção:** nova tabela `oc_shareaudit_ack` (`share_id`, `rule_code`,
-`acknowledged_by`, `acknowledged_at`, `note` opcional). `getAlerts()` passa a
-excluir (ou a marcar como "aceite", com filtro para mostrar/esconder) os pares
-`(share_id, rule_code)` presentes na tabela. Precisa de:
-- `AckController` (`POST /api/alerts/{id}/ack`, `DELETE` para remover a
-  exceção), admin-only.
-- UI: botão "Aceitar" por alerta + linha, e um filtro "mostrar aceites" na
-  vista de alertas (para auditoria — não desaparecem, só saem da contagem
-  ativa).
-- Precisa de migration própria (`lib/Migration/`) — será a **segunda**
-  migration da app (a primeira, `oc_shareaudit_deleted`, já foi entregue em
-  0.4.0 com o soft delete).
-- Tem de cobrir **todas** as regras atuais, incluindo as duas mais recentes
-  (`group_share_editable`, `public_upload`), não só as três originais.
-- Reutilizar o padrão de testes já existente em `tests/Unit/` para a nova
-  lógica de `acknowledged`.
-
-**Esforço/impacto:** médio esforço, alto impacto — nenhuma ferramenta nativa
-do NC oferece isto.
+**Release**
+- i18n **EN + pt-PT** (`build/l10n.py` regenerates the frontend bundles;
+  `--check` runs in CI and as part of `krankerl package`, failing the build
+  instead of relying on discipline)
+- README, screenshots, `krankerl.toml` + `.nextcloudignore` for packaging
+- `min-version` 31 (NC 30 is no longer supported — orphan-share revoke
+  depends on a parameter only available from NC 31 onward), `max-version` 34
 
 ---
 
-## Pós-lançamento — só se houver tração
+## Next up — G2: acknowledge/exception on alerts
 
-Estas features ficam **em espera até a app ganhar tração na App Store**. Estão
-ordenadas por impacto. As specs técnicas ficam registadas para não se perder o
-raciocínio já feito.
+The highest-impact item left, and it **doesn't** depend on App Store
+traction.
 
-| # | Feature | Depende de | Esforço | Impacto |
-|---|---------|-----------|---------|---------|
-| 1 | Transferir ownership (órfãs) | — | 2-3 dias | Médio+ |
-| 2 | Notificar o owner (alertas e remediações) | — | 1-2 dias | Médio |
-| 3 | Histórico/trend de exposição | — | 2-3 dias | Médio |
-| 4 | Digest semanal por email para admins | — | 2-3 dias | Médio |
-| 5 | Relatórios de compliance por email | (3) | 3-4 dias | Médio |
-| 6 | Políticas por grupo | — | 4-5 dias | Médio |
-| 7 | Relatório PDF/HTML assinado (auditorias externas) | — | 3-4 dias | Médio- |
+**Problem:** in practice, every instance has public links that are
+intentionally passwordless (a public page, a newsletter). With no way to
+mark "this is accepted", the alert count never reaches zero — and a
+permanently red counter stops being looked at after ~2 weeks.
 
----
+**Fix:** a new `oc_shareaudit_ack` table (`share_id`, `rule_code`,
+`acknowledged_by`, `acknowledged_at`, optional `note`). `getAlerts()` will
+exclude (or mark as "acknowledged", with a show/hide filter) any
+`(share_id, rule_code)` pair present in the table. Needs:
+- `AckController` (`POST /api/alerts/{id}/ack`, `DELETE` to remove the
+  exception), admin-only.
+- UI: an "Acknowledge" button per alert row, and a "show acknowledged"
+  filter in the alerts view (for audit purposes — they don't disappear,
+  they just drop out of the active count).
+- Needs its own migration (`lib/Migration/`) — this will be the app's
+  **second** migration (the first, `oc_shareaudit_deleted`, shipped in 0.4.0
+  with soft delete).
+- Must cover **all** current rules, including the two most recent
+  (`group_share_editable`, `public_upload`), not just the original three.
+- Reuse the existing test pattern in `tests/Unit/` for the new
+  `acknowledged` logic.
 
-### 1. Transferir ownership de partilhas órfãs
-
-Já existe a deteção e o bulk revoke; falta a alternativa **não destrutiva**:
-reatribuir a partilha a outro utilizador quando alguém sai e um colega assume
-o trabalho (inspiração de UX: `occ files:transfer-ownership`).
-
-- `OrphanShareService::transferShare(shareId, newOwnerId)` — atualiza
-  `uid_owner` e `uid_initiator` na `oc_share`
-- Verificar que o novo owner tem acesso ao ficheiro (via `filecache`, grupo,
-  ou external storage)
-- `POST /api/orphans/transfer` + modal de seleção de utilizador destino
-- **LDAP/AD:** utilizadores desativados no AD podem aparecer como *enabled* no
-  Nextcloud se o sync não mapear o estado — documentar e considerar dupla
-  verificação
-- **Performance:** em instâncias com muitos utilizadores eliminados, considerar
-  um background job diário a popular uma tabela de cache de órfãs
+**Effort/impact:** medium effort, high impact — no native NC tool offers
+this.
 
 ---
 
-### 2. Notificar o owner (alertas e remediações)
+## Post-launch — only if there's traction
 
-Duas vertentes, a fazer juntas:
+These features stay **on hold until the app gets traction on the App
+Store**. Listed by impact. Technical specs are kept here so the thinking
+already done isn't lost.
 
-**a) Ação "Notify" nos alertas.** Terceira ação para o alerta *"Sensitive
-file type"*, onde revogar ou pôr password pode ser demasiado agressivo:
-avisar quem partilhou.
-- `POST /api/shares/{id}/notify` → `INotificationManager::notify()` ao `uid_owner`
-- Adicionar `"Notify all owners"` às bulk actions
-- Usar a API nativa de notificações (aparece na interface do Nextcloud, não só
-  por email)
-
-**b) Notificar automaticamente em qualquer remediação de admin.** Hoje,
-**qualquer** remediação feita pelo admin (`setPassword`, `setExpiration`,
-`revoke` em `ShareActionController`) muda a partilha de outra pessoa sem
-aviso — o dono ganha uma password que não conhece, ou perde o link sem
-explicação.
-- `INotificationManager::notify()` ao `uid_owner` em **toda** ação de
-  `ShareActionController`, com mensagem específica por ação ("O administrador
-  definiu uma password na tua partilha X" / "...alterou a expiração..." /
-  "...revogou...").
-- Ação alternativa **"pedir ao dono para corrigir"** em vez de o admin corrigir
-  diretamente — notificação com deep-link para a vista pessoal do próprio
-  dono. É o que muda a app de "ferramenta de polícia" para "ferramenta de
-  governança".
-
-Fazer depois do G2 (acknowledge), para reutilizar a mesma UI de ações em
-alertas que o G2 vai mexer.
+| # | Feature | Depends on | Effort | Impact |
+|---|---------|-----------|--------|--------|
+| 1 | Transfer ownership (orphans) | — | 2-3 days | Medium+ |
+| 2 | Notify the owner (alerts and remediations) | — | 1-2 days | Medium |
+| 3 | Exposure history/trend | — | 2-3 days | Medium |
+| 4 | Weekly email digest for admins | — | 2-3 days | Medium |
+| 5 | Compliance reports by email | (3) | 3-4 days | Medium |
+| 6 | Per-group policies | — | 4-5 days | Medium |
+| 7 | Signed PDF/HTML report (external audits) | — | 3-4 days | Medium- |
 
 ---
 
-### 3. Histórico / trend de exposição
+### 1. Transfer ownership of orphan shares
 
-A secção Exposure mostra o estado **atual**. Falta a evolução ao longo do tempo.
+Detection and bulk revoke already exist; missing the **non-destructive**
+alternative: reassign the share to another user when someone leaves and a
+colleague takes over their work (UX inspiration:
+`occ files:transfer-ownership`).
 
-- Tabela `oc_shareaudit_exposure_history` com snapshots diários
-- Background job a gravar os contadores por categoria
-- `ExposureMapService::getExposureTrend(days)` + gráfico de linha na vista
-
-> Não é possível reconstruir retroativamente a partir da `oc_share`: as
-> partilhas revogadas desaparecem (ou, desde 0.4.0, vão para a reciclagem —
-> mas essa não é uma série temporal agregada). Por isso os snapshots são
-> necessários.
-
-Justificação de negócio para priorizar isto cedo: custa pouco e cria o
-argumento "estamos a melhorar" para mostrar à gestão.
-
----
-
-### 4. Digest semanal por email para admins
-
-Distinto do #5 (que é mais formal/periódico e depende do histórico do #3).
-Este é um digest leve e frequente: `TimedJob` semanal + `IMailer`, resumindo
-**novos** links inseguros, **novas** órfãs, e evolução do score desde o último
-digest. É o que faz a app continuar a ser usada depois da segunda semana,
-mesmo antes do histórico completo (#3) existir — pode arrancar comparando só
-com o snapshot da semana anterior, sem esperar pela série temporal completa.
-
-Fazer depois do G2/G3, para que o digest já reflita alertas "aceites" (não
-faz sentido mandar email semanal sobre algo que o admin já marcou como
-exceção). Implementar antes ou em paralelo com o #5, não depois.
+- `OrphanShareService::transferShare(shareId, newOwnerId)` — updates
+  `uid_owner` and `uid_initiator` in `oc_share`
+- Verify the new owner has access to the file (via `filecache`, group, or
+  external storage)
+- `POST /api/orphans/transfer` + a target-user picker modal
+- **LDAP/AD:** users disabled in AD can show as *enabled* in Nextcloud if
+  the sync doesn't map that state — document this and consider a
+  double-check
+- **Performance:** on instances with many deleted users, consider a daily
+  background job populating an orphan-cache table
 
 ---
 
-### 5. Relatórios de compliance por email
+### 2. Notify the owner (alerts and remediations)
 
-Envio agendado de um resumo periódico (links inseguros, órfãs, score de
-exposição) aos administradores. O `ReportService` atual só gera o CSV da lista —
-seria estendido para produzir o relatório e um `TimedJob` para o enviar.
-Beneficia do histórico da feature 3 para mostrar deltas ("+12 links públicos
-desde o último relatório").
+Two parts, to be done together:
+
+**a) A "Notify" action on alerts.** A third action for the *"Sensitive file
+type"* alert, where revoking or setting a password can be too aggressive:
+warn whoever shared it instead.
+- `POST /api/shares/{id}/notify` → `INotificationManager::notify()` to
+  `uid_owner`
+- Add `"Notify all owners"` to the bulk actions
+- Use the native notification API (shows up in the Nextcloud UI, not just
+  by email)
+
+**b) Automatically notify on any admin remediation.** Today, **any**
+remediation the admin performs (`setPassword`, `setExpiration`, `revoke` in
+`ShareActionController`) changes someone else's share with no warning — the
+owner gets a password they don't know, or loses their link with no
+explanation.
+- `INotificationManager::notify()` to `uid_owner` on **every**
+  `ShareActionController` action, with a message specific to the action
+  ("The administrator set a password on your share X" /
+  "...changed the expiration..." / "...revoked...").
+- An alternative **"ask the owner to fix it"** action instead of the admin
+  fixing it directly — a notification with a deep link to the owner's own
+  personal view. This is what turns the app from a "policing tool" into a
+  "governance tool".
+
+Do this after G2 (acknowledge), to reuse the same alert-action UI that G2
+will touch.
 
 ---
 
-### 6. Políticas por grupo
+### 3. Exposure history / trend
 
-Alertas hoje são regras globais (`SettingsService::RULES` aplica-se à
-instância inteira). A proposta é permitir associar regras/exceções a grupos
-específicos — ex.: o grupo `Finance` nunca pode ter links públicos sem
-password, independentemente da regra global.
+The Exposure section shows the **current** state. Missing: how it evolved
+over time.
 
-Esboço:
-- Tabela `oc_shareaudit_group_policy` (`group_id`, `rule_code`, `mode`:
+- `oc_shareaudit_exposure_history` table with daily snapshots
+- Background job writing the per-category counters
+- `ExposureMapService::getExposureTrend(days)` + a line chart in the view
+
+> Can't be reconstructed retroactively from `oc_share`: revoked shares
+> disappear (or, since 0.4.0, go to the recycle bin — but that isn't an
+> aggregated time series either). Hence the need for snapshots.
+
+Business case for prioritizing this early: cheap to build, and gives a
+"we're improving" story to show management.
+
+---
+
+### 4. Weekly email digest for admins
+
+Distinct from #5 (which is more formal/periodic and depends on the history
+from #3). This one is a light, frequent digest: a weekly `TimedJob` +
+`IMailer`, summarizing **new** insecure links, **new** orphans, and score
+movement since the last digest. It's what keeps the app in use past the
+second week, even before the full history (#3) exists — it can start by
+comparing against just the previous week's snapshot, without waiting for
+the full time series.
+
+Do this after G2/G3, so the digest already reflects "acknowledged" alerts
+(no point emailing weekly about something the admin already marked as an
+exception). Implement before or alongside #5, not after.
+
+---
+
+### 5. Compliance reports by email
+
+Scheduled delivery of a periodic summary (insecure links, orphans, exposure
+score) to administrators. The current `ReportService` only generates the
+CSV list — it would be extended to produce the report, plus a `TimedJob` to
+send it. Benefits from feature 3's history to show deltas ("+12 public
+links since the last report").
+
+---
+
+### 6. Per-group policies
+
+Alerts today are global rules (`SettingsService::RULES` applies
+instance-wide). The proposal is to let rules/exceptions be tied to specific
+groups — e.g., the `Finance` group can never have passwordless public
+links, regardless of the global rule.
+
+Sketch:
+- `oc_shareaudit_group_policy` table (`group_id`, `rule_code`, `mode`:
   `enforce`/`forbid`/`inherit`).
-- `SecurityAnalyzerService::issuesFor()` passa a resolver a regra efetiva
-  cruzando `owner`/`uid_initiator` com os grupos do utilizador (via
-  `IGroupManager::getUserGroupIds()`) antes de cair no default global.
-- UI: nova secção em Settings, "Políticas por grupo", com seletor de grupo +
-  regras.
+- `SecurityAnalyzerService::issuesFor()` resolves the effective rule by
+  cross-referencing the `owner`/`uid_initiator`'s groups (via
+  `IGroupManager::getUserGroupIds()`) before falling back to the global
+  default.
+- UI: a new "Per-group policies" section in Settings, with a group picker +
+  rules.
 
-**Esforço:** maior que os itens acima (nova tabela + resolução de precedência
-grupo vs. global + UI de gestão). Nenhuma ferramenta NC nativa faz isto
-visualmente — é um diferenciador real, mas não é quick win.
-
----
-
-### 7. Relatório PDF/HTML assinado, para compliance/auditorias externas
-
-O CSV atual (`ReportService`) é para o admin trabalhar os dados; um relatório
-formatado — cabeçalho com nome da instância, data/hora de geração, período
-coberto, resumo executivo (contagens, score, top exposições) e uma
-assinatura/hash simples de integridade — é para entregar a um auditor externo.
-
-Esboço mínimo: gerar HTML server-side (template dedicado) com os agregados já
-calculados por `ShareCollectorService`/`SecurityAnalyzerService`/`ExposureMapService`,
-e converter para PDF (avaliar se vale a pena trazer uma dependência de
-PDF-rendering ou se um HTML standalone com print stylesheet é suficiente para
-o caso de uso — decisão a tomar antes de implementar, não assumir biblioteca
-já). Tal como no CSV, o relatório não deve incluir tokens de acesso.
+**Effort:** bigger than the items above (new table + group-vs-global
+precedence resolution + management UI). No native NC tool does this
+visually — a real differentiator, but not a quick win.
 
 ---
 
-## Backlog menor
+### 7. Signed PDF/HTML report, for compliance/external audits
 
-- ~~Screenshots com dados de demonstração limpos~~ — feito (2026-08-02):
-  todos os 7 screenshots refeitos contra a instância de dev real, com dados
-  de partilhas realistas e a UI atual (incluindo a tab "Deleted shares" da
-  0.4.0); o widget do dashboard passou a mostrar a página inteira em vez de
-  um recorte isolado do cartão, para consistência com o resto do conjunto.
-- **`build/l10n.py` só varre `src/` — regressão, não gap novo.** Isto tinha
-  sido corrigido a 2026-07-11 (extensão a `lib/**/*.php` para apanhar
-  `IL10N->t()`/`->n()` do lado do backend), mas esse fix nunca chegou a
-  ficar no GitHub — era um dos commits só-locais descartados no realinhamento
-  de 2026-07-15 (`git reset --hard origin/master`), e o histórico paralelo
-  do GitHub não o reintroduziu. Confirmado a 2026-08-02: `lib/Settings/
-  AdminSection.php`, `lib/Settings/PersonalSection.php` e `lib/Dashboard/
-  MyAlertsWidget.php` continuam a usar `IL10N->t()` sem cobertura do script.
-  Refazer a extensão do glob a `lib/**/*.php`.
-- **Streaming do export CSV** — `ShareCollectorService::getAllForExport()`
-  materializa até 100k linhas em memória antes de responder
-  (`ReportService::buildCsv()`). Trocar por um `StreamResponse` (ou callback
-  de streaming do AppFramework) que itera por chunks (ex.: 1000 linhas via
-  `findShares($filters, 1000, $offset)` em loop) e escreve diretamente no
-  output. Adiado (2026-07-09): maior esforço, sem evidência real de
-  instâncias com dezenas de milhares de partilhas — revisitar quando essa
-  evidência existir.
-- Falta índice em `share_with` (autocomplete/recipient search, `ILIKE %...%`)
-  e em `path` (ordenação). Numa instância de ~300 users é tolerável (dezenas
-  de milhares de linhas); decisão adiada até haver evidência de instâncias
-  maiores. Quando justificar, adicionar via migration — coordenar com o G2
-  (acknowledge), que já vai precisar de uma migration de qualquer forma.
+The current CSV (`ReportService`) is for the admin to work the data; a
+formatted report — header with instance name, generation date/time, period
+covered, an executive summary (counts, score, top exposures) and a simple
+integrity signature/hash — is for handing to an external auditor.
+
+Minimal sketch: generate HTML server-side (a dedicated template) from the
+aggregates already computed by
+`ShareCollectorService`/`SecurityAnalyzerService`/`ExposureMapService`, and
+convert to PDF (evaluate whether a PDF-rendering dependency is worth
+pulling in, or whether a standalone HTML with a print stylesheet is enough
+for the use case — decide before implementing, don't assume a library
+upfront). Like the CSV, the report must not include access tokens.
+
+---
+
+## Minor backlog
+
+- ~~Screenshots with clean demo data~~ — done (2026-08-02): all 7
+  screenshots retaken against the real dev instance, with realistic share
+  data and the current UI (including 0.4.0's "Deleted shares" tab); the
+  dashboard widget now shows the full page instead of an isolated crop of
+  the card, for consistency with the rest of the set.
+- **`build/l10n.py` only scans `src/` — a regression, not a new gap.** This
+  was fixed on 2026-07-11 (extended to `lib/**/*.php` to catch backend
+  `IL10N->t()`/`->n()` calls), but that fix never made it to GitHub — it was
+  one of the local-only commits dropped in the 2026-07-15 realignment
+  (`git reset --hard origin/master`), and GitHub's parallel history never
+  reintroduced it. Confirmed 2026-08-02: `lib/Settings/AdminSection.php`,
+  `lib/Settings/PersonalSection.php` and `lib/Dashboard/MyAlertsWidget.php`
+  still use `IL10N->t()` with no coverage from the script. Redo the glob
+  extension to `lib/**/*.php`.
+- **CSV export streaming** — `ShareCollectorService::getAllForExport()`
+  materializes up to 100k rows in memory before responding
+  (`ReportService::buildCsv()`). Swap for a `StreamResponse` (or the
+  AppFramework's streaming callback) that iterates in chunks (e.g. 1000
+  rows via `findShares($filters, 1000, $offset)` in a loop) and writes
+  straight to output. Deferred (2026-07-09): bigger effort, no real
+  evidence yet of instances with tens of thousands of shares — revisit when
+  that evidence exists.
+- Missing an index on `share_with` (autocomplete/recipient search,
+  `ILIKE %...%`) and on `path` (sorting). Tolerable on a ~300-user instance
+  (tens of thousands of rows); decision deferred until there's evidence of
+  larger instances. When it's justified, add via migration — coordinate
+  with G2 (acknowledge), which will need a migration anyway.
