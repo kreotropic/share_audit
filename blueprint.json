@@ -3,7 +3,7 @@
   "meta": {
     "title": "Share Audit Dashboard Playground",
     "author": "share_audit_dashboard",
-    "description": "A fresh Nextcloud in the browser with Share Audit Dashboard installed and a handful of shares already seeded, including one owned by a disabled account, so the dashboard, security alerts and orphan-shares views all have something to show."
+    "description": "A fresh Nextcloud in the browser with Share Audit Dashboard installed and a couple of demo accounts and files already there. Share one of them (e.g. a public link without a password) to see the dashboard, security alerts and exposure views react live."
   },
   "landingPage": "/index.php/settings/admin/share_audit_dashboard",
   "siteOptions": {
@@ -48,13 +48,6 @@
       "email": "bob@example.com"
     },
     {
-      "step": "createUser",
-      "username": "carol",
-      "password": "carol-audit-demo",
-      "displayName": "Carol Reyes",
-      "email": "carol@example.com"
-    },
-    {
       "step": "createGroup",
       "gid": "marketing"
     },
@@ -89,76 +82,10 @@
       "url": "https://raw.githubusercontent.com/kreotropic/share_audit/master/README.md"
     },
     {
-      "step": "writeFile",
-      "path": "data/carol/files/Draft Contract.docx",
-      "url": "https://raw.githubusercontent.com/kreotropic/share_audit/master/package-lock.json"
-    },
-    {
       "step": "runOcc",
       "args": [
         "files:scan",
         "--all"
-      ]
-    },
-    {
-      "step": "login",
-      "username": "admin",
-      "password": "admin"
-    },
-    {
-      "step": "createShare",
-      "path": "/Q3 Financials.xlsx",
-      "shareType": "public"
-    },
-    {
-      "step": "login",
-      "username": "alice",
-      "password": "alice-audit-demo"
-    },
-    {
-      "step": "createShare",
-      "path": "/Team Photos.zip",
-      "shareType": "public"
-    },
-    {
-      "step": "createShare",
-      "path": "/Campaign Brief.md",
-      "shareType": "group",
-      "shareWith": "marketing",
-      "permissions": "read"
-    },
-    {
-      "step": "login",
-      "username": "bob",
-      "password": "bob-audit-demo"
-    },
-    {
-      "step": "createShare",
-      "path": "/Meeting Notes.txt",
-      "shareType": "user",
-      "shareWith": "alice",
-      "permissions": "read"
-    },
-    {
-      "step": "login",
-      "username": "carol",
-      "password": "carol-audit-demo"
-    },
-    {
-      "step": "createShare",
-      "path": "/Draft Contract.docx",
-      "shareType": "public"
-    },
-    {
-      "step": "login",
-      "username": "admin",
-      "password": "admin"
-    },
-    {
-      "step": "runOcc",
-      "args": [
-        "user:disable",
-        "carol"
       ]
     }
   ]

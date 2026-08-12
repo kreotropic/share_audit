@@ -67,10 +67,11 @@ Click the badge above (or [this
 link](https://ateeducacion.github.io/nextcloud-playground/?blueprint-url=https://raw.githubusercontent.com/kreotropic/share_audit/refs/heads/master/blueprint.json))
 to open a full Nextcloud instance running entirely in your browser (via
 WebAssembly). It boots with Share Audit Dashboard installed, the admin already
-logged in, and a handful of shares already seeded — including a public link
-without a password or expiration, one exposing a spreadsheet, a group share,
-and a share owned by a disabled account — so the Dashboard, Security alerts
-and Lookup & Orphans views all have something to show the moment it opens.
+logged in, and a couple of demo accounts and files already in place. Share one
+of them yourself — for example, a public link on "Q3 Financials.xlsx" with no
+password — to see the Dashboard, Security alerts and Exposure views react
+live. (The Playground doesn't yet support pre-seeding shares from a blueprint,
+only accounts, groups and files.)
 
 No local setup or Docker required. The instance is provisioned from
 [`blueprint.json`](blueprint.json) at the repository root using the
