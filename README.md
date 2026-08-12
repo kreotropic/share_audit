@@ -12,6 +12,8 @@ share on the instance (user, group, public link, email, federated, Talk), flags
 the risky ones, and lets you fix them in bulk. Regular users get their own
 personal view to audit and clean up the files *they* share.
 
+<a href="https://ateeducacion.github.io/nextcloud-playground/?blueprint-url=https://raw.githubusercontent.com/kreotropic/share_audit/refs/heads/master/blueprint.json" target="_blank" rel="noopener noreferrer"><img src="https://raw.githubusercontent.com/ateeducacion/nextcloud-playground/refs/heads/main/assets/playground-preview-button.svg" alt="Open in Nextcloud Playground" width="224"></a>
+
 ![Dashboard](screenshots/1-dashboard.png)
 
 ## Problem Solved
@@ -58,6 +60,23 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
 - Admins can turn this personal view (and its widget) off instance-wide from
   **Settings → Administration → Share Audit → Settings**, for instances where
   sharing audits should stay an admin-only concern.
+
+## Try it in Nextcloud Playground
+
+Click the badge above (or [this
+link](https://ateeducacion.github.io/nextcloud-playground/?blueprint-url=https://raw.githubusercontent.com/kreotropic/share_audit/refs/heads/master/blueprint.json))
+to open a full Nextcloud instance running entirely in your browser (via
+WebAssembly). It boots with Share Audit Dashboard installed, the admin already
+logged in, and a handful of shares already seeded — including a public link
+without a password or expiration, one exposing a spreadsheet, a group share,
+and a share owned by a disabled account — so the Dashboard, Security alerts
+and Lookup & Orphans views all have something to show the moment it opens.
+
+No local setup or Docker required. The instance is provisioned from
+[`blueprint.json`](blueprint.json) at the repository root using the
+[`installApp`](https://github.com/ateeducacion/nextcloud-playground/blob/main/docs/blueprint-json.md#installapp)
+step, which installs the release tarball straight from this repository's
+GitHub releases.
 
 ## Installation
 
