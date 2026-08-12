@@ -71,27 +71,27 @@
     {
       "step": "writeFile",
       "path": "data/admin/files/Q3 Financials.xlsx",
-      "content": "This stands in for a spreadsheet — Share Audit Dashboard flags it by file extension, not content."
+      "url": "https://raw.githubusercontent.com/kreotropic/share_audit/master/composer.lock"
     },
     {
       "step": "writeFile",
       "path": "data/alice/files/Team Photos.zip",
-      "content": "This stands in for an archive — Share Audit Dashboard flags it by file extension, not content."
+      "url": "https://raw.githubusercontent.com/kreotropic/share_audit/master/LICENSE"
     },
     {
       "step": "writeFile",
       "path": "data/bob/files/Meeting Notes.txt",
-      "content": "Notes shared privately with a single teammate — nothing here should trigger an alert."
+      "url": "https://raw.githubusercontent.com/kreotropic/share_audit/master/CHANGELOG.md"
     },
     {
       "step": "writeFile",
       "path": "data/alice/files/Campaign Brief.md",
-      "content": "# Q3 campaign brief\n\nShared internally with the marketing group."
+      "url": "https://raw.githubusercontent.com/kreotropic/share_audit/master/README.md"
     },
     {
       "step": "writeFile",
       "path": "data/carol/files/Draft Contract.docx",
-      "content": "This stands in for a document. Carol's account is disabled after sharing it, so this share becomes an orphan."
+      "url": "https://raw.githubusercontent.com/kreotropic/share_audit/master/package-lock.json"
     },
     {
       "step": "runOcc",
