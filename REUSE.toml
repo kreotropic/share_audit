@@ -13,7 +13,7 @@ SPDX-PackageDownloadLocation = "https://github.com/kreotropic/share_audit"
 # is the one actually in effect for now; keep both in sync until upgrading.
 
 [[annotations]]
-path = ["package.json", "package-lock.json", "composer.json", "composer.lock", "blueprint.json"]
+path = ["package.json", "package-lock.json", "composer.json", "composer.lock"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2025 Ricardo Ferreira <rsfneg@gmail.com>"
 SPDX-License-Identifier = "AGPL-3.0-or-later"

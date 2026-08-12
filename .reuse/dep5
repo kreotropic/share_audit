@@ -4,7 +4,7 @@ Upstream-Contact: Ricardo Ferreira <rsfneg@gmail.com>
 Source: https://github.com/kreotropic/share_audit
 
 # JSON has no comment syntax, so these can't carry an inline SPDX header.
-Files: package.json package-lock.json composer.json composer.lock blueprint.json
+Files: package.json package-lock.json composer.json composer.lock
 Copyright: 2025 Ricardo Ferreira <rsfneg@gmail.com>
 License: AGPL-3.0-or-later
 

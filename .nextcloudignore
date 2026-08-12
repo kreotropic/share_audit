@@ -38,4 +38,3 @@ l10n/*.bak
 
 # Docs assets only needed on GitHub / the App Store crawler
 screenshots
-blueprint.json
