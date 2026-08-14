@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   permanently, individually or in bulk. A daily background job purges
   expired entries. This is the app's first database migration.
 - **Nextcloud 34 support** (`max-version` raised from 33 to 34).
+- **German and Spanish** translations of the whole interface.
 
 ### Fixed
 - **Sort order is now deterministic across MySQL/MariaDB and PostgreSQL.**
