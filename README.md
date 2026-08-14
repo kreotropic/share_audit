@@ -113,6 +113,20 @@ retention window rather than disappearing outright.
   while this one sat in the bin: the share is still restored, but with a fresh
   token and no password, and the result says so rather than failing silently.
 
+## Known Issues
+
+- **PHP JIT segfaults on some ARM64 hosts.** On aarch64 hosts running PHP's
+  tracing JIT (`opcache.jit=1255`, the default `tracing`/`1255` mode some
+  distros and container images enable), Apache workers can crash with
+  `SIGSEGV` shortly after enabling this app — this is a bug in PHP's JIT
+  compiler backend for ARM64, triggered while it compiles this app's
+  (otherwise unremarkable) bootstrap/dashboard-widget code, not a memory
+  safety bug in the app itself (pure PHP cannot cause a native segfault on
+  its own). If you hit crash-looping Apache/PHP workers right after enabling
+  this app on ARM64, disable JIT (`opcache.jit=0` in a `conf.d` override) or
+  reduce it to a less aggressive mode, and file a report with your PHP
+  distribution if none exists yet. See [issue #3](https://github.com/kreotropic/share_audit/issues/3).
+
 ## Translations
 
 The app interface is available in:
