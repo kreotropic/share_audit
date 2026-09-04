@@ -11,12 +11,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [0.5.0]
 
 ### Added
-- **German and Spanish** translations of the whole interface.
+- **German, Spanish and French** translations of the whole interface.
+  French contributed by [@QwazarFR](https://github.com/QwazarFR)
+  ([#10](https://github.com/kreotropic/share_audit/pull/10)).
 - **Try it in Nextcloud Playground** — a one-click, browser-only demo
   instance (no install required) with Share Audit Dashboard pre-installed
   and a handful of shares already seeded, so the Dashboard, Security alerts
   and Lookup & Orphans views have something to show immediately. See the
   README for the link.
+- **Jump to a specific page** on every paginated list (All shares, Security
+  alerts, Orphan shares, Deleted shares, Access lookup) instead of only
+  stepping one page at a time — useful once a list runs into the hundreds
+  of pages. Contributed by [@QwazarFR](https://github.com/QwazarFR)
+  ([#17](https://github.com/kreotropic/share_audit/pull/17), fixes
+  [#11](https://github.com/kreotropic/share_audit/issues/11)).
 
 ### Fixed
 - **Soft-delete failed for user shares** (`share_type` 0), the most common
