@@ -295,3 +295,29 @@ upfront). Like the CSV, the report must not include access tokens.
   (tens of thousands of rows); decision deferred until there's evidence of
   larger instances. When it's justified, add via migration — coordinate
   with G2 (acknowledge), which will need a migration anyway.
+- **Search by name ([issue #14](https://github.com/kreotropic/share_audit/issues/14))**
+  — the "Path" column filter (`pathSearch`) only matches `f.path` (the
+  file's full path); a custom share label (`share_name`, the OCS "label"
+  field settable when creating a share) isn't matched by any current
+  filter, so a share labelled e.g. "Q3 Budget — external review" is
+  unreachable by search unless you already know its underlying file path.
+  Substring search on the path itself already covers "search by file/folder
+  name" reasonably well (`ILIKE %query%` matches the basename portion too,
+  wherever it sits in the path) — the real gap is just `share_name`. The
+  groundwork already exists and is mostly orphaned: `ShareMapper::findShares()`
+  still has a `search` filter (`f.path` OR `s.share_with` OR `s.share_name`,
+  ILIKE) reachable via the `GET /api/shares?search=` and CSV-export query
+  params — it predates the column-header funnel redesign and nothing in the
+  current UI sends it anymore. Cheapest fix: fold `s.share_name` into the
+  existing `pathSearch` condition (same funnel, no new UI element) rather
+  than reviving a separate global search box; decide at implementation time
+  whether "Path" still reads right as a column label once it also matches
+  the share's custom name. Not the same gap as
+  [issue #12](https://github.com/kreotropic/share_audit/issues/12) (sort by
+  file name) — that one wants ordering by *basename specifically* (today's
+  path sort orders by the full path string, so two files both named
+  `notas.txt` in different folders don't sort adjacently), which would need
+  a cross-engine-safe basename extraction (`SUBSTRING_INDEX` on MySQL vs.
+  `split_part`/regexp on PostgreSQL — the same class of MySQL/PostgreSQL
+  divergence already hit once, see the cross-DB sort-determinism fix in
+  0.4.0) and is a separate, bigger piece of work.
