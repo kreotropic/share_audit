@@ -30,11 +30,16 @@ phpunit.xml
 .vscode
 .claude
 krankerl.toml
-.reuse
-REUSE.toml
 _seed.php
 _reset.php
 l10n/*.bak
+
+# NOTE: .reuse/ and REUSE.toml are deliberately NOT excluded above. The
+# licensing of l10n/*.json (can't carry an in-file header, it's JSON),
+# l10n/*.js and js/*.js (generated, no SPDX header of their own) is declared
+# ONLY in these two files -- shipping the tarball without them makes it
+# fail `reuse lint` on its own even though the git repo passes. Confirmed
+# by extracting a packaged tarball and linting it directly (2026-09-04).
 
 # Docs assets only needed on GitHub / the App Store crawler
 screenshots
