@@ -221,7 +221,7 @@ OC.L10N.register(
         "Any expiration" : "Toutes les expirations",
         "With expiration" : "Avec expiration",
         "Without expiration" : "Sans expiration",
-        "None" : "Aucun",
+        "None" : "Jamais",
         "Total shares" : "Total des partages",
         "Shares created per month over the last 12 months" : "Partages créés par mois sur les 12 derniers mois",
         "shares" : "partages",
@@ -246,8 +246,8 @@ OC.L10N.register(
         "Sort by" : "Trier par",
         "Sort alerts by" : "Trier les alertes par",
         "Severity (default)" : "Gravité (par défaut)",
-        "Oldest first" : "Les plus anciens d’abord",
-        "Newest first" : "Les plus récents d’abord",
+        "Oldest first" : "Les plus anciens",
+        "Newest first" : "Les plus récents",
         "All" : "Tous",
         "Shares per page" : "Partages par page",
         "Items per page" : "Éléments par page",
@@ -274,6 +274,8 @@ OC.L10N.register(
         "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention." : "Permet à chaque utilisateur d’auditer et de corriger ses propres partages dans Paramètres → Personnel, et de voir un widget de tableau de bord pour les liens nécessitant une attention.",
         "Personal view" : "Vue personnelle",
         "Risky shares" : "Partages à risque",
-        "None of your shares need attention." : "Aucun de vos partages ne nécessite votre attention."
+        "None of your shares need attention." : "Aucun de vos partages ne nécessite votre attention.",
+        "Pagination" : "Pagination",
+        "Go to page" : "Aller à la page"
     },
 "nplurals=2; plural=(n != 1);");
