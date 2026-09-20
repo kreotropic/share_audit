@@ -275,7 +275,24 @@
         "Risky shares": "Risky shares",
         "None of your shares need attention.": "None of your shares need attention.",
         "Pagination": "Pagination",
-        "Go to page": "Go to page"
+        "Go to page": "Go to page",
+        "Acknowledge": "Acknowledge",
+        "Optional note (why this is accepted)": "Optional note (why this is accepted)",
+        "Remove exception": "Remove exception",
+        "Show acknowledged": "Show acknowledged",
+        "Marked as accepted.": "Marked as accepted.",
+        "Exception removed — this alert is active again.": "Exception removed — this alert is active again.",
+        "Accepted by {by} · {date}": "Accepted by {by} · {date}",
+        "Acknowledge all": "Acknowledge all",
+        "Could not restore this share — the recipient or permissions may no longer be valid.": "Could not restore this share — the recipient or permissions may no longer be valid.",
+        "Could not restore this share.": "Could not restore this share.",
+        "Restored, but its original expiration date had already passed — it now has none.": "Restored, but its original expiration date had already passed — it now has none.",
+        "Restored, but with a new link URL and no expiration (the original had already passed).": "Restored, but with a new link URL and no expiration (the original had already passed).",
+        "This entry is no longer in the recycle bin — it may have already been restored or purged.": "This entry is no longer in the recycle bin — it may have already been restored or purged.",
+        "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._": [
+            "%n lost an already-passed expiration date.",
+            "%n lost an already-passed expiration date."
+        ]
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

@@ -228,6 +228,20 @@ OC.L10N.register(
     "Risky shares" : "Recursos compartidos de riesgo",
     "None of your shares need attention." : "Ninguno de sus recursos compartidos necesita atención.",
     "Pagination" : "Paginación",
-    "Go to page" : "Ir a la página"
+    "Go to page" : "Ir a la página",
+    "Acknowledge" : "Aceptar",
+    "Optional note (why this is accepted)" : "Nota opcional (motivo de la aceptación)",
+    "Remove exception" : "Eliminar excepción",
+    "Show acknowledged" : "Mostrar aceptados",
+    "Marked as accepted." : "Marcado como aceptado.",
+    "Exception removed — this alert is active again." : "Excepción eliminada — esta alerta vuelve a estar activa.",
+    "Accepted by {by} · {date}" : "Aceptado por {by} · {date}",
+    "Acknowledge all" : "Aceptar todo",
+    "Could not restore this share — the recipient or permissions may no longer be valid." : "No se pudo restaurar este recurso compartido — puede que el destinatario o los permisos ya no sean válidos.",
+    "Could not restore this share." : "No se pudo restaurar este recurso compartido.",
+    "Restored, but its original expiration date had already passed — it now has none." : "Restaurado, pero su fecha de caducidad original ya había pasado — ahora no tiene ninguna.",
+    "Restored, but with a new link URL and no expiration (the original had already passed)." : "Restaurado, pero con una nueva URL de enlace y sin caducidad (la original ya había pasado).",
+    "This entry is no longer in the recycle bin — it may have already been restored or purged." : "Esta entrada ya no está en la papelera — puede que ya se haya restaurado o eliminado permanentemente.",
+    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n perdió una fecha de caducidad ya pasada.", "%n perdieron una fecha de caducidad ya pasada."]
 },
 "nplurals=2; plural=(n != 1);");

@@ -166,18 +166,23 @@ class SoftDeleteService {
      * UNIQUE), the share still exists, just with a fresh token/no password —
      * reported back as `tokenChanged` so the caller can warn the owner.
      *
-     * @return array{success: bool, id?: int, tokenChanged?: bool, message?: string}
+     * $reason on failure is a stable code (not the human-readable $message,
+     * which is English-only and meant for logs) — 'not_found' | 'file_missing'
+     * | 'create_failed' — so the frontend can show its own translated,
+     * specific message instead of one generic string regardless of cause.
+     *
+     * @return array{success: bool, id?: int, tokenChanged?: bool, expirationCleared?: bool, reason?: string, message?: string}
      */
     public function restore(int $id): array {
         try {
             $entity = $this->mapper->find($id);
         } catch (DoesNotExistException) {
-            return ['success' => false, 'message' => 'Not found.'];
+            return ['success' => false, 'reason' => 'not_found', 'message' => 'Not found.'];
         }
 
         $node = $this->resolveNode($entity);
         if ($node === null) {
-            return ['success' => false, 'message' => 'The original file no longer exists.'];
+            return ['success' => false, 'reason' => 'file_missing', 'message' => 'The original file no longer exists.'];
         }
 
         $share = $this->shareManager->newShare();
@@ -192,11 +197,25 @@ class SoftDeleteService {
         if ($entity->getShareName() !== null) {
             $share->setLabel($entity->getShareName());
         }
+
+        // A stored expiration already in the past — easily possible: the
+        // retention window (30 days by default) can outlast a short original
+        // expiration, and a share flagged "already expired" by the security
+        // alerts before it was revoked is exactly this case — is rejected
+        // outright by IShareManager::createShare() ("the expiration date is
+        // in the past"), which used to fail the *whole* restore over a date
+        // that no longer protects anything anyway. Restore without one
+        // instead; the link naturally resurfaces as a "no expiration" alert
+        // if that rule is enabled, same as an unparsable stored date always
+        // already did silently — both are now reported via
+        // $expirationCleared so the caller can tell the admin.
+        $expirationCleared = false;
         if ($entity->getExpiration() !== null) {
-            try {
-                $share->setExpirationDate(new \DateTime($entity->getExpiration()));
-            } catch (\Exception) {
-                // Unparsable stored date — restore without one rather than fail outright.
+            $expirationDate = $this->parseStoredExpiration($entity->getExpiration());
+            if ($expirationDate !== null && $expirationDate > new \DateTime()) {
+                $share->setExpirationDate($expirationDate);
+            } else {
+                $expirationCleared = true;
             }
         }
 
@@ -206,7 +225,7 @@ class SoftDeleteService {
             $this->logger->warning('Soft-delete restore failed for retention id {id}: {exception}', [
                 'id' => $id, 'exception' => $e,
             ]);
-            return ['success' => false, 'message' => 'Could not recreate the share (recipient or permissions no longer valid?).'];
+            return ['success' => false, 'reason' => 'create_failed', 'message' => 'Could not recreate the share (recipient or permissions no longer valid?).'];
         }
 
         $tokenRestored = $this->restoreRawColumns((int)$created->getId(), $entity);
@@ -216,7 +235,20 @@ class SoftDeleteService {
         // the alerts list/badge stays stale for up to CACHE_TTL seconds.
         $this->analyzer->invalidate($entity->getUidOwner(), $entity->getUidInitiator());
 
-        return ['success' => true, 'id' => (int)$created->getId(), 'tokenChanged' => !$tokenRestored];
+        return [
+            'success' => true,
+            'id' => (int)$created->getId(),
+            'tokenChanged' => !$tokenRestored,
+            'expirationCleared' => $expirationCleared,
+        ];
+    }
+
+    private function parseStoredExpiration(string $raw): ?\DateTime {
+        try {
+            return new \DateTime($raw);
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     private function resolveNode(DeletedShare $entity): ?Node {

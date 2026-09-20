@@ -228,6 +228,20 @@ OC.L10N.register(
     "Risky shares" : "Partilhas de risco",
     "None of your shares need attention." : "Nenhuma das suas partilhas precisa de atenção.",
     "Pagination" : "Paginação",
-    "Go to page" : "Ir para a página"
+    "Go to page" : "Ir para a página",
+    "Acknowledge" : "Aceitar",
+    "Optional note (why this is accepted)" : "Nota opcional (motivo da aceitação)",
+    "Remove exception" : "Remover exceção",
+    "Show acknowledged" : "Mostrar aceites",
+    "Marked as accepted." : "Marcado como aceite.",
+    "Exception removed — this alert is active again." : "Exceção removida — este alerta está novamente ativo.",
+    "Accepted by {by} · {date}" : "Aceite por {by} · {date}",
+    "Acknowledge all" : "Aceitar tudo",
+    "Could not restore this share — the recipient or permissions may no longer be valid." : "Não foi possível restaurar esta partilha — o destinatário ou as permissões podem já não ser válidos.",
+    "Could not restore this share." : "Não foi possível restaurar esta partilha.",
+    "Restored, but its original expiration date had already passed — it now has none." : "Restaurada, mas a data de expiração original já tinha passado — agora não tem nenhuma.",
+    "Restored, but with a new link URL and no expiration (the original had already passed)." : "Restaurada, mas com uma nova hiperligação e sem expiração (a original já tinha passado).",
+    "This entry is no longer in the recycle bin — it may have already been restored or purged." : "Esta entrada já não está na reciclagem — pode já ter sido restaurada ou eliminada em definitivo.",
+    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n perdeu uma data de expiração já passada.", "%n perderam uma data de expiração já passada."]
 },
 "nplurals=2; plural=(n != 1);");
