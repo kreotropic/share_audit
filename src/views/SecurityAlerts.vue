@@ -38,6 +38,15 @@
 				{{ notice.message }}
 			</NcNoteCard>
 
+			<!-- Only shown standalone when BulkActionBar isn't rendered (no
+			     active items to select) — otherwise this toggle lives next to
+			     "Select all" inside the bar itself, via its #leading slot. -->
+			<div v-if="items.length === 0" class="sad-alerts-toolbar">
+				<NcCheckboxRadioSwitch :model-value="showAcknowledged" @update:model-value="onToggleShowAcknowledged">
+					{{ t('share_audit_dashboard', 'Show acknowledged') }}
+				</NcCheckboxRadioSwitch>
+			</div>
+
 			<NcEmptyContent v-if="items.length === 0 && !activeIssue"
 				:name="t('share_audit_dashboard', 'All clear')"
 				:description="t('share_audit_dashboard', 'No insecure public links were found.')">
@@ -74,9 +83,15 @@
 					<BulkActionBar :count="selectedIds.length"
 						:all-selected="allSelected"
 						:busy="busy"
+						show-acknowledge
 						@bulk="onBulk"
 						@toggle-all="toggleAll"
 						@clear="selectedIds = []">
+						<template #leading>
+							<NcCheckboxRadioSwitch :model-value="showAcknowledged" @update:model-value="onToggleShowAcknowledged">
+								{{ t('share_audit_dashboard', 'Show acknowledged') }}
+							</NcCheckboxRadioSwitch>
+						</template>
 						<template #trailing>
 							<PageSizeSelect v-model="sortOption"
 								:options="sortOptions"
@@ -115,6 +130,7 @@
 <script>
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -126,6 +142,7 @@ import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { issueLabel } from '../utils/format.js'
 import {
 	fetchAlerts, setSharePassword, setShareExpiration, revokeShare, bulkShareAction,
+	acknowledgeAlert, unacknowledgeAlert, bulkAcknowledgeAlerts,
 } from '../services/api.js'
 
 // Must match ShareActionController::BULK_MAX_IDS — larger selections ("Select
@@ -137,6 +154,7 @@ export default {
 	name: 'SecurityAlerts',
 	components: {
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -177,6 +195,12 @@ export default {
 			// to, set by clicking a bar in the "Alerts by category" chart.
 			// '' means no filter.
 			activeIssue: '',
+			// When true, alerts an admin has already acknowledged (see
+			// AckService) are included too — each issue annotated with who
+			// accepted it and when — instead of being dropped from the
+			// active list. See ShareApiController::alerts()'s
+			// $includeAcknowledged.
+			showAcknowledged: false,
 		}
 	},
 	computed: {
@@ -251,7 +275,14 @@ export default {
 		n,
 		async load() {
 			try {
-				const data = await fetchAlerts({ page: this.page, limit: this.apiLimit, issue: this.activeIssue, sort: this.apiSort, sortDir: this.apiSortDir })
+				const data = await fetchAlerts({
+					page: this.page,
+					limit: this.apiLimit,
+					issue: this.activeIssue,
+					sort: this.apiSort,
+					sortDir: this.apiSortDir,
+					includeAcknowledged: this.showAcknowledged,
+				})
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
 				this.total = data.total ?? this.items.length
@@ -284,6 +315,12 @@ export default {
 			this.selectedIds = []
 			this.load()
 		},
+		onToggleShowAcknowledged(value) {
+			this.showAcknowledged = value
+			this.page = 1
+			this.selectedIds = []
+			this.load()
+		},
 		goto(page) {
 			if (page < 1 || page > this.totalPages || page === this.page) {
 				return
@@ -307,7 +344,9 @@ export default {
 		copy(text) {
 			navigator.clipboard?.writeText(text)
 		},
-		async onCardAction({ type, id, days, path }) {
+		async onCardAction({
+			type, id, days, path, ruleCodes, note,
+		}) {
 			this.busy = true
 			this.notice = null
 			try {
@@ -320,6 +359,12 @@ export default {
 				} else if (type === 'revoke') {
 					await revokeShare(id)
 					this.notice = { type: 'success', message: t('share_audit_dashboard', 'Share revoked.') }
+				} else if (type === 'acknowledge') {
+					await acknowledgeAlert(id, ruleCodes, note)
+					this.notice = { type: 'success', message: t('share_audit_dashboard', 'Marked as accepted.') }
+				} else if (type === 'unacknowledge') {
+					await unacknowledgeAlert(id, ruleCodes)
+					this.notice = { type: 'success', message: t('share_audit_dashboard', 'Exception removed — this alert is active again.') }
 				}
 				await this.load()
 			} catch (e) {
@@ -333,6 +378,9 @@ export default {
 				return
 			}
 			const idToPath = Object.fromEntries(this.items.map((a) => [a.id, a.path]))
+			// Only used for 'acknowledge': each alert keeps its own issue set,
+			// unlike revoke/password/expiration which apply uniformly.
+			const idToIssues = Object.fromEntries(this.items.map((a) => [a.id, a.issues.map((iss) => iss.code)]))
 			this.busy = true
 			this.notice = null
 			try {
@@ -341,7 +389,9 @@ export default {
 				let total = 0
 				for (let i = 0; i < this.selectedIds.length; i += BULK_CHUNK_SIZE) {
 					const chunk = this.selectedIds.slice(i, i + BULK_CHUNK_SIZE)
-					const data = await bulkShareAction(action, chunk, days ? { days } : {})
+					const data = action === 'acknowledge'
+						? await bulkAcknowledgeAlerts(chunk.map((id) => ({ id, ruleCodes: idToIssues[id] || [] })))
+						: await bulkShareAction(action, chunk, days ? { days } : {})
 					succeeded += data.succeeded
 					failed += data.failed
 					total += data.total
@@ -370,6 +420,17 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.sad-alerts-toolbar {
+	display: flex;
+	// Left-aligned so it sits above "Select all" (BulkActionBar's own
+	// left-aligned checkbox) rather than opposite it — this toggle must stay
+	// outside that bar so it's still reachable with zero *active* alerts
+	// (the "All clear" empty state), but it should still read as part of the
+	// same left-hand control cluster once the bar appears below it.
+	justify-content: flex-start;
+	margin-bottom: 8px;
+}
+
 .sad-alerts-breakdown {
 	padding: 16px;
 	margin-bottom: 20px;

@@ -12,6 +12,10 @@
 			<span v-if="count" class="sad-bulkbar__count">
 				{{ n('share_audit_dashboard', '%n selected', '%n selected', count) }}
 			</span>
+			<!-- Extra view/filter controls that belong with "Select all" rather
+			     than the action buttons on the right (e.g. SecurityAlerts.vue's
+			     "Show acknowledged" toggle) -->
+			<slot name="leading" />
 		</div>
 
 		<div class="sad-bulkbar__right">
@@ -31,6 +35,10 @@
 						{{ t('share_audit_dashboard', 'Set expiry') }}
 					</NcButton>
 				</div>
+
+				<NcButton v-if="showAcknowledge" :disabled="busy" @click="$emit('bulk', { action: 'acknowledge' })">
+					{{ t('share_audit_dashboard', 'Acknowledge all') }}
+				</NcButton>
 
 				<NcButton type="error" :disabled="busy" @click="$emit('bulk', { action: 'revoke' })">
 					{{ t('share_audit_dashboard', 'Revoke all') }}
@@ -70,6 +78,14 @@ export default {
 			default: false,
 		},
 		busy: {
+			type: Boolean,
+			default: false,
+		},
+		// Adds an "Acknowledge all" bulk action — only meaningful for the
+		// security alerts view (see SecurityAlerts.vue); other views reusing
+		// this bar (e.g. Orphan shares) have no acknowledge concept, hence a
+		// prop rather than always showing it.
+		showAcknowledge: {
 			type: Boolean,
 			default: false,
 		},

@@ -17,7 +17,8 @@
 					<span class="sad-alert__name" :title="alert.path">{{ fileName }}</span>
 					<NcChip v-for="issue in alert.issues"
 						:key="issue.code"
-						:class="['sad-alert__chip', 'sad-alert__chip--' + issue.code]"
+						:class="['sad-alert__chip', 'sad-alert__chip--' + issue.code, { 'sad-alert__chip--acknowledged': issue.acknowledged }]"
+						:title="issue.acknowledged ? acknowledgedTitle(issue) : null"
 						:text="issueLabel(issue.code)"
 						:no-close="true" />
 				</div>
@@ -58,6 +59,32 @@
 				@click="$emit('action', { type: 'expiration', id: alert.id, days: 30 })">
 				{{ t('share_audit_dashboard', 'Set expiry (30d)') }}
 			</NcButton>
+
+			<template v-if="alert.acknowledged">
+				<NcButton type="tertiary"
+					:disabled="busy"
+					@click="$emit('action', { type: 'unacknowledge', id: alert.id, ruleCodes: issueCodes })">
+					{{ t('share_audit_dashboard', 'Remove exception') }}
+				</NcButton>
+			</template>
+			<template v-else-if="acknowledging">
+				<input v-model="ackNote"
+					type="text"
+					class="sad-alert__ack-note"
+					:placeholder="t('share_audit_dashboard', 'Optional note (why this is accepted)')"
+					:disabled="busy">
+				<NcButton type="primary" :disabled="busy" @click="acknowledge">
+					{{ t('share_audit_dashboard', 'Confirm') }}
+				</NcButton>
+				<NcButton type="tertiary" :disabled="busy" @click="cancelAcknowledge">
+					{{ t('share_audit_dashboard', 'Cancel') }}
+				</NcButton>
+			</template>
+			<template v-else>
+				<NcButton type="tertiary" :disabled="busy" @click="acknowledging = true">
+					{{ t('share_audit_dashboard', 'Acknowledge') }}
+				</NcButton>
+			</template>
 
 			<template v-if="!confirming">
 				<NcButton type="tertiary"
@@ -114,12 +141,19 @@ export default {
 		return {
 			confirming: false,
 			linkCopied: false,
+			acknowledging: false,
+			ackNote: '',
 		}
 	},
 	computed: {
 		fileName() {
 			const parts = (this.alert.path || '').split('/').filter(Boolean)
 			return parts.length ? parts[parts.length - 1] : '—'
+		},
+		// Every issue code currently shown on this row — acknowledging (or
+		// removing the exception on) the whole alert acts on all of them.
+		issueCodes() {
+			return this.alert.issues.map((i) => i.code)
 		},
 	},
 	methods: {
@@ -143,6 +177,22 @@ export default {
 		revoke() {
 			this.confirming = false
 			this.$emit('action', { type: 'revoke', id: this.alert.id, path: this.alert.path })
+		},
+		acknowledge() {
+			this.acknowledging = false
+			this.$emit('action', {
+				type: 'acknowledge', id: this.alert.id, ruleCodes: this.issueCodes, note: this.ackNote, path: this.alert.path,
+			})
+			this.ackNote = ''
+		},
+		cancelAcknowledge() {
+			this.acknowledging = false
+			this.ackNote = ''
+		},
+		acknowledgedTitle(issue) {
+			const date = formatDate(issue.acknowledgedAt)
+			const base = t('share_audit_dashboard', 'Accepted by {by} · {date}', { by: issue.acknowledgedBy, date })
+			return issue.note ? base + ' — ' + issue.note : base
 		},
 		severityLabel(severity) {
 			const labels = {
@@ -261,6 +311,16 @@ export default {
 	--chip: var(--sad-alert-public-upload);
 }
 
+// An acknowledged issue (only ever visible in "show acknowledged" mode —
+// the default view drops it entirely) stays legible but visually recedes,
+// so the still-active chips on a partially-acknowledged alert keep drawing
+// the eye. Hover/focus shows who accepted it and why (title attribute).
+.sad-alert__chip--acknowledged {
+	opacity: 0.55;
+	text-decoration: line-through;
+	cursor: help;
+}
+
 .sad-alert__name {
 	font-weight: 600;
 	overflow: hidden;
@@ -295,5 +355,16 @@ export default {
 	flex-wrap: wrap;
 	gap: 6px;
 	align-items: center;
+}
+
+.sad-alert__ack-note {
+	width: 220px;
+	max-width: 40vw;
+	padding: 6px 10px;
+	border: 1px solid var(--color-border-dark);
+	border-radius: var(--border-radius, 6px);
+	background-color: var(--color-main-background);
+	color: var(--color-main-text);
+	font-size: 13px;
 }
 </style>

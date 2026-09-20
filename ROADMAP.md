@@ -13,7 +13,7 @@ and a line-by-line quality audit) were run and closed before 0.3.0 — see
 [CHANGELOG.md](CHANGELOG.md) for what each version fixed. 0.4.0 added soft
 delete (recycle bin) for shares and Nextcloud 34 support; 0.5.0 added German
 and Spanish translations and a Nextcloud Playground preview. The app has a
-test suite (`phpunit`, `tests/Unit/`, 84 tests) and CI
+test suite (`phpunit`, `tests/Unit/`, 96 tests) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -45,6 +45,12 @@ already implemented and working:
 - Copy public-link URL and "Open in Files" on each alert
 - Every revocation and remediation is logged to Nextcloud's audit channel
   (requires the `admin_audit` app enabled)
+- **Acknowledge/exception** (per (share, rule) pair, optionally with a
+  note): an intentionally-accepted alert (e.g. a public newsletter link) can
+  be dismissed instead of permanently inflating the count — closes GitHub
+  issue [#5](https://github.com/kreotropic/share_audit/issues/5). A "Show
+  acknowledged" toggle reviews or undoes any exception. The app's **second**
+  database migration (`oc_shareaudit_ack`).
 
 **Lookup & Orphans**
 - **Orphan shares**: shares whose owner is disabled or deleted, with bulk
@@ -80,35 +86,48 @@ already implemented and working:
 
 ---
 
-## Next up — G2: acknowledge/exception on alerts
+## G2 — acknowledge/exception on alerts (delivered)
 
-The highest-impact item left, and it **doesn't** depend on App Store
-traction.
+Implemented as designed: `AckController`/`AckService` +
+`oc_shareaudit_ack` (`share_id`, `rule_code`, `acknowledged_by`,
+`acknowledged_at`, optional `note`, unique on `(share_id, rule_code)`,
+migration `Version0006Date20260920160000`). `SecurityAnalyzerService::
+getAlerts()` takes an `$includeAcknowledged` flag: false (every existing
+caller — admin view, personal view, the dashboard widget, `countAlerts()`)
+drops an acknowledged issue from its alert and the alert itself once none
+are left, recomputing severity from what remains; true (the alerts view's
+"Show acknowledged" toggle) returns everything, each issue annotated with
+who accepted it, when, and any note, so exceptions can be reviewed or
+undone (`unacknowledge()`). Covers all current rules, including
+`group_share_editable`/`public_upload`. Closes GitHub issue
+[#5](https://github.com/kreotropic/share_audit/issues/5) ("Mark as already
+reviewed"). Bulk acknowledge (`AckController::bulkAcknowledge()`, `POST
+/api/alerts/bulk-ack`, "Acknowledge all" next to the other bulk actions)
+was added right after first use surfaced the need — each selected alert
+keeps its own issue set (unlike revoke/password/expiration, which apply
+uniformly), so each item in the request names its own `ruleCodes`. See
+CHANGELOG.md for the release this lands in.
 
-**Problem:** in practice, every instance has public links that are
-intentionally passwordless (a public page, a newsletter). With no way to
-mark "this is accepted", the alert count never reaches zero — and a
-permanently red counter stops being looked at after ~2 weeks.
+**Deliberately left out of this pass** — none block shipping, revisit if
+they turn out to matter in practice:
+- **Bulk *un*acknowledge.** The "Show acknowledged" filter still only
+  removes an exception one row at a time; a symmetric bulk action would
+  reuse the same `BulkActionBar`/`AckController` plumbing bulk-acknowledge
+  already added, so it's a small lift whenever it's asked for.
+- **Orphaned `shareaudit_ack` rows.** A share's exceptions aren't cleaned up
+  when it's later revoked/purged — harmless (an id is never reused, so a
+  stale row can never match a future alert) and, in practice, small in
+  number. Same call already made for the missing `share_with`/`path`
+  indexes below; revisit with the same "wait for evidence" bar.
+- **DE/ES/FR translations for the 7 new UI strings** were done directly (not
+  reviewed by the community translators credited for those languages in
+  CHANGELOG.md) — worth a native-speaker pass before the next release.
+  EN and PT-PT are the maintainer's own and authoritative as always.
 
-**Fix:** a new `oc_shareaudit_ack` table (`share_id`, `rule_code`,
-`acknowledged_by`, `acknowledged_at`, optional `note`). `getAlerts()` will
-exclude (or mark as "acknowledged", with a show/hide filter) any
-`(share_id, rule_code)` pair present in the table. Needs:
-- `AckController` (`POST /api/alerts/{id}/ack`, `DELETE` to remove the
-  exception), admin-only.
-- UI: an "Acknowledge" button per alert row, and a "show acknowledged"
-  filter in the alerts view (for audit purposes — they don't disappear,
-  they just drop out of the active count).
-- Needs its own migration (`lib/Migration/`) — this will be the app's
-  **second** migration (the first, `oc_shareaudit_deleted`, shipped in 0.4.0
-  with soft delete).
-- Must cover **all** current rules, including the two most recent
-  (`group_share_editable`, `public_upload`), not just the original three.
-- Reuse the existing test pattern in `tests/Unit/` for the new
-  `acknowledged` logic.
-
-**Effort/impact:** medium effort, high impact — no native NC tool offers
-this.
+With G2 done, every remaining backlog item below is explicitly gated on App
+Store traction (or is a GitHub issue awaiting the maintainer's own
+prioritization) — there's no other currently-identified "ungated" item to
+promote here automatically.
 
 ---
 
@@ -293,5 +312,5 @@ upfront). Like the CSV, the report must not include access tokens.
 - Missing an index on `share_with` (autocomplete/recipient search,
   `ILIKE %...%`) and on `path` (sorting). Tolerable on a ~300-user instance
   (tens of thousands of rows); decision deferred until there's evidence of
-  larger instances. When it's justified, add via migration — coordinate
-  with G2 (acknowledge), which will need a migration anyway.
+  larger instances. G2's migration (`oc_shareaudit_ack`) shipped without
+  bundling this, so it'll need its own migration whenever it's justified.

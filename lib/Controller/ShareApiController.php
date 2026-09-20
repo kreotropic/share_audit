@@ -170,12 +170,19 @@ class ShareApiController extends AdminController {
      * info, as ranked by SecurityAnalyzerService::getAlerts()). Passing
      * 'created' re-sorts by share creation date instead, direction per
      * $sortDir — lets an admin triage the oldest risky shares first.
+     *
+     * $includeAcknowledged (the alerts view's "show acknowledged" toggle)
+     * mirrors getAlerts()'s own parameter: false (default) hides anything
+     * an admin has already accepted (see AckService), so `items`,
+     * `breakdown` and `totalAll` all reflect only what's still active —
+     * true returns everything, each issue annotated with its acknowledgment
+     * details, for reviewing or undoing exceptions.
      */
-    public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc'): JSONResponse {
+    public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc', bool $includeAcknowledged = false): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        $all = $this->security->getAlerts();
+        $all = $this->security->getAlerts(null, $includeAcknowledged);
         $breakdown = $this->security->countByIssue($all);
         $filtered = $issue !== ''
             ? array_values(array_filter($all, static fn ($alert) => in_array($issue, array_column($alert['issues'], 'code'), true)))

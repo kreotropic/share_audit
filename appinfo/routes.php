@@ -26,6 +26,10 @@ return [
         // Configurable security-alert rules.
         ['name' => 'shareApi#getSettings', 'url' => '/api/settings', 'verb' => 'GET'],
         ['name' => 'shareApi#saveSettings', 'url' => '/api/settings', 'verb' => 'POST'],
+        // Acknowledge (accept as an exception) or undo one on a security alert.
+        ['name' => 'ack#acknowledge', 'url' => '/api/alerts/{id}/ack', 'verb' => 'POST'],
+        ['name' => 'ack#unacknowledge', 'url' => '/api/alerts/{id}/ack', 'verb' => 'DELETE'],
+        ['name' => 'ack#bulkAcknowledge', 'url' => '/api/alerts/bulk-ack', 'verb' => 'POST'],
         // Remediation actions on shares (individual + bulk).
         ['name' => 'shareAction#setPassword', 'url' => '/api/shares/{id}/password', 'verb' => 'POST'],
         ['name' => 'shareAction#setExpiration', 'url' => '/api/shares/{id}/expiration', 'verb' => 'POST'],
