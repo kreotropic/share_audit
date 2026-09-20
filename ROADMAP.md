@@ -8,12 +8,12 @@
 ## Current state (v0.5.0)
 
 The app is **published on the App Store** (`min-version` 31, `max-version`
-34) and functionally complete: three review rounds (security, pre-submission
+35) and functionally complete: three review rounds (security, pre-submission
 and a line-by-line quality audit) were run and closed before 0.3.0 — see
 [CHANGELOG.md](CHANGELOG.md) for what each version fixed. 0.4.0 added soft
 delete (recycle bin) for shares and Nextcloud 34 support; 0.5.0 added German
 and Spanish translations and a Nextcloud Playground preview. The app has a
-test suite (`phpunit`, `tests/Unit/`, 96 tests) and CI
+test suite (`phpunit`, `tests/Unit/`, 98 tests) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -82,7 +82,7 @@ already implemented and working:
   instead of relying on discipline)
 - README, screenshots, `krankerl.toml` + `.nextcloudignore` for packaging
 - `min-version` 31 (NC 30 is no longer supported — orphan-share revoke
-  depends on a parameter only available from NC 31 onward), `max-version` 34
+  depends on a parameter only available from NC 31 onward), `max-version` 35
 
 ---
 

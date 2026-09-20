@@ -23,7 +23,7 @@ services:
     # Nextcloud versions are what make the two outputs diffable. Nextcloud
     # refuses to start on a *lower* version than its data already has, so
     # lowering this against an existing instance means `down -v` first.
-    image: nextcloud:34-apache
+    image: nextcloud:35-apache
     container_name: shareaudit-pg-app
     restart: unless-stopped
     ports:

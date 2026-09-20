@@ -10,6 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Nextcloud 35 support.** The app is declared compatible with Nextcloud
+  35 (`max-version` 35), so Nextcloud no longer warns about it before
+  upgrading. Checked on a real Nextcloud 35.0.0 instance (PHP 8.5): both
+  migrations, the alert / acknowledge / recycle-bin flows and every admin API
+  endpoint behave as on 34. Nothing in the app needed to change beyond the
+  declared range
+  ([#20](https://github.com/kreotropic/share_audit/issues/20)).
+
 ### Changed
 - **Security alerts are one line each.** An alert used to take ~140px over
   three lines; it is now a single 44px row (severity, file, path, reasons and
