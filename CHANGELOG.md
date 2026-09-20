@@ -8,6 +8,28 @@
 All notable changes to Share Audit Dashboard are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Changed
+- **Security alerts are one line each.** An alert used to take ~140px over
+  three lines; it is now a single 44px row (severity, file, path, reasons and
+  icon actions). Owner, date and share token moved into a details drawer,
+  opened with the chevron or Enter on the row (one alert open at a time).
+  Accepting (with its optional note) and revoking now confirm in a step that
+  opens under the row.
+- **Bulk actions float over the list.** Selecting alerts no longer grows the
+  toolbar from one line to three and pushes the list down. The toolbar stays a
+  single fixed-height line of filters; the selection count and bulk actions
+  appear in a floating bar at the bottom of the list, which folds
+  *Add password* and *Set expiry* into a *More* menu when the list is narrow.
+  The personal *My shares audit* view uses the same list.
+
+### Fixed
+- The personal *My shares audit* view showed an *Acknowledge* button that did
+  nothing (regular users have no acknowledge endpoint); it is hidden there now.
+- Alert checkboxes had no accessible name, and the icon-only actions are
+  labelled for screen readers.
+
 ## [0.5.0]
 
 ### Added

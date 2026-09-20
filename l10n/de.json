@@ -37,6 +37,17 @@
         "No orphan shares": "Keine verwaisten Freigaben",
         "Every share is owned by an active account.": "Jede Freigabe gehört einem aktiven Konto.",
         "Select all": "Alle auswählen",
+        "Actions for the selection": "Aktionen für die Auswahl",
+        "Created: {date}": "Erstellt: {date}",
+        "Details": "Details",
+        "Expiry period": "Ablaufzeitraum",
+        "Hide details": "Details ausblenden",
+        "More": "Mehr",
+        "Path: {path}": "Pfad: {path}",
+        "Revoke this share?": "Diese Freigabe widerrufen?",
+        "Select {name}": "{name} auswählen",
+        "Set expiry: {period}": "Ablauf festlegen: {period}",
+        "Share token": "Freigabe-Token",
         "_%n selected_::_%n selected_": [
             "%n ausgewählt",
             "%n ausgewählt"

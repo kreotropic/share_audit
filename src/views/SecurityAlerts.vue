@@ -38,9 +38,9 @@
 				{{ notice.message }}
 			</NcNoteCard>
 
-			<!-- Only shown standalone when BulkActionBar isn't rendered (no
+			<!-- Only shown standalone when AlertList isn't rendered (no
 			     active items to select) — otherwise this toggle lives next to
-			     "Select all" inside the bar itself, via its #leading slot. -->
+			     "Select all" inside its toolbar, via the #leading slot. -->
 			<div v-if="items.length === 0" class="sad-alerts-toolbar">
 				<NcCheckboxRadioSwitch :model-value="showAcknowledged" @update:model-value="onToggleShowAcknowledged">
 					{{ t('share_audit_dashboard', 'Show acknowledged') }}
@@ -80,7 +80,7 @@
 				</NcEmptyContent>
 
 				<template v-else>
-					<BulkActionBar :count="selectedIds.length"
+					<AlertList :count="selectedIds.length"
 						:all-selected="allSelected"
 						:busy="busy"
 						show-acknowledge
@@ -96,7 +96,7 @@
 							<PageSizeSelect v-model="sortOption"
 								:options="sortOptions"
 								:label="t('share_audit_dashboard', 'Sort by')"
-								:width="220"
+								:width="250"
 								:disabled="busy"
 								:aria-label="t('share_audit_dashboard', 'Sort alerts by')" />
 							<PageSizeSelect v-model="pageSize"
@@ -105,17 +105,17 @@
 								:disabled="busy"
 								:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
 						</template>
-					</BulkActionBar>
 
-					<ul class="sad-alerts">
 						<AlertCard v-for="alert in items"
 							:key="alert.id"
 							:alert="alert"
 							:busy="busy"
 							:selected="selectedIds.includes(alert.id)"
+							:expanded="expandedId === alert.id"
 							@update:selected="toggleSelect(alert.id, $event)"
+							@toggle="toggleExpand(alert.id)"
 							@action="onCardAction" />
-					</ul>
+					</AlertList>
 
 					<div v-if="!isAll && total > apiLimit" class="sad-pagination">
 						<span class="sad-pagination__range">{{ rangeLabel }}</span>
@@ -135,7 +135,7 @@ import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AlertCard from '../components/AlertCard.vue'
-import BulkActionBar from '../components/BulkActionBar.vue'
+import AlertList from '../components/AlertList.vue'
 import HBarChart from '../components/HBarChart.vue'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
@@ -159,7 +159,7 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		AlertCard,
-		BulkActionBar,
+		AlertList,
 		HBarChart,
 		PageNavigation,
 		PageSizeSelect,
@@ -189,6 +189,8 @@ export default {
 			],
 			sortOption: { id: 'severity', label: t('share_audit_dashboard', 'Severity (default)') },
 			selectedIds: [],
+			// Alert whose details drawer is open — one at a time.
+			expandedId: null,
 			generatedPasswords: [],
 			notice: null,
 			// Issue code (e.g. 'no_password') the list is currently restricted
@@ -293,6 +295,9 @@ export default {
 					return
 				}
 				this.selectedIds = this.selectedIds.filter((id) => this.items.some((a) => a.id === id))
+				if (!this.items.some((a) => a.id === this.expandedId)) {
+					this.expandedId = null
+				}
 				// The tab badge always reflects every insecure link, not just
 				// the current category filter.
 				this.$emit('alerts-count', data.totalAll ?? this.total)
@@ -331,6 +336,9 @@ export default {
 		},
 		toggleAll(checked) {
 			this.selectedIds = checked ? this.items.map((a) => a.id) : []
+		},
+		toggleExpand(id) {
+			this.expandedId = this.expandedId === id ? null : id
 		},
 		toggleSelect(id, checked) {
 			if (checked) {
@@ -422,7 +430,7 @@ export default {
 <style scoped lang="scss">
 .sad-alerts-toolbar {
 	display: flex;
-	// Left-aligned so it sits above "Select all" (BulkActionBar's own
+	// Left-aligned so it sits above "Select all" (AlertList's own
 	// left-aligned checkbox) rather than opposite it — this toggle must stay
 	// outside that bar so it's still reachable with zero *active* alerts
 	// (the "All clear" empty state), but it should still read as part of the
@@ -449,12 +457,6 @@ export default {
 	justify-content: space-between;
 	gap: 12px;
 	margin-bottom: 12px;
-}
-
-.sad-alerts {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
 }
 
 .sad-pw-panel__title {

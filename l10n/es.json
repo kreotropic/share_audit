@@ -37,6 +37,17 @@
         "No orphan shares": "Sin recursos compartidos huérfanos",
         "Every share is owned by an active account.": "Todos los recursos compartidos pertenecen a una cuenta activa.",
         "Select all": "Seleccionar todo",
+        "Actions for the selection": "Acciones para la selección",
+        "Created: {date}": "Creado: {date}",
+        "Details": "Detalles",
+        "Expiry period": "Plazo de caducidad",
+        "Hide details": "Ocultar detalles",
+        "More": "Más",
+        "Path: {path}": "Ruta: {path}",
+        "Revoke this share?": "¿Revocar este recurso compartido?",
+        "Select {name}": "Seleccionar {name}",
+        "Set expiry: {period}": "Definir caducidad: {period}",
+        "Share token": "Token del recurso compartido",
         "_%n selected_::_%n selected_": [
             "%n seleccionado",
             "%n seleccionados"

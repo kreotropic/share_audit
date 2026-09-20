@@ -37,6 +37,17 @@
         "No orphan shares": "No orphan shares",
         "Every share is owned by an active account.": "Every share is owned by an active account.",
         "Select all": "Select all",
+        "Actions for the selection": "Actions for the selection",
+        "Created: {date}": "Created: {date}",
+        "Details": "Details",
+        "Expiry period": "Expiry period",
+        "Hide details": "Hide details",
+        "More": "More",
+        "Path: {path}": "Path: {path}",
+        "Revoke this share?": "Revoke this share?",
+        "Select {name}": "Select {name}",
+        "Set expiry: {period}": "Set expiry: {period}",
+        "Share token": "Share token",
         "_%n selected_::_%n selected_": [
             "%n selected",
             "%n selected"
