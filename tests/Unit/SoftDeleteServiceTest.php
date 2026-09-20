@@ -147,7 +147,7 @@ class SoftDeleteServiceTest extends TestCase {
             'permissions' => 31,
             'token' => null,
             'password' => null,
-            'share_name' => null,
+            'label' => 'Contract draft',
             'expiration' => null,
             'stime' => 100,
         ]);
@@ -155,8 +155,36 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertSame(7, $captured->getOriginalShareId());
         $this->assertSame('carol', $captured->getShareWith());
         $this->assertSame('dave', $captured->getUidOwner());
+
+        $this->assertSame('Contract draft', $captured->getShareName());
         $this->assertNull($captured->getDeletedBy());
         $this->assertSame(500 + 7 * 86400, $captured->getPurgeAfter());
+    }
+
+    public function testCaptureRowTreatsEmptyLabelAsNoName(): void {
+        $this->time->method('getTime')->willReturn(500);
+        $this->settings->method('getRetentionDays')->willReturn(7);
+        $this->userSession->method('getUser')->willReturn(null);
+
+        $captured = null;
+        $this->mapper->expects($this->once())->method('insert')
+            ->with($this->callback(function (DeletedShare $e) use (&$captured) {
+                $captured = $e;
+                return true;
+            }));
+
+        // oc_share stores "no label" as '' (or NULL), never as a name.
+        $this->service->captureRow([
+            'id' => 8,
+            'share_type' => IShare::TYPE_LINK,
+            'uid_owner' => 'dave',
+            'item_type' => 'file',
+            'file_source' => 55,
+            'permissions' => 1,
+            'label' => '',
+        ]);
+
+        $this->assertNull($captured->getShareName());
     }
 
     // -------------------------------------------------------------------

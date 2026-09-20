@@ -603,4 +603,120 @@ class SecurityAnalyzerServiceTest extends TestCase {
         // Share 1 is fully acknowledged and disappears; share 2 stays.
         $this->assertSame(1, $this->analyzer()->countAlerts());
     }
+
+    // -------------------------------------------------------------------
+    // Share label, search and sort by name (the alerts list's search box
+    // and its "Name" sort options).
+    // -------------------------------------------------------------------
+
+    public function testAnAlertCarriesTheNameGivenToTheShare(): void {
+        $this->stubRules();
+        $this->mapper->method('findInsecureLinks')->willReturn([
+            $this->row(['id' => 1, 'label' => 'Contrato Q3']),
+            $this->row(['id' => 2, 'label' => '']),
+            $this->row(['id' => 3]),
+        ]);
+
+        $labels = array_column($this->analyzer()->getAlerts(), 'label', 'id');
+
+        $this->assertSame('Contrato Q3', $labels[1]);
+        // No custom name is null, not '': the UI shows a label only if there is one.
+        $this->assertNull($labels[2]);
+        $this->assertNull($labels[3]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function searchable(): array {
+        return [
+            ['id' => 1, 'path' => '/Finance/Contrato Q3.pdf', 'label' => null, 'owner' => 'FBEAD109', 'ownerDisplayName' => 'Ana Silva'],
+            ['id' => 2, 'path' => '/Marketing/logo.png', 'label' => 'Campanha Verão', 'owner' => 'alice', 'ownerDisplayName' => 'alice'],
+            ['id' => 3, 'path' => '/Finance/orcamento.xlsx', 'label' => null, 'owner' => 'bob', 'ownerDisplayName' => 'Bob Costa',
+                'recipient' => 'finance', 'recipientLabel' => 'Finance team'],
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $alerts
+     * @return int[]
+     */
+    private function ids(array $alerts): array {
+        return array_column($alerts, 'id');
+    }
+
+    public function testSearchMatchesTheFileNameWhateverTheCase(): void {
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'contrato')));
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'CONTRATO q3')));
+    }
+
+    public function testSearchMatchesTheShareLabelIncludingAccentedLetters(): void {
+        $this->assertSame([2], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'VERÃO')));
+    }
+
+    public function testSearchMatchesTheOwnerByDisplayNameAndByUid(): void {
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'silva')));
+        // An LDAP-style opaque uid is what the owner really is: still findable.
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'fbead')));
+    }
+
+    public function testSearchMatchesAGroupRecipient(): void {
+        $this->assertSame([3], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'team')));
+    }
+
+    public function testSearchDoesNotLookInTheFolderPartOfThePath(): void {
+        // "Finance" and "Marketing" are folders here; only names are searched.
+        $this->assertSame([], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'marketing')));
+    }
+
+    public function testEveryWordMustMatchButEachMayMatchADifferentField(): void {
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'contrato ana')));
+        $this->assertSame([], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'contrato bob')));
+    }
+
+    public function testAnEmptySearchKeepsEveryAlert(): void {
+        $this->assertSame([1, 2, 3], $this->ids($this->analyzer()->filterBySearch($this->searchable(), '   ')));
+    }
+
+    public function testSearchResultsAreReindexedForPaging(): void {
+        $found = $this->analyzer()->filterBySearch($this->searchable(), 'bob');
+        $this->assertSame([0], array_keys($found));
+    }
+
+    /**
+     * @param string[]|null[] $names file names, null for an alert with no path
+     * @return array<int, array<string, mixed>>
+     */
+    private function named(array $names): array {
+        $alerts = [];
+        foreach ($names as $i => $name) {
+            $alerts[] = ['id' => $i + 1, 'path' => $name === null ? null : '/some/folder/' . $name];
+        }
+        return $alerts;
+    }
+
+    public function testSortByNameIsCaseInsensitiveAndNatural(): void {
+        $alerts = $this->named(['b10.txt', 'B2.txt', 'a.txt', 'C.txt']);
+
+        $asc = $this->analyzer()->sortByName($alerts, true);
+        // a, then b2 before b10 (natural), then c — capitals do not jump the queue.
+        $this->assertSame([3, 2, 1, 4], $this->ids($asc));
+        $this->assertSame([4, 1, 2, 3], $this->ids($this->analyzer()->sortByName($alerts, false)));
+    }
+
+    public function testSortByNameLooksAtTheLastPathSegmentOnly(): void {
+        $alerts = [
+            ['id' => 1, 'path' => '/aaa/zebra.txt'],
+            ['id' => 2, 'path' => '/zzz/apple.txt'],
+        ];
+        $this->assertSame([2, 1], $this->ids($this->analyzer()->sortByName($alerts, true)));
+    }
+
+    public function testAlertsWithoutANameGoLastWhicheverWayTheSortRuns(): void {
+        $alerts = $this->named(['b.txt', null, 'a.txt']);
+
+        $this->assertSame([3, 1, 2], $this->ids($this->analyzer()->sortByName($alerts, true)));
+        $this->assertSame([1, 3, 2], $this->ids($this->analyzer()->sortByName($alerts, false)));
+    }
 }
+

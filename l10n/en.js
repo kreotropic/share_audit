@@ -252,6 +252,13 @@ OC.L10N.register(
     "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n lost an already-passed expiration date.", "%n lost an already-passed expiration date."],
     "Open link in a new tab" : "Open link in a new tab",
     "Set expiry ({days}d)" : "Set expiry ({days}d)",
-    "_%n day_::_%n days_" : ["%n day", "%n days"]
+    "_%n day_::_%n days_" : ["%n day", "%n days"],
+    "Search alerts" : "Search alerts",
+    "Name or owner…" : "Name or owner…",
+    "Clear search" : "Clear search",
+    "Name (A–Z)" : "Name (A–Z)",
+    "Name (Z–A)" : "Name (Z–A)",
+    "No alerts match your search." : "No alerts match your search.",
+    "Share name: {name}" : "Share name: {name}"
 },
 "nplurals=2; plural=(n != 1);");

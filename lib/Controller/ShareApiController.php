@@ -183,22 +183,32 @@ class ShareApiController extends AdminController {
      * true returns everything, each issue annotated with its acknowledgment
      * details, for reviewing or undoing exceptions.
      *
+     * $search keeps only the alerts whose file/folder name, share label or owner
+     * contain every word of it (see SecurityAnalyzerService::filterBySearch()).
+     * The breakdown counts follow it, so the chart always adds up to the list;
+     * `totalAll` — the tab badge — deliberately does not.
+     *
+     * $sort = 'name' orders by file/folder name, direction per $sortDir.
+     *
      * @param int<0, 500> $limit page size, 0 = everything on one page. Declared
      *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
      *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
-    public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc', bool $includeAcknowledged = false): JSONResponse {
+    public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc', bool $includeAcknowledged = false, string $search = ''): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
         $all = $this->security->getAlerts(null, $includeAcknowledged);
-        $breakdown = $this->security->countByIssue($all);
+        $searched = $this->security->filterBySearch($all, $search);
+        $breakdown = $this->security->countByIssue($searched);
         $filtered = $issue !== ''
-            ? array_values(array_filter($all, static fn ($alert) => in_array($issue, array_column($alert['issues'], 'code'), true)))
-            : $all;
+            ? array_values(array_filter($searched, static fn ($alert) => in_array($issue, array_column($alert['issues'], 'code'), true)))
+            : $searched;
         if ($sort === 'created') {
             $direction = $sortDir === 'asc' ? 1 : -1;
             usort($filtered, static fn ($a, $b) => $direction * (($a['created'] ?? 0) <=> ($b['created'] ?? 0)));
+        } elseif ($sort === 'name') {
+            $filtered = $this->security->sortByName($filtered, $sortDir === 'asc');
         }
         $total = count($filtered);
         $offset = max(0, ($page - 1) * $limit);

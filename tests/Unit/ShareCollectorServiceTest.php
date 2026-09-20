@@ -77,6 +77,24 @@ class ShareCollectorServiceTest extends TestCase {
         $this->assertFalse($share['hasExpiration']);
     }
 
+    public function testNameComesFromTheLabelColumn(): void {
+        // The custom name of a link share lives in oc_share.label; the
+        // legacy oc_share.share_name column is always NULL.
+        $row = $this->row(null);
+        $row['label'] = 'Contrato 2026';
+        $row['share_name'] = null;
+        $this->assertSame('Contrato 2026', $this->collector()->normalizeRow($row)['name']);
+    }
+
+    public function testEmptyLabelMeansNoName(): void {
+        foreach (['', null] as $label) {
+            $row = $this->row(null);
+            $row['label'] = $label;
+            $this->assertNull($this->collector()->normalizeRow($row)['name']);
+        }
+        $this->assertNull($this->collector()->normalizeRow($this->row(null))['name']);
+    }
+
     // -------------------------------------------------------------------
     // getShares() — ownerDisplayName/initiatorDisplayName attachment.
     // -------------------------------------------------------------------

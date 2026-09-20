@@ -21,7 +21,7 @@
 			<span class="sad-alert__badge" :class="'sad-alert__badge--' + alert.severity">
 				{{ severityLabel(alert.severity) }}
 			</span>
-			<span class="sad-alert__name" :title="alert.path">{{ fileName }}</span>
+			<span class="sad-alert__name" :title="alert.label ? alert.path + ' — ' + alert.label : alert.path">{{ fileName }}</span>
 			<span class="sad-alert__path" :title="alert.path">{{ alert.path || '—' }}</span>
 
 			<span class="sad-alert__chips">
@@ -185,6 +185,10 @@
 		<div v-if="expanded" :id="drawerId" class="sad-alert__drawer">
 			<span v-if="alert.path" class="sad-alert__drawer-path">
 				{{ t('share_audit_dashboard', 'Path: {path}', { path: alert.path }) }}
+			</span>
+			<!-- The name given to the share itself; the search box matches it. -->
+			<span v-if="alert.label">
+				{{ t('share_audit_dashboard', 'Share name: {name}', { name: alert.label }) }}
 			</span>
 			<span>
 				{{ t('share_audit_dashboard', 'Owner: {owner}', { owner: alert.ownerDisplayName || alert.owner }) }}

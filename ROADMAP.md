@@ -13,7 +13,7 @@ and a line-by-line quality audit) were run and closed before 0.3.0 — see
 [CHANGELOG.md](CHANGELOG.md) for what each version fixed. 0.4.0 added soft
 delete (recycle bin) for shares and Nextcloud 34 support; 0.5.0 added German
 and Spanish translations and a Nextcloud Playground preview. The app has a
-test suite (`phpunit`, `tests/Unit/`, 120 tests) and CI
+test suite (`phpunit`, `tests/Unit/`, 135 tests) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -40,6 +40,14 @@ already implemented and working:
   upload without a password (file drop), and group shares with edit/reshare
   granted to large groups — with **configurable rules** (Settings tab)
 - Breakdown by category (bar chart)
+- **Search and sort by name**: a search box over the alert list matches the
+  file/folder name, the share's own name (the label of a public link), the
+  owner (user id or display name) and, for group shares, the group — every
+  word must match somewhere, ignoring case. The list can also be
+  sorted by name (A–Z / Z–A, natural order). Both work on top of the category
+  filter and paging; the chart follows the search. GitHub issues
+  [#12](https://github.com/kreotropic/share_audit/issues/12) and
+  [#14](https://github.com/kreotropic/share_audit/issues/14).
 - Individual and **bulk** actions: generate a password, set an expiration
   (7/30/90d, or your Sharing settings' default — capped where expiration is
   enforced), revoke. Generated passwords are shown once.

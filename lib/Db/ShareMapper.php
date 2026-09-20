@@ -228,7 +228,7 @@ class ShareMapper {
         $qb->select(
             's.id', 's.share_type', 's.share_with', 's.uid_owner', 's.uid_initiator',
             's.item_type', 's.file_source', 's.file_target', 's.permissions',
-            's.stime', 's.expiration', 's.token', 's.password', 's.share_name',
+            's.stime', 's.expiration', 's.token', 's.password', 's.label',
         )
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
@@ -304,7 +304,7 @@ class ShareMapper {
         $qb->select(
             's.id', 's.share_type', 's.uid_owner', 's.uid_initiator',
             's.item_type', 's.file_source', 's.permissions', 's.stime',
-            's.expiration', 's.token', 's.password',
+            's.expiration', 's.token', 's.password', 's.label',
         )
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
@@ -345,7 +345,7 @@ class ShareMapper {
         $qb = $this->db->getQueryBuilder();
         $qb->select(
             's.id', 's.share_type', 's.share_with', 's.uid_owner', 's.uid_initiator',
-            's.item_type', 's.file_source', 's.permissions', 's.stime',
+            's.item_type', 's.file_source', 's.permissions', 's.stime', 's.label',
         )
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
@@ -460,7 +460,7 @@ class ShareMapper {
             $qb->andWhere($qb->expr()->orX(
                 $qb->expr()->iLike('f.path', $qb->createNamedParameter($like)),
                 $qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like)),
-                $qb->expr()->iLike('s.share_name', $qb->createNamedParameter($like)),
+                $qb->expr()->iLike('s.label', $qb->createNamedParameter($like)),
             ));
         }
 

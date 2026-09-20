@@ -305,7 +305,14 @@
         "_%n day_::_%n days_": [
             "%n Tag",
             "%n Tage"
-        ]
+        ],
+        "Search alerts": "Warnungen durchsuchen",
+        "Name or owner…": "Name oder Besitzer…",
+        "Clear search": "Suche zurücksetzen",
+        "Name (A–Z)": "Name (A–Z)",
+        "Name (Z–A)": "Name (Z–A)",
+        "No alerts match your search.": "Keine Warnungen entsprechen der Suche.",
+        "Share name: {name}": "Freigabename: {name}"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

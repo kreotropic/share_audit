@@ -5,9 +5,9 @@
 <template>
 	<div class="sad-alertlist">
 		<div class="sad-alertlist__card">
-			<!-- Filters only. This bar is always one line and never carries the
-			     selection count or the bulk actions, so it can't change height
-			     when rows are selected (those float in BulkActionBar below). -->
+			<!-- Filters only. This bar never carries the selection count or the
+			     bulk actions, so it can't change height when rows are selected
+			     (those float in BulkActionBar below). -->
 			<div class="sad-alertlist__toolbar">
 				<NcCheckboxRadioSwitch :model-value="allSelected"
 					@update:model-value="$emit('toggle-all', $event)">
@@ -16,6 +16,12 @@
 				<slot name="leading" />
 				<span class="sad-alertlist__spacer" aria-hidden="true" />
 				<slot name="trailing" />
+				<!-- Last, so that when the line is too full it is the search that drops
+				     to a line of its own (the toggles and selects keep theirs), and the
+				     tab order is the visual order. -->
+				<div v-if="$slots.search" class="sad-alertlist__search">
+					<slot name="search" />
+				</div>
 			</div>
 
 			<ul class="sad-alertlist__rows">
@@ -103,7 +109,7 @@ export default {
 	// a narrow list wraps it (rather than squeezing the labels).
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px 16px;
+	gap: 8px 12px;
 	box-sizing: border-box;
 	min-height: 52px;
 	padding: 4px 20px;
@@ -117,9 +123,19 @@ export default {
 	flex: none;
 }
 
+// After the rule above, which gives slotted controls their natural width.
+// The basis is the floor the box may shrink to, so line-breaking counts only
+// that much: it takes the room the other controls leave (up to max-width) and,
+// when even the floor doesn't fit, wraps onto a line of its own.
+.sad-alertlist__search {
+	flex: 1 1 150px;
+	min-width: 150px;
+	max-width: 320px;
+}
+
 .sad-alertlist__spacer {
-	flex: 1 1 8px;
-	min-width: 8px;
+	flex: 1 1 0;
+	min-width: 0;
 }
 
 .sad-alertlist__rows {

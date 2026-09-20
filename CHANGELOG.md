@@ -33,6 +33,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   expiry* and the personal view. Thanks
   [@michel-thomas](https://github.com/michel-thomas)
   ([#6](https://github.com/kreotropic/share_audit/issues/6)).
+- **Search the security alerts.** A search box in the alert list's toolbar
+  narrows it to the alerts whose file or folder name, share name (the label
+  of a public link), owner (user id or display name) or group contain every
+  word typed, ignoring case. The category chart follows the
+  search; the tab's badge keeps counting every alert. The box stays on
+  screen, with *Clear search*, when nothing matches. On narrow windows the
+  search drops to a line of its own instead of squeezing the other controls.
+  Thanks [@michel-thomas](https://github.com/michel-thomas)
+  ([#14](https://github.com/kreotropic/share_audit/issues/14)).
+- **Sort the security alerts by name.** *Name (A–Z)* and *Name (Z–A)* join the
+  existing orderings; digits sort naturally (`file2` before `file10`), case is
+  ignored, and alerts with no name come last in both directions. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#12](https://github.com/kreotropic/share_audit/issues/12)).
+- The alert's details drawer shows the share's own name (*Share name*) when it
+  has one, and the tooltip on the file name carries it too.
 
 ### Changed
 - **Security alerts are one line each.** An alert used to take ~140px over
@@ -68,6 +84,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   actions are subtle. Thanks
   [@michel-thomas](https://github.com/michel-thomas)
   ([#8](https://github.com/kreotropic/share_audit/issues/8)).
+- **A public link's own name was never read.** The name given to a link share
+  is stored in the `label` column of `oc_share`, but the app read `share_name`,
+  a legacy column that is always empty — so the alert and *All shares* APIs
+  returned no share name, and a share deleted outside the app's own delete
+  action (a raw database row, e.g. by another app or `occ`) lost its label in
+  the recycle bin. Both now read `label`; the recycle bin's own column keeps
+  its name.
 - The personal *My shares audit* view showed an *Acknowledge* button that did
   nothing (regular users have no acknowledge endpoint); it is hidden there now.
 - Alert checkboxes had no accessible name, and the icon-only actions are

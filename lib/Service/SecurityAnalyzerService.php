@@ -121,6 +121,77 @@ class SecurityAnalyzerService {
     }
 
     /**
+     * The alerts whose file/folder name, share label, owner (uid or display
+     * name) or group recipient contain every word of $search — case-
+     * insensitively, in any order, each word free to match a different field
+     * ("contrato ana" finds Ana's contract). An empty search keeps them all.
+     *
+     * Deliberately not the path: a folder name in it would flood a search for
+     * a file. Done here rather than in SQL because the list is computed and
+     * cached whole (see getAlerts()) and paged in PHP.
+     *
+     * @param array<int, array<string, mixed>> $alerts
+     * @return array<int, array<string, mixed>>
+     */
+    public function filterBySearch(array $alerts, string $search): array {
+        $words = preg_split('/\s+/u', trim($search), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($words === []) {
+            return $alerts;
+        }
+        return array_values(array_filter($alerts, static function (array $alert) use ($words): bool {
+            $fields = [
+                self::nameOf($alert), $alert['label'] ?? '', $alert['owner'] ?? '',
+                $alert['ownerDisplayName'] ?? '', $alert['recipient'] ?? '', $alert['recipientLabel'] ?? '',
+            ];
+            foreach ($words as $word) {
+                $found = false;
+                foreach ($fields as $field) {
+                    if ($field !== '' && mb_stripos((string)$field, $word) !== false) {
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    return false;
+                }
+            }
+            return true;
+        }));
+    }
+
+    /**
+     * $alerts ordered alphabetically by file/folder name — case-insensitive,
+     * and "natural" so file2 comes before file10. An alert with no known name
+     * (its file has left the cache) goes last whichever way the sort runs, so
+     * reversing it reorders the named ones instead of dragging those to the top.
+     *
+     * @param array<int, array<string, mixed>> $alerts
+     * @return array<int, array<string, mixed>>
+     */
+    public function sortByName(array $alerts, bool $ascending): array {
+        $direction = $ascending ? 1 : -1;
+        usort($alerts, static function (array $a, array $b) use ($direction): int {
+            $nameA = self::nameOf($a);
+            $nameB = self::nameOf($b);
+            if ($nameA === '' || $nameB === '') {
+                return ($nameA === '') <=> ($nameB === '');
+            }
+            return $direction * strnatcmp(mb_strtolower($nameA), mb_strtolower($nameB));
+        });
+        return $alerts;
+    }
+
+    /**
+     * The file/folder name of an alert: the last segment of its path, or ''.
+     *
+     * @param array<string, mixed> $alert
+     */
+    private static function nameOf(array $alert): string {
+        $parts = array_values(array_filter(explode('/', (string)($alert['path'] ?? '')), 'strlen'));
+        return $parts === [] ? '' : $parts[count($parts) - 1];
+    }
+
+    /**
      * Drop cached alerts made stale by a mutation (password/expiration set,
      * revoke, bulk delete). Always clears the admin view; pass every uid
      * whose personal view (owner or initiator) could include the affected
@@ -264,6 +335,10 @@ class SecurityAnalyzerService {
             'owner' => (string)$row['uid_owner'],
             'fileId' => isset($row['file_source']) ? (int)$row['file_source'] : null,
             'path' => $this->pathFormatter->prettyPath($row['file_path'] ?? null),
+            // The name given to the share itself (a link's custom label), if any.
+            // oc_share keeps it in `label`; `share_name` is a legacy column
+            // that is always NULL.
+            'label' => ($row['label'] ?? '') !== '' ? (string)$row['label'] : null,
             'token' => $token,
             'created' => isset($row['stime']) ? (int)$row['stime'] : null,
             'issues' => $issues,

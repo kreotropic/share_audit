@@ -41,13 +41,13 @@
 			<!-- Only shown standalone when AlertList isn't rendered (no
 			     active items to select) — otherwise this toggle lives next to
 			     "Select all" inside its toolbar, via the #leading slot. -->
-			<div v-if="items.length === 0" class="sad-alerts-toolbar">
+			<div v-if="items.length === 0 && !searching" class="sad-alerts-toolbar">
 				<NcCheckboxRadioSwitch :model-value="showAcknowledged" @update:model-value="onToggleShowAcknowledged">
 					{{ t('share_audit_dashboard', 'Show acknowledged') }}
 				</NcCheckboxRadioSwitch>
 			</div>
 
-			<NcEmptyContent v-if="items.length === 0 && !activeIssue"
+			<NcEmptyContent v-if="items.length === 0 && !activeIssue && !searching"
 				:name="t('share_audit_dashboard', 'All clear')"
 				:description="t('share_audit_dashboard', 'No insecure public links were found.')">
 				<template #icon>
@@ -71,7 +71,7 @@
 						@select="onIssueSelect" />
 				</section>
 
-				<NcEmptyContent v-if="items.length === 0"
+				<NcEmptyContent v-if="items.length === 0 && !searching"
 					:name="t('share_audit_dashboard', 'No alerts in this category')"
 					:description="t('share_audit_dashboard', 'Clear the filter to see the other insecure links.')">
 					<template #icon>
@@ -94,6 +94,20 @@
 								{{ t('share_audit_dashboard', 'Show acknowledged') }}
 							</NcCheckboxRadioSwitch>
 						</template>
+						<template #search>
+							<NcTextField v-model="searchText"
+								:label="t('share_audit_dashboard', 'Search alerts')"
+								:label-outside="true"
+								:placeholder="t('share_audit_dashboard', 'Name or owner…')"
+								:show-trailing-button="searchText !== ''"
+								:trailing-button-label="t('share_audit_dashboard', 'Clear search')"
+								@update:model-value="onSearch"
+								@trailing-button-click="clearSearch">
+								<template #icon>
+									<NcIconSvgWrapper :path="mdiMagnify" />
+								</template>
+							</NcTextField>
+						</template>
 						<template #trailing>
 							<PageSizeSelect v-model="sortOption"
 								:options="sortOptions"
@@ -108,6 +122,12 @@
 								:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
 						</template>
 
+						<li v-if="items.length === 0" class="sad-alerts-nomatch">
+							{{ t('share_audit_dashboard', 'No alerts match your search.') }}
+							<NcButton variant="tertiary" @click="clearSearch">
+								{{ t('share_audit_dashboard', 'Clear search') }}
+							</NcButton>
+						</li>
 						<AlertCard v-for="alert in items"
 							:key="alert.id"
 							:alert="alert"
@@ -136,13 +156,16 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
 import AlertCard from '../components/AlertCard.vue'
 import AlertList from '../components/AlertList.vue'
 import HBarChart from '../components/HBarChart.vue'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { issueLabel } from '../utils/format.js'
+import { mdiMagnify } from '../utils/icons.js'
 import {
 	fetchAlerts, setSharePassword, setShareExpiration, revokeShare, bulkShareAction,
 	acknowledgeAlert, unacknowledgeAlert, bulkAcknowledgeAlerts,
@@ -159,8 +182,10 @@ export default {
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcEmptyContent,
+		NcIconSvgWrapper,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcTextField,
 		AlertCard,
 		AlertList,
 		HBarChart,
@@ -192,6 +217,8 @@ export default {
 				{ id: 'severity', label: t('share_audit_dashboard', 'Severity (default)') },
 				{ id: 'created_asc', label: t('share_audit_dashboard', 'Oldest first') },
 				{ id: 'created_desc', label: t('share_audit_dashboard', 'Newest first') },
+				{ id: 'name_asc', label: t('share_audit_dashboard', 'Name (A–Z)') },
+				{ id: 'name_desc', label: t('share_audit_dashboard', 'Name (Z–A)') },
 			],
 			sortOption: { id: 'severity', label: t('share_audit_dashboard', 'Severity (default)') },
 			selectedIds: [],
@@ -209,6 +236,11 @@ export default {
 			// active list. See ShareApiController::alerts()'s
 			// $includeAcknowledged.
 			showAcknowledged: false,
+			// The search box: alerts whose file/folder name, share name or owner
+			// contain every word (see SecurityAnalyzerService::filterBySearch()).
+			searchText: '',
+			searchTimer: null,
+			mdiMagnify,
 		}
 	},
 	computed: {
@@ -242,10 +274,20 @@ export default {
 		},
 		// Maps the selected sort option to the API's sort/sortDir params.
 		apiSort() {
-			return this.sortOption.id === 'severity' ? 'severity' : 'created'
+			const id = this.sortOption.id
+			if (id === 'severity') {
+				return 'severity'
+			}
+			return id.startsWith('name') ? 'name' : 'created'
 		},
 		apiSortDir() {
-			return this.sortOption.id === 'created_asc' ? 'asc' : 'desc'
+			return ['created_asc', 'name_asc'].includes(this.sortOption.id) ? 'asc' : 'desc'
+		},
+		// Whether a search is narrowing the list. While it is, the list (and its
+		// search box) stays on screen even with nothing to show, so the box keeps
+		// its focus and can always be cleared.
+		searching() {
+			return this.searchText.trim() !== ''
 		},
 		totalPages() {
 			if (this.isAll) {
@@ -278,6 +320,9 @@ export default {
 	mounted() {
 		this.load()
 	},
+	beforeUnmount() {
+		clearTimeout(this.searchTimer)
+	},
 	methods: {
 		t,
 		n,
@@ -290,6 +335,7 @@ export default {
 					sort: this.apiSort,
 					sortDir: this.apiSortDir,
 					includeAcknowledged: this.showAcknowledged,
+					search: this.searchText.trim() || undefined,
 				})
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
@@ -323,6 +369,22 @@ export default {
 		},
 		clearIssueFilter() {
 			this.activeIssue = ''
+			this.page = 1
+			this.selectedIds = []
+			this.load()
+		},
+		// Debounced: one request per pause in typing, not one per key.
+		onSearch() {
+			clearTimeout(this.searchTimer)
+			this.searchTimer = setTimeout(() => {
+				this.page = 1
+				this.selectedIds = []
+				this.load()
+			}, 400)
+		},
+		clearSearch() {
+			clearTimeout(this.searchTimer)
+			this.searchText = ''
 			this.page = 1
 			this.selectedIds = []
 			this.load()
@@ -444,6 +506,15 @@ export default {
 	// same left-hand control cluster once the bar appears below it.
 	justify-content: flex-start;
 	margin-bottom: 8px;
+}
+
+.sad-alerts-nomatch {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 28px 16px;
+	color: var(--color-text-maxcontrast);
 }
 
 .sad-alerts-breakdown {

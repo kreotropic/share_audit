@@ -103,7 +103,10 @@ class SoftDeleteService {
         $entity->setPermissions((int)($row['permissions'] ?? 0));
         $entity->setToken($row['token'] ?? null);
         $entity->setPassword($row['password'] ?? null);
-        $entity->setShareName($row['share_name'] ?? null);
+        // The raw oc_share row: the label is in `label` (`share_name` is a
+        // legacy column that is always NULL), and shareaudit_deleted.share_name
+        // is where the label is kept — same as captureShare() does via getLabel().
+        $entity->setShareName(($row['label'] ?? '') !== '' ? (string)$row['label'] : null);
         $entity->setExpiration($row['expiration'] ?? null);
         $entity->setStime(isset($row['stime']) ? (int)$row['stime'] : null);
         $this->finishCapture($entity);
