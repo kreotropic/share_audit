@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
+use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
 use OCA\ShareAuditDashboard\Service\ShareRemediationService;
@@ -38,6 +39,7 @@ class PersonalController extends Controller {
         private ShareCollectorService $collector,
         private SecurityAnalyzerService $security,
         private ShareRemediationService $remediation,
+        private ExpiryDefaultsService $expiryDefaults,
         private ShareMapper $mapper,
         private IUserSession $userSession,
         private LoggerInterface $logger,
@@ -88,7 +90,10 @@ class PersonalController extends Controller {
         if ($uid === null) {
             return $this->unauthenticated();
         }
-        return new JSONResponse(['items' => $this->security->getAlerts($uid)]);
+        return new JSONResponse([
+            'items' => $this->security->getAlerts($uid),
+            'expiryDefaults' => $this->expiryDefaults->forLinks(),
+        ]);
     }
 
     /**
@@ -105,7 +110,7 @@ class PersonalController extends Controller {
      */
     #[NoAdminRequired]
     #[UserRateLimit(limit: 20, period: 60)]
-    public function setExpiration(int $id, int $days = 30): JSONResponse {
+    public function setExpiration(int $id, int $days = 0): JSONResponse {
         return $this->owned($id, fn () => $this->remediation->applyExpiration($id, $days));
     }
 

@@ -212,7 +212,6 @@
         "Owner: {owner}": "Besitzer: {owner}",
         "Group: {group} · {count} members": "Gruppe: {group} · {count} Mitglieder",
         "Add password": "Passwort hinzufügen",
-        "Set expiry (30d)": "Ablauf festlegen (30d)",
         "Revoke": "Widerrufen",
         "Critical": "Kritisch",
         "Warning": "Warnung",
@@ -221,9 +220,6 @@
         "Set expiry": "Ablauf festlegen",
         "Revoke all": "Alle widerrufen",
         "Clear selection": "Auswahl aufheben",
-        "7 days": "7 Tage",
-        "30 days": "30 Tage",
-        "90 days": "90 Tage",
         "Filter": "Filter",
         "Any password": "Beliebiges Passwort",
         "With password": "Mit Passwort",
@@ -303,6 +299,12 @@
         "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._": [
             "%n hat ein bereits abgelaufenes Ablaufdatum verloren.",
             "%n haben ein bereits abgelaufenes Ablaufdatum verloren."
+        ],
+        "Open link in a new tab": "Link in neuem Tab öffnen",
+        "Set expiry ({days}d)": "Ablauf festlegen ({days}d)",
+        "_%n day_::_%n days_": [
+            "%n Tag",
+            "%n Tage"
         ]
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"

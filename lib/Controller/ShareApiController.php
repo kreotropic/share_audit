@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\ReportService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
@@ -38,6 +39,7 @@ class ShareApiController extends AdminController {
         private SettingsService $settings,
         private OrphanShareService $orphanService,
         private SoftDeleteService $softDelete,
+        private ExpiryDefaultsService $expiryDefaults,
         IUserSession $userSession,
         IGroupManager $groupManager,
     ) {
@@ -59,6 +61,9 @@ class ShareApiController extends AdminController {
 
     /**
      * GET /api/shares — paginated, filterable list of all shares.
+     *
+     * $limit keeps Nextcloud's default 1..500 rule (no "all" page size here:
+     * the collector clamps it to at least 1).
      */
     public function index(
         int $page = 1,
@@ -207,6 +212,8 @@ class ShareApiController extends AdminController {
             'page' => $page,
             'limit' => $limit,
             'breakdown' => $breakdown,
+            // What "Set expiry" should offer: the instance's own sharing policy.
+            'expiryDefaults' => $this->expiryDefaults->forLinks(),
         ]);
     }
 

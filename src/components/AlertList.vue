@@ -29,6 +29,8 @@
 		<BulkActionBar :count="count"
 			:busy="busy"
 			:show-acknowledge="showAcknowledge"
+			:default-expiry-days="defaultExpiryDays"
+			:max-expiry-days="maxExpiryDays"
 			@bulk="$emit('bulk', $event)"
 			@clear="$emit('clear')" />
 	</div>
@@ -66,6 +68,16 @@ export default {
 		showAcknowledge: {
 			type: Boolean,
 			default: false,
+		},
+		// The instance's expiration policy, for the bulk "Set expiry" (see
+		// BulkActionBar).
+		defaultExpiryDays: {
+			type: Number,
+			default: 30,
+		},
+		maxExpiryDays: {
+			type: Number,
+			default: null,
 		},
 	},
 	emits: ['bulk', 'clear', 'toggle-all'],

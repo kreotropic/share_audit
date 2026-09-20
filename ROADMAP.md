@@ -13,7 +13,7 @@ and a line-by-line quality audit) were run and closed before 0.3.0 — see
 [CHANGELOG.md](CHANGELOG.md) for what each version fixed. 0.4.0 added soft
 delete (recycle bin) for shares and Nextcloud 34 support; 0.5.0 added German
 and Spanish translations and a Nextcloud Playground preview. The app has a
-test suite (`phpunit`, `tests/Unit/`, 98 tests) and CI
+test suite (`phpunit`, `tests/Unit/`, 120 tests) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -41,8 +41,9 @@ already implemented and working:
   granted to large groups — with **configurable rules** (Settings tab)
 - Breakdown by category (bar chart)
 - Individual and **bulk** actions: generate a password, set an expiration
-  (7/30/90d), revoke. Generated passwords are shown once.
-- Copy public-link URL and "Open in Files" on each alert
+  (7/30/90d, or your Sharing settings' default — capped where expiration is
+  enforced), revoke. Generated passwords are shown once.
+- Copy the public link, open it in a new tab, or "Open in Files", from each alert
 - Every revocation and remediation is logged to Nextcloud's audit channel
   (requires the `admin_audit` app enabled)
 - **Acknowledge/exception** (per (share, rule) pair, optionally with a

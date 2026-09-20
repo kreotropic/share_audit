@@ -50,6 +50,22 @@
 				</NcButton>
 				<span v-else class="sad-alert__slot" aria-hidden="true" />
 
+				<!-- Opens the public link itself, so an alert whose file name
+				     means nothing without context can be judged by what it
+				     actually shows. A plain link, not a mutation: no `busy`. -->
+				<NcButton v-if="alert.token"
+					variant="tertiary"
+					:href="publicUrl"
+					target="_blank"
+					rel="noopener noreferrer"
+					:aria-label="t('share_audit_dashboard', 'Open link in a new tab')"
+					:title="t('share_audit_dashboard', 'Open link in a new tab')">
+					<template #icon>
+						<NcIconSvgWrapper :path="mdiOpenInNew" />
+					</template>
+				</NcButton>
+				<span v-else class="sad-alert__slot" aria-hidden="true" />
+
 				<NcButton v-if="hasIssue('no_password') || hasIssue('public_upload')"
 					variant="tertiary"
 					:aria-label="t('share_audit_dashboard', 'Add password')"
@@ -64,10 +80,10 @@
 
 				<NcButton v-if="hasIssue('no_expiration')"
 					variant="tertiary"
-					:aria-label="t('share_audit_dashboard', 'Set expiry (30d)')"
-					:title="t('share_audit_dashboard', 'Set expiry (30d)')"
+					:aria-label="t('share_audit_dashboard', 'Set expiry ({days}d)', { days: expiryDays })"
+					:title="t('share_audit_dashboard', 'Set expiry ({days}d)', { days: expiryDays })"
 					:disabled="busy"
-					@click="$emit('action', { type: 'expiration', id: alert.id, days: 30 })">
+					@click="$emit('action', { type: 'expiration', id: alert.id, days: expiryDays })">
 					<template #icon>
 						<NcIconSvgWrapper :path="mdiCalendarClock" />
 					</template>
@@ -203,7 +219,7 @@ import NcChip from '@nextcloud/vue/components/NcChip'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { issueLabel, formatDate } from '../utils/format.js'
 import {
-	mdiCalendarClock, mdiCheck, mdiChevronDown, mdiClose, mdiKeyOutline, mdiLinkVariant, mdiUndo,
+	mdiCalendarClock, mdiCheck, mdiChevronDown, mdiClose, mdiKeyOutline, mdiLinkVariant, mdiOpenInNew, mdiUndo,
 } from '../utils/icons.js'
 
 export default {
@@ -239,6 +255,12 @@ export default {
 			type: Boolean,
 			default: true,
 		},
+		// Days the "Set expiry" action applies — the instance's own default
+		// (Administration settings → Sharing), see ExpiryDefaultsService.
+		expiryDays: {
+			type: Number,
+			default: 30,
+		},
 	},
 	emits: ['update:selected', 'action', 'toggle'],
 	data() {
@@ -253,6 +275,7 @@ export default {
 			mdiClose,
 			mdiKeyOutline,
 			mdiLinkVariant,
+			mdiOpenInNew,
 			mdiUndo,
 		}
 	},
@@ -260,6 +283,11 @@ export default {
 		fileName() {
 			const parts = (this.alert.path || '').split('/').filter(Boolean)
 			return parts.length ? parts[parts.length - 1] : '—'
+		},
+		// The public URL of this link — what "Copy link" copies and "Open
+		// link" opens.
+		publicUrl() {
+			return window.location.origin + generateUrl('/s/' + this.alert.token)
 		},
 		drawerId() {
 			return 'sad-alert-details-' + this.alert.id
@@ -284,8 +312,7 @@ export default {
 			return generateUrl('/f/' + fileId)
 		},
 		async copyLink() {
-			const url = window.location.origin + generateUrl('/s/' + this.alert.token)
-			await navigator.clipboard.writeText(url)
+			await navigator.clipboard.writeText(this.publicUrl)
 			this.linkCopied = true
 			setTimeout(() => {
 				this.linkCopied = false

@@ -18,6 +18,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   recycle-bin flows and every admin API endpoint work — apart from the *All*
   page size, fixed below
   ([#20](https://github.com/kreotropic/share_audit/issues/20)).
+- **Open a public link from its alert.** Every alert with a public link has an
+  *Open link in a new tab* action next to *Copy link*, so a link whose file
+  name means nothing without context can be judged by what it actually shows.
+  The link opens with `noopener`, so the page it opens cannot reach back into
+  the admin page. Thanks [@michel-thomas](https://github.com/michel-thomas)
+  ([#7](https://github.com/kreotropic/share_audit/issues/7)).
+- **"Set expiry" follows your sharing policy.** The action used a fixed 30
+  days; it now starts from what *Administration settings → Sharing* defines
+  for public links — the default number of days when a default expiration is
+  switched on (30 days when it isn't). Where expiration is *enforced*, no
+  period beyond the allowed maximum is offered, and a longer request is capped
+  to it instead of failing. It applies to the row action, the bulk *Set
+  expiry* and the personal view. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#6](https://github.com/kreotropic/share_audit/issues/6)).
 
 ### Changed
 - **Security alerts are one line each.** An alert used to take ~140px over

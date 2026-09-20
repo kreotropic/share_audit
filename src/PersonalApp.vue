@@ -59,6 +59,8 @@
 					<AlertList :count="selectedIds.length"
 						:all-selected="allSelected"
 						:busy="busy"
+						:default-expiry-days="expiryDefaults.days"
+						:max-expiry-days="expiryDefaults.maxDays"
 						@bulk="onBulk"
 						@toggle-all="toggleAll"
 						@clear="selectedIds = []">
@@ -69,6 +71,7 @@
 							:selected="selectedIds.includes(alert.id)"
 							:expanded="expandedId === alert.id"
 							:allow-acknowledge="false"
+							:expiry-days="expiryDefaults.days"
 							@update:selected="toggleSelect(alert.id, $event)"
 							@toggle="toggleExpand(alert.id)"
 							@action="onAction" />
@@ -168,6 +171,9 @@ export default {
 			busy: false,
 			summary: { total: 0, alertsCount: 0 },
 			alerts: [],
+			// The instance's expiration policy for public links (see
+			// ExpiryDefaultsService); the alerts response carries it.
+			expiryDefaults: { days: 30, maxDays: null },
 			shares: [],
 			sharesTotal: 0,
 			selectedIds: [],
@@ -258,6 +264,7 @@ export default {
 				])
 				this.summary = summary
 				this.alerts = alerts.items
+				this.expiryDefaults = alerts.expiryDefaults ?? this.expiryDefaults
 				this.shares = shares.items
 				this.sharesTotal = shares.total
 			} catch (e) {
@@ -274,6 +281,7 @@ export default {
 			])
 			this.summary = summary
 			this.alerts = alerts.items
+			this.expiryDefaults = alerts.expiryDefaults ?? this.expiryDefaults
 			this.shares = shares.items
 			this.sharesTotal = shares.total
 			this.selectedIds = this.selectedIds.filter((id) => this.alerts.some((a) => a.id === id))

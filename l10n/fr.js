@@ -165,7 +165,6 @@ OC.L10N.register(
     "Owner: {owner}" : "Propriétaire : {owner}",
     "Group: {group} · {count} members" : "Groupe : {group} · {count} membres",
     "Add password" : "Ajouter un mot de passe",
-    "Set expiry (30d)" : "Définir l’expiration (30 j)",
     "Revoke" : "Révoquer",
     "Critical" : "Critique",
     "Warning" : "Avertissement",
@@ -174,9 +173,6 @@ OC.L10N.register(
     "Set expiry" : "Définir l’expiration",
     "Revoke all" : "Tout révoquer",
     "Clear selection" : "Effacer la sélection",
-    "7 days" : "7 jours",
-    "30 days" : "30 jours",
-    "90 days" : "90 jours",
     "Filter" : "Filtrer",
     "Any password" : "Tous les mots de passe",
     "With password" : "Avec mot de passe",
@@ -253,6 +249,9 @@ OC.L10N.register(
     "Restored, but its original expiration date had already passed — it now has none." : "Restauré, mais sa date d'expiration d'origine était déjà dépassée — il n'en a désormais plus.",
     "Restored, but with a new link URL and no expiration (the original had already passed)." : "Restauré, mais avec une nouvelle URL de lien et sans expiration (l'originale était déjà dépassée).",
     "This entry is no longer in the recycle bin — it may have already been restored or purged." : "Cette entrée ne se trouve plus dans la corbeille — elle a peut-être déjà été restaurée ou supprimée définitivement.",
-    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n a perdu une date d'expiration déjà dépassée.", "%n ont perdu une date d'expiration déjà dépassée."]
+    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n a perdu une date d'expiration déjà dépassée.", "%n ont perdu une date d'expiration déjà dépassée."],
+    "Open link in a new tab" : "Ouvrir le lien dans un nouvel onglet",
+    "Set expiry ({days}d)" : "Définir l’expiration ({days} j)",
+    "_%n day_::_%n days_" : ["%n jour", "%n jours"]
 },
 "nplurals=2; plural=(n != 1);");

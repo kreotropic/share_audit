@@ -165,7 +165,6 @@ OC.L10N.register(
     "Owner: {owner}" : "Besitzer: {owner}",
     "Group: {group} · {count} members" : "Gruppe: {group} · {count} Mitglieder",
     "Add password" : "Passwort hinzufügen",
-    "Set expiry (30d)" : "Ablauf festlegen (30d)",
     "Revoke" : "Widerrufen",
     "Critical" : "Kritisch",
     "Warning" : "Warnung",
@@ -174,9 +173,6 @@ OC.L10N.register(
     "Set expiry" : "Ablauf festlegen",
     "Revoke all" : "Alle widerrufen",
     "Clear selection" : "Auswahl aufheben",
-    "7 days" : "7 Tage",
-    "30 days" : "30 Tage",
-    "90 days" : "90 Tage",
     "Filter" : "Filter",
     "Any password" : "Beliebiges Passwort",
     "With password" : "Mit Passwort",
@@ -253,6 +249,9 @@ OC.L10N.register(
     "Restored, but its original expiration date had already passed — it now has none." : "Wiederhergestellt, aber das ursprüngliche Ablaufdatum lag bereits in der Vergangenheit — es hat jetzt keines mehr.",
     "Restored, but with a new link URL and no expiration (the original had already passed)." : "Wiederhergestellt, aber mit einer neuen Link-URL und ohne Ablaufdatum (das ursprüngliche lag bereits in der Vergangenheit).",
     "This entry is no longer in the recycle bin — it may have already been restored or purged." : "Dieser Eintrag befindet sich nicht mehr im Papierkorb — er wurde möglicherweise bereits wiederhergestellt oder endgültig gelöscht.",
-    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n hat ein bereits abgelaufenes Ablaufdatum verloren.", "%n haben ein bereits abgelaufenes Ablaufdatum verloren."]
+    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n hat ein bereits abgelaufenes Ablaufdatum verloren.", "%n haben ein bereits abgelaufenes Ablaufdatum verloren."],
+    "Open link in a new tab" : "Link in neuem Tab öffnen",
+    "Set expiry ({days}d)" : "Ablauf festlegen ({days}d)",
+    "_%n day_::_%n days_" : ["%n Tag", "%n Tage"]
 },
 "nplurals=2; plural=(n != 1);");

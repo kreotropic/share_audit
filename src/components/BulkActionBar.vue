@@ -52,7 +52,7 @@
 								name="sad-bulk-expiry"
 								:model-value="days"
 								:value="option.id"
-								@update:model-value="days = option.id">
+								@update:model-value="pickedDays = option.id">
 								{{ option.label }}
 							</NcActionRadio>
 						</NcActions>
@@ -132,18 +132,26 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+		// The instance's expiration policy (Administration settings →
+		// Sharing): the period "Set expiry" starts on, and — when the
+		// instance enforces expiration — the longest one it will accept, so
+		// nothing longer is offered.
+		defaultExpiryDays: {
+			type: Number,
+			default: 30,
+		},
+		maxExpiryDays: {
+			type: Number,
+			default: null,
+		},
 	},
 	emits: ['bulk', 'clear'],
 	data() {
 		return {
 			overflowMode: false,
-			// Days for the split "Set expiry" control (default 30).
-			days: 30,
-			dayOptions: [
-				{ id: 7, label: t('share_audit_dashboard', '7 days') },
-				{ id: 30, label: t('share_audit_dashboard', '30 days') },
-				{ id: 90, label: t('share_audit_dashboard', '90 days') },
-			],
+			// The period picked for the split "Set expiry" control; null
+			// until the user picks one, meaning the instance's default.
+			pickedDays: null,
 			mdiCalendarClock,
 			mdiChevronDown,
 			mdiClose,
@@ -151,6 +159,17 @@ export default {
 		}
 	},
 	computed: {
+		// Periods on offer: the usual three plus the instance's own default,
+		// none beyond an enforced maximum.
+		dayOptions() {
+			return [...new Set([7, 30, 90, this.defaultExpiryDays])]
+				.filter((days) => this.maxExpiryDays === null || days <= this.maxExpiryDays)
+				.sort((a, b) => a - b)
+				.map((id) => ({ id, label: n('share_audit_dashboard', '%n day', '%n days', id) }))
+		},
+		days() {
+			return this.pickedDays ?? this.defaultExpiryDays
+		},
 		daysLabel() {
 			return this.dayOptions.find((option) => option.id === this.days)?.label ?? ''
 		},

@@ -63,9 +63,10 @@ class ShareActionController extends AdminController {
     }
 
     /**
-     * POST /api/shares/{id}/expiration — set expiration N days from now.
+     * POST /api/shares/{id}/expiration — set expiration N days from now (no
+     * $days: the instance's default, see ExpiryDefaultsService).
      */
-    public function setExpiration(int $id, int $days = 30): JSONResponse {
+    public function setExpiration(int $id, int $days = 0): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
@@ -101,7 +102,7 @@ class ShareActionController extends AdminController {
      *
      * @param int[] $ids
      */
-    public function bulk(string $action, array $ids = [], int $days = 30): JSONResponse {
+    public function bulk(string $action, array $ids = [], int $days = 0): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }

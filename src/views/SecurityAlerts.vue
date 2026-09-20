@@ -84,6 +84,8 @@
 						:all-selected="allSelected"
 						:busy="busy"
 						show-acknowledge
+						:default-expiry-days="expiryDefaults.days"
+						:max-expiry-days="expiryDefaults.maxDays"
 						@bulk="onBulk"
 						@toggle-all="toggleAll"
 						@clear="selectedIds = []">
@@ -112,6 +114,7 @@
 							:busy="busy"
 							:selected="selectedIds.includes(alert.id)"
 							:expanded="expandedId === alert.id"
+							:expiry-days="expiryDefaults.days"
 							@update:selected="toggleSelect(alert.id, $event)"
 							@toggle="toggleExpand(alert.id)"
 							@action="onCardAction" />
@@ -172,6 +175,9 @@ export default {
 			busy: false,
 			items: [],
 			breakdown: {},
+			// The instance's expiration policy for public links (see
+			// ExpiryDefaultsService); the alerts response carries it.
+			expiryDefaults: { days: 30, maxDays: null },
 			total: 0,
 			page: 1,
 			pageSizeOptions: [
@@ -287,6 +293,7 @@ export default {
 				})
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
+				this.expiryDefaults = data.expiryDefaults ?? this.expiryDefaults
 				this.total = data.total ?? this.items.length
 				// A revoke/expire on the last page can leave it empty — step back.
 				if (this.items.length === 0 && this.page > 1) {

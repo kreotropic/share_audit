@@ -165,7 +165,6 @@ OC.L10N.register(
     "Owner: {owner}" : "Propietario: {owner}",
     "Group: {group} · {count} members" : "Grupo: {group} · {count} miembros",
     "Add password" : "Añadir contraseña",
-    "Set expiry (30d)" : "Definir caducidad (30d)",
     "Revoke" : "Revocar",
     "Critical" : "Crítico",
     "Warning" : "Aviso",
@@ -174,9 +173,6 @@ OC.L10N.register(
     "Set expiry" : "Definir caducidad",
     "Revoke all" : "Revocar todo",
     "Clear selection" : "Borrar selección",
-    "7 days" : "7 días",
-    "30 days" : "30 días",
-    "90 days" : "90 días",
     "Filter" : "Filtrar",
     "Any password" : "Cualquier contraseña",
     "With password" : "Con contraseña",
@@ -253,6 +249,9 @@ OC.L10N.register(
     "Restored, but its original expiration date had already passed — it now has none." : "Restaurado, pero su fecha de caducidad original ya había pasado — ahora no tiene ninguna.",
     "Restored, but with a new link URL and no expiration (the original had already passed)." : "Restaurado, pero con una nueva URL de enlace y sin caducidad (la original ya había pasado).",
     "This entry is no longer in the recycle bin — it may have already been restored or purged." : "Esta entrada ya no está en la papelera — puede que ya se haya restaurado o eliminado permanentemente.",
-    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n perdió una fecha de caducidad ya pasada.", "%n perdieron una fecha de caducidad ya pasada."]
+    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n perdió una fecha de caducidad ya pasada.", "%n perdieron una fecha de caducidad ya pasada."],
+    "Open link in a new tab" : "Abrir enlace en una pestaña nueva",
+    "Set expiry ({days}d)" : "Definir caducidad ({days}d)",
+    "_%n day_::_%n days_" : ["%n día", "%n días"]
 },
 "nplurals=2; plural=(n != 1);");

@@ -165,7 +165,6 @@ OC.L10N.register(
     "Owner: {owner}" : "Owner: {owner}",
     "Group: {group} · {count} members" : "Group: {group} · {count} members",
     "Add password" : "Add password",
-    "Set expiry (30d)" : "Set expiry (30d)",
     "Revoke" : "Revoke",
     "Critical" : "Critical",
     "Warning" : "Warning",
@@ -174,9 +173,6 @@ OC.L10N.register(
     "Set expiry" : "Set expiry",
     "Revoke all" : "Revoke all",
     "Clear selection" : "Clear selection",
-    "7 days" : "7 days",
-    "30 days" : "30 days",
-    "90 days" : "90 days",
     "Filter" : "Filter",
     "Any password" : "Any password",
     "With password" : "With password",
@@ -253,6 +249,9 @@ OC.L10N.register(
     "Restored, but its original expiration date had already passed — it now has none." : "Restored, but its original expiration date had already passed — it now has none.",
     "Restored, but with a new link URL and no expiration (the original had already passed)." : "Restored, but with a new link URL and no expiration (the original had already passed).",
     "This entry is no longer in the recycle bin — it may have already been restored or purged." : "This entry is no longer in the recycle bin — it may have already been restored or purged.",
-    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n lost an already-passed expiration date.", "%n lost an already-passed expiration date."]
+    "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._" : ["%n lost an already-passed expiration date.", "%n lost an already-passed expiration date."],
+    "Open link in a new tab" : "Open link in a new tab",
+    "Set expiry ({days}d)" : "Set expiry ({days}d)",
+    "_%n day_::_%n days_" : ["%n day", "%n days"]
 },
 "nplurals=2; plural=(n != 1);");
