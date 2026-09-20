@@ -38,7 +38,11 @@ class SoftDeleteController extends AdminController {
     /**
      * GET /api/deleted — paginated list of recycled shares.
      *
-     * A $limit of 0 (or less) returns every entry on a single page.
+     * A $limit of 0 returns every entry on a single page.
+     *
+     * @param int<0, 500> $limit page size, 0 = everything on one page. Declared
+     *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
+     *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
     public function index(int $page = 1, int $limit = 25): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {

@@ -13,10 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 - **Nextcloud 35 support.** The app is declared compatible with Nextcloud
   35 (`max-version` 35), so Nextcloud no longer warns about it before
-  upgrading. Checked on a real Nextcloud 35.0.0 instance (PHP 8.5): both
-  migrations, the alert / acknowledge / recycle-bin flows and every admin API
-  endpoint behave as on 34. Nothing in the app needed to change beyond the
-  declared range
+  upgrading. Checked on real Nextcloud 34.0.4 and 35.0.0 instances (PHP 8.5,
+  SQLite, MariaDB and PostgreSQL): both migrations, the alert / acknowledge /
+  recycle-bin flows and every admin API endpoint work — apart from the *All*
+  page size, fixed below
   ([#20](https://github.com/kreotropic/share_audit/issues/20)).
 
 ### Changed
@@ -34,6 +34,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   The personal *My shares audit* view uses the same list.
 
 ### Fixed
+- **Choosing *All* items per page failed on Nextcloud 34 and 35.** Those
+  versions reject any `limit` request parameter outside 1–500 unless the
+  endpoint declares its own range, and *All* sends `limit=0` — so on the
+  alerts, orphan shares, deleted shares and access-lookup lists it ended in an
+  error (a 500 on 34.0.x, a 400 on 35) while working on 32 and 33. The four
+  endpoints now declare a 0–500 range, and a test fails if a paginated
+  endpoint is added without making that choice.
 - **The *Confirm* step of a destructive action stands out.** Revoking (orphan
   shares, *Revoke all access*) or permanently deleting shares asks *"Revoke N
   shares?"* with *Confirm* / *Cancel*, but every button looked the same, so it

@@ -163,7 +163,7 @@ class ShareApiController extends AdminController {
      * the FULL set, unfiltered, so the chart stays a stable overview the admin
      * can use to jump between categories.
      *
-     * A $limit of 0 (or less) returns every matching alert on a single page,
+     * A $limit of 0 returns every matching alert on a single page,
      * so the "select all" bulk action can span the whole (filtered) set.
      *
      * $sort defaults to 'severity' (today's behaviour: critical > warning >
@@ -177,6 +177,10 @@ class ShareApiController extends AdminController {
      * `breakdown` and `totalAll` all reflect only what's still active —
      * true returns everything, each issue annotated with its acknowledgment
      * details, for reviewing or undoing exceptions.
+     *
+     * @param int<0, 500> $limit page size, 0 = everything on one page. Declared
+     *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
+     *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
     public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc', bool $includeAcknowledged = false): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
