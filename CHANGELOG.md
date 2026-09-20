@@ -34,6 +34,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   The personal *My shares audit* view uses the same list.
 
 ### Fixed
+- **The *Confirm* step of a destructive action stands out.** Revoking (orphan
+  shares, *Revoke all access*) or permanently deleting shares asks *"Revoke N
+  shares?"* with *Confirm* / *Cancel*, but every button looked the same, so it
+  was easy to miss which one commits the action. *Confirm* is now red and
+  *Cancel* a discreet button. The cause was wider than those buttons: since
+  `@nextcloud/vue` 9 a button's look comes from `variant`, and the app still
+  passed the old `type`, which is ignored — so no button in the app rendered
+  with its intended emphasis. That is fixed everywhere: the active tab and the
+  current page number are filled, *Save* is a primary button, and secondary
+  actions are subtle. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#8](https://github.com/kreotropic/share_audit/issues/8)).
 - The personal *My shares audit* view showed an *Acknowledge* button that did
   nothing (regular users have no acknowledge endpoint); it is hidden there now.
 - Alert checkboxes had no accessible name, and the icon-only actions are

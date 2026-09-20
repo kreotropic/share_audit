@@ -12,7 +12,7 @@
 			<NcButton v-for="number in directPages"
 				:key="number"
 				:disabled="disabled || number === page"
-				:type="number === page ? 'primary' : 'tertiary'"
+				:variant="number === page ? 'primary' : 'tertiary'"
 				:aria-current="number === page ? 'page' : null"
 				:aria-label="n('share_audit_dashboard', 'Page %n', 'Page %n', number)"
 				@click="go(number)">
@@ -34,7 +34,7 @@
 			<NcButton v-for="number in trailingPages"
 				:key="number"
 				:disabled="disabled || number === page"
-				:type="number === page ? 'primary' : 'tertiary'"
+				:variant="number === page ? 'primary' : 'tertiary'"
 				:aria-current="number === page ? 'page' : null"
 				:aria-label="n('share_audit_dashboard', 'Page %n', 'Page %n', number)"
 				@click="go(number)">

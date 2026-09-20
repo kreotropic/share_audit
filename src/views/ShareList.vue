@@ -5,7 +5,7 @@
 <template>
 	<div>
 		<div class="sad-list-toolbar">
-			<NcButton v-if="filtersActive" type="tertiary" @click="clearFilters">
+			<NcButton v-if="filtersActive" variant="tertiary" @click="clearFilters">
 				{{ t('share_audit_dashboard', 'Clear filters') }}
 			</NcButton>
 

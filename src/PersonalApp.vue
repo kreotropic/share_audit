@@ -42,7 +42,7 @@
 						<li v-for="(pw, i) in generatedPasswords" :key="i" class="sad-pw-row">
 							<span class="sad-pw-row__path">{{ pw.path }}</span>
 							<code class="sad-pw-row__code">{{ pw.password }}</code>
-							<NcButton type="tertiary" @click="copy(pw.password)">
+							<NcButton variant="tertiary" @click="copy(pw.password)">
 								{{ t('share_audit_dashboard', 'Copy') }}
 							</NcButton>
 						</li>

@@ -22,13 +22,13 @@
 					<li v-for="(pw, i) in generatedPasswords" :key="i" class="sad-pw-row">
 						<span class="sad-pw-row__path">{{ pw.path }}</span>
 						<code class="sad-pw-row__code">{{ pw.password }}</code>
-						<NcButton type="tertiary" @click="copy(pw.password)">
+						<NcButton variant="tertiary" @click="copy(pw.password)">
 							{{ t('share_audit_dashboard', 'Copy') }}
 						</NcButton>
 					</li>
 				</ul>
 				<template #actions>
-					<NcButton type="tertiary" @click="generatedPasswords = []">
+					<NcButton variant="tertiary" @click="generatedPasswords = []">
 						{{ t('share_audit_dashboard', 'Dismiss') }}
 					</NcButton>
 				</template>
@@ -59,7 +59,7 @@
 				<section class="sad-alerts-breakdown">
 					<div class="sad-alerts-breakdown__header">
 						<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
-						<NcButton v-if="activeIssue" type="tertiary" @click="clearIssueFilter">
+						<NcButton v-if="activeIssue" variant="tertiary" @click="clearIssueFilter">
 							{{ t('share_audit_dashboard', 'Showing: {label} — clear filter', { label: issueLabel(activeIssue) }) }}
 						</NcButton>
 					</div>

@@ -44,7 +44,7 @@
 						{{ t('share_audit_dashboard', 'Restore selected') }}
 					</NcButton>
 					<template v-if="!confirmingPurge">
-						<NcButton type="error" :disabled="busy" @click="confirmingPurge = true">
+						<NcButton variant="error" :disabled="busy" @click="confirmingPurge = true">
 							{{ t('share_audit_dashboard', 'Delete permanently') }}
 						</NcButton>
 					</template>
@@ -52,10 +52,10 @@
 						<span class="sad-deleted-bar__confirm">
 							{{ n('share_audit_dashboard', 'Permanently delete %n share?', 'Permanently delete %n shares?', selectedIds.length) }}
 						</span>
-						<NcButton type="error" :disabled="busy" @click="purgeSelected">
+						<NcButton variant="error" :disabled="busy" @click="purgeSelected">
 							{{ t('share_audit_dashboard', 'Confirm') }}
 						</NcButton>
-						<NcButton type="tertiary" :disabled="busy" @click="confirmingPurge = false">
+						<NcButton variant="tertiary" :disabled="busy" @click="confirmingPurge = false">
 							{{ t('share_audit_dashboard', 'Cancel') }}
 						</NcButton>
 					</template>

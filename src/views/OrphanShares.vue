@@ -41,7 +41,7 @@
 				<div class="sad-orphan-bar__spacer" />
 				<template v-if="selectedIds.length">
 					<template v-if="!confirming">
-						<NcButton type="error" :disabled="revoking" @click="confirming = true">
+						<NcButton variant="error" :disabled="revoking" @click="confirming = true">
 							{{ t('share_audit_dashboard', 'Revoke selected') }}
 						</NcButton>
 					</template>
@@ -49,10 +49,10 @@
 						<span class="sad-orphan-bar__confirm">
 							{{ n('share_audit_dashboard', 'Revoke %n share?', 'Revoke %n shares?', selectedIds.length) }}
 						</span>
-						<NcButton type="error" :disabled="revoking" @click="revokeSelected">
+						<NcButton variant="error" :disabled="revoking" @click="revokeSelected">
 							{{ t('share_audit_dashboard', 'Confirm') }}
 						</NcButton>
-						<NcButton type="tertiary" :disabled="revoking" @click="confirming = false">
+						<NcButton variant="tertiary" :disabled="revoking" @click="confirming = false">
 							{{ t('share_audit_dashboard', 'Cancel') }}
 						</NcButton>
 					</template>
