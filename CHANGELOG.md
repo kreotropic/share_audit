@@ -85,6 +85,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   appear in a floating bar at the bottom of the list, which folds
   *Add password* and *Set expiry* into a *More* menu when the list is narrow.
   The personal *My shares audit* view uses the same list.
+- **The note on PHP JIT crashes is corrected.** It called them an ARM64 bug
+  triggered by this app. They are a regression in PHP's JIT compiler (first
+  reported on PHP 8.5.5, still present on 8.5.10) that hits any app enabled or
+  updated under the JIT, on x86_64 as well as aarch64 — tracked upstream as
+  [php/php-src#22558](https://github.com/php/php-src/issues/22558). The README
+  now says so, and that switching the JIT off is the workaround
+  ([#3](https://github.com/kreotropic/share_audit/issues/3)).
 
 ### Fixed
 - **Choosing *All* items per page failed on Nextcloud 34 and 35.** Those

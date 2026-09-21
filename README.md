@@ -135,17 +135,21 @@ retention window rather than disappearing outright.
 
 ## Known Issues
 
-- **PHP JIT segfaults on some ARM64 hosts.** On aarch64 hosts running PHP's
-  tracing JIT (`opcache.jit=1255`, the default `tracing`/`1255` mode some
-  distros and container images enable), Apache workers can crash with
-  `SIGSEGV` shortly after enabling this app — this is a bug in PHP's JIT
-  compiler backend for ARM64, triggered while it compiles this app's
-  (otherwise unremarkable) bootstrap/dashboard-widget code, not a memory
-  safety bug in the app itself (pure PHP cannot cause a native segfault on
-  its own). If you hit crash-looping Apache/PHP workers right after enabling
-  this app on ARM64, disable JIT (`opcache.jit=0` in a `conf.d` override) or
-  reduce it to a less aggressive mode, and file a report with your PHP
-  distribution if none exists yet. See [issue #3](https://github.com/kreotropic/share_audit/issues/3).
+- **PHP's JIT can crash Apache/PHP workers when an app is enabled or updated.**
+  A regression in PHP's JIT compiler makes workers die with `SIGSEGV` (or spin at
+  100% CPU) while they compile newly loaded code, so it shows up right after you
+  enable or update an app. It is not specific to this app — Nextcloud users report
+  it with other apps too — nor to ARM: it has been reproduced on x86_64 and
+  aarch64, under PHP-FPM and under Apache. It was first reported on PHP 8.5.5 and
+  was still reproducible on 8.5.10; it is tracked upstream in
+  [php/php-src#22558](https://github.com/php/php-src/issues/22558) and
+  [#22084](https://github.com/php/php-src/issues/22084). Nextcloud's official
+  Docker image turns the tracing JIT on (`opcache.jit=1255`), so it is the default
+  there. If workers crash-loop right after you enable or update an app, switch the
+  JIT off — `opcache.jit=0` and `opcache.jit_buffer_size=0` in a `conf.d`
+  override — and restart. That is the only workaround reported to be reliable;
+  lowering the JIT level has been reported to still crash. See
+  [issue #3](https://github.com/kreotropic/share_audit/issues/3).
 
 ## Translations
 
