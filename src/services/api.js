@@ -167,6 +167,32 @@ export async function revokeOrphans(ids) {
 }
 
 /**
+ * Enabled accounts that can take orphan shares over, for the new-owner picker.
+ *
+ * @param {string} search matched against user id and display name; empty lists
+ *   the first few accounts
+ * @return {Promise<Array<{uid: string, displayName: string}>>}
+ */
+export async function searchTransferTargets(search = '') {
+	const { data } = await axios.get(base('/api/orphans/transfer-targets'), { params: { search } })
+	return data.items
+}
+
+/**
+ * Hand orphan shares to another account instead of revoking them. Each share
+ * that could not move comes back with the reason, see
+ * OrphanTransferService::transfer().
+ *
+ * @param {number[]} ids
+ * @param {string} newOwner user id of the account taking over
+ * @return {Promise<{transferred: number, skipped: Array<{id: number, reason: string}>, failed: number[]}>}
+ */
+export async function transferOrphans(ids, newOwner) {
+	const { data } = await axios.post(base('/api/orphans/transfer'), { ids, newOwner })
+	return data
+}
+
+/**
  * Fetch the paginated list of recycled (soft-deleted) shares.
  */
 export async function fetchDeletedShares(params = {}) {

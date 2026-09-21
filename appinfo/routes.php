@@ -38,6 +38,8 @@ return [
         // Orphan shares (owner disabled/deleted).
         ['name' => 'orphanShare#index', 'url' => '/api/orphans', 'verb' => 'GET'],
         ['name' => 'orphanShare#revoke', 'url' => '/api/orphans/revoke', 'verb' => 'POST'],
+        ['name' => 'orphanShare#transfer', 'url' => '/api/orphans/transfer', 'verb' => 'POST'],
+        ['name' => 'orphanShare#transferTargets', 'url' => '/api/orphans/transfer-targets', 'verb' => 'GET'],
         // Exposure map (internal / external / public + score).
         ['name' => 'exposure#overview', 'url' => '/api/exposure', 'verb' => 'GET'],
         // Personal (per-user) view: audit and fix your own shares.

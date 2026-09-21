@@ -29,6 +29,14 @@
 		<template v-else>
 			<NcNoteCard v-if="notice" :type="notice.type" class="sad-orphan-notice">
 				{{ notice.message }}
+				<template v-if="notice.details">
+					<span class="sad-orphan-notice__title">{{ notice.detailsTitle }}</span>
+					<ul class="sad-orphan-notice__list">
+						<li v-for="line in notice.details" :key="line">
+							{{ line }}
+						</li>
+					</ul>
+				</template>
 			</NcNoteCard>
 
 			<div class="sad-orphan-bar">
@@ -40,28 +48,55 @@
 				</span>
 				<div class="sad-orphan-bar__spacer" />
 				<template v-if="selectedIds.length">
-					<template v-if="!confirming">
-						<NcButton variant="error" :disabled="revoking" @click="confirming = true">
-							{{ t('share_audit_dashboard', 'Revoke selected') }}
-						</NcButton>
-					</template>
-					<template v-else>
+					<template v-if="confirming">
 						<span class="sad-orphan-bar__confirm">
 							{{ n('share_audit_dashboard', 'Revoke %n share?', 'Revoke %n shares?', selectedIds.length) }}
 						</span>
-						<NcButton variant="error" :disabled="revoking" @click="revokeSelected">
+						<NcButton variant="error" :disabled="busy" @click="revokeSelected">
 							{{ t('share_audit_dashboard', 'Confirm') }}
 						</NcButton>
-						<NcButton variant="tertiary" :disabled="revoking" @click="confirming = false">
+						<NcButton variant="tertiary" :disabled="busy" @click="confirming = false">
 							{{ t('share_audit_dashboard', 'Cancel') }}
+						</NcButton>
+					</template>
+					<template v-else-if="pickingOwner">
+						<div class="sad-orphan-bar__pick">
+							<span class="sad-orphan-bar__confirm">
+								{{ n('share_audit_dashboard', 'Transfer %n share to', 'Transfer %n shares to', selectedIds.length) }}
+							</span>
+							<NcSelect v-model="newOwner"
+								class="sad-orphan-bar__select"
+								:options="ownerOptions"
+								:loading="ownersLoading"
+								:filterable="false"
+								:clearable="false"
+								:disabled="busy"
+								:placeholder="t('share_audit_dashboard', 'Search for a user…')"
+								:aria-label-combobox="t('share_audit_dashboard', 'New owner')"
+								@search="searchOwners" />
+							<NcButton variant="primary" :disabled="!newOwner || busy" @click="transferSelected">
+								{{ t('share_audit_dashboard', 'Transfer') }}
+							</NcButton>
+							<NcButton variant="tertiary" :disabled="busy" @click="cancelTransfer">
+								{{ t('share_audit_dashboard', 'Cancel') }}
+							</NcButton>
+						</div>
+					</template>
+					<template v-else>
+						<NcButton variant="secondary" :disabled="busy" @click="openTransfer">
+							{{ t('share_audit_dashboard', 'Transfer selected') }}
+						</NcButton>
+						<NcButton variant="error" :disabled="busy" @click="confirming = true">
+							{{ t('share_audit_dashboard', 'Revoke selected') }}
 						</NcButton>
 					</template>
 				</template>
 
-				<PageSizeSelect v-model="pageSize"
+				<PageSizeSelect v-if="!pickingOwner"
+					v-model="pageSize"
 					:options="pageSizeOptions"
 					:width="120"
-					:disabled="revoking" />
+					:disabled="busy" />
 			</div>
 
 			<div class="sad-table-wrapper">
@@ -111,7 +146,7 @@
 				<PageNavigation v-if="!isAll && total > apiLimit"
 					:page="page"
 					:total-pages="totalPages"
-					:disabled="revoking"
+					:disabled="busy"
 					@change="goto" />
 			</div>
 		</template>
@@ -126,14 +161,20 @@ import NcChip from '@nextcloud/vue/components/NcChip'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
-import { fetchOrphans, revokeOrphans } from '../services/api.js'
+import { fetchOrphans, revokeOrphans, searchTransferTargets, transferOrphans } from '../services/api.js'
 
 // Must match OrphanShareController::MAX_IDS — larger selections are split
 // into sequential requests instead of one huge revoke call.
 const BULK_CHUNK_SIZE = 500
+
+// "Display name (uid)", or just the uid when the account has no other name.
+const ownerLabel = (user) => (user.displayName && user.displayName !== user.uid
+	? `${user.displayName} (${user.uid})`
+	: user.uid)
 
 export default {
 	name: 'OrphanShares',
@@ -144,6 +185,7 @@ export default {
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcSelect,
 		PageNavigation,
 		PageSizeSelect,
 	},
@@ -154,6 +196,15 @@ export default {
 			error: null,
 			revoking: false,
 			confirming: false,
+				pickingOwner: false,
+				newOwner: null,
+				ownerOptions: [],
+				ownersLoading: false,
+				transferring: false,
+				// The picker's debounced search: its timer, and a counter so a slow
+				// answer to an older query never replaces a newer one.
+				searchTimer: null,
+				searchSeq: 0,
 			items: [],
 			total: 0,
 			page: 1,
@@ -170,6 +221,10 @@ export default {
 		}
 	},
 	computed: {
+		// Either action is in flight: lock the controls that would start another.
+		busy() {
+			return this.revoking || this.transferring
+		},
 		isAll() {
 			return this.pageSize.id === 'all'
 		},
@@ -196,6 +251,13 @@ export default {
 		},
 	},
 	watch: {
+		// Nothing selected, nothing left to confirm or to pick an owner for.
+		selectedIds(ids) {
+			if (ids.length === 0) {
+				this.confirming = false
+				this.cancelTransfer()
+			}
+		},
 		// A different page size invalidates the current page and selection.
 		'pageSize.id'() {
 			this.page = 1
@@ -245,6 +307,115 @@ export default {
 			this.page = page
 			this.selectedIds = []
 			this.load()
+		},
+		openTransfer() {
+			this.notice = null
+			this.newOwner = null
+			this.pickingOwner = true
+			this.searchOwners('')
+		},
+		cancelTransfer() {
+			this.pickingOwner = false
+			this.newOwner = null
+		},
+		// Candidates come from the server, enabled accounts only, and the search
+		// runs as the admin types (after a short pause) rather than loading them all.
+		searchOwners(query) {
+			clearTimeout(this.searchTimer)
+			this.searchTimer = setTimeout(async () => {
+				const seq = ++this.searchSeq
+				this.ownersLoading = true
+				try {
+					const users = await searchTransferTargets(query)
+					if (seq === this.searchSeq) {
+						this.ownerOptions = users.map((user) => ({ ...user, label: ownerLabel(user) }))
+					}
+				} catch (e) {
+					if (seq === this.searchSeq) {
+						this.ownerOptions = []
+					}
+				} finally {
+					if (seq === this.searchSeq) {
+						this.ownersLoading = false
+					}
+				}
+			}, query ? 250 : 0)
+		},
+		skipReasonLabel(reason) {
+			const labels = {
+				not_orphan: t('share_audit_dashboard', 'The owner is no longer disabled or deleted'),
+				unsupported_type: t('share_audit_dashboard', 'This type of share cannot be transferred'),
+				recipient_is_new_owner: t('share_audit_dashboard', 'The new owner is who the share is for'),
+				no_access: t('share_audit_dashboard', 'The new owner cannot access the file'),
+				not_shareable: t('share_audit_dashboard', 'The new owner may not share the file'),
+				insufficient_permissions: t('share_audit_dashboard', 'The share grants more than the new owner may'),
+			}
+			return labels[reason] ?? reason
+		},
+		// What happened to a batch: a success, or a warning that names each reason
+		// a share stayed put — an admin needs to know which ones and why.
+		transferNotice({ transferred, skipped, failed }, owner) {
+			const name = owner.displayName || owner.uid
+			const message = transferred > 0
+				? n('share_audit_dashboard', 'Transferred %n share to {name}.', 'Transferred %n shares to {name}.', transferred, { name })
+				: t('share_audit_dashboard', 'No share was transferred.')
+			const left = skipped.length + failed.length
+			if (left === 0) {
+				return { type: 'success', message }
+			}
+
+			const counts = {}
+			for (const { reason } of skipped) {
+				counts[reason] = (counts[reason] ?? 0) + 1
+			}
+			const details = Object.entries(counts)
+				.map(([reason, count]) => `${this.skipReasonLabel(reason)} (${count})`)
+			if (failed.length > 0) {
+				details.push(`${t('share_audit_dashboard', 'Unexpected error, try again')} (${failed.length})`)
+			}
+			if (counts.no_access) {
+				details.push(t('share_audit_dashboard', 'Move the files first with occ files:transfer-ownership, then transfer the shares.'))
+			}
+			return {
+				type: transferred === 0 && skipped.length === 0 ? 'error' : 'warning',
+				message,
+				detailsTitle: n('share_audit_dashboard', '%n share was not transferred:', '%n shares were not transferred:', left),
+				details,
+			}
+		},
+		async transferSelected() {
+			if (!this.newOwner) {
+				return
+			}
+			this.transferring = true
+			this.notice = null
+			try {
+				const owner = this.newOwner
+				const total = { transferred: 0, skipped: [], failed: [] }
+				for (let i = 0; i < this.selectedIds.length; i += BULK_CHUNK_SIZE) {
+					const chunk = this.selectedIds.slice(i, i + BULK_CHUNK_SIZE)
+					const res = await transferOrphans(chunk, owner.uid)
+					total.transferred += res.transferred
+					total.skipped.push(...res.skipped)
+					total.failed.push(...res.failed)
+				}
+				this.notice = this.transferNotice(total, owner)
+				this.cancelTransfer()
+				this.selectedIds = []
+				if (this.page > 1 && this.items.length === total.transferred) {
+					this.page -= 1
+				}
+				await this.load()
+			} catch (e) {
+				this.notice = {
+					type: 'error',
+					message: e?.response?.status === 400
+						? t('share_audit_dashboard', 'That account cannot take over shares. Pick another one.')
+						: t('share_audit_dashboard', 'Could not transfer the selected shares.'),
+				}
+			} finally {
+				this.transferring = false
+			}
 		},
 		async load() {
 			this.loading = true
@@ -321,6 +492,7 @@ export default {
 .sad-orphan-bar {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
 	gap: 12px;
 	padding: 10px 14px;
 	margin-bottom: 12px;
@@ -339,6 +511,29 @@ export default {
 
 .sad-orphan-notice {
 	margin-bottom: 12px;
+}
+
+.sad-orphan-bar__pick {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+}
+
+.sad-orphan-bar__select {
+	min-width: 260px;
+}
+
+.sad-orphan-notice__title {
+	display: block;
+	margin-top: 6px;
+	font-weight: 600;
+}
+
+.sad-orphan-notice__list {
+	margin: 4px 0 0;
+	padding-left: 20px;
+	list-style: disc;
 }
 
 .sad-table-wrapper {

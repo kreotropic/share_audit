@@ -312,7 +312,34 @@
         "Name (A–Z)": "Nom (A–Z)",
         "Name (Z–A)": "Nom (Z–A)",
         "No alerts match your search.": "Aucune alerte ne correspond à la recherche.",
-        "Share name: {name}": "Nom du partage : {name}"
+        "Share name: {name}": "Nom du partage : {name}",
+        "Transfer selected": "Transférer la sélection",
+        "_Transfer %n share to_::_Transfer %n shares to_": [
+            "Transférer %n partage à",
+            "Transférer %n partages à"
+        ],
+        "Search for a user…": "Rechercher un utilisateur…",
+        "New owner": "Nouveau propriétaire",
+        "Transfer": "Transférer",
+        "_Transferred %n share to {name}._::_Transferred %n shares to {name}._": [
+            "%n partage transféré à {name}.",
+            "%n partages transférés à {name}."
+        ],
+        "No share was transferred.": "Aucun partage n’a été transféré.",
+        "_%n share was not transferred:_::_%n shares were not transferred:_": [
+            "%n partage n’a pas été transféré :",
+            "%n partages n’ont pas été transférés :"
+        ],
+        "The owner is no longer disabled or deleted": "Le propriétaire n’est plus désactivé ni supprimé",
+        "This type of share cannot be transferred": "Ce type de partage ne peut pas être transféré",
+        "The new owner is who the share is for": "Le nouveau propriétaire est le destinataire du partage",
+        "The new owner cannot access the file": "Le nouveau propriétaire n’a pas accès au fichier",
+        "The new owner may not share the file": "Le nouveau propriétaire n’est pas autorisé à partager le fichier",
+        "The share grants more than the new owner may": "Le partage accorde plus que ce que le nouveau propriétaire peut",
+        "Unexpected error, try again": "Erreur inattendue, réessayez",
+        "Move the files first with occ files:transfer-ownership, then transfer the shares.": "Déplacez d’abord les fichiers avec occ files:transfer-ownership, puis transférez les partages.",
+        "Could not transfer the selected shares.": "Impossible de transférer les partages sélectionnés.",
+        "That account cannot take over shares. Pick another one.": "Ce compte ne peut pas reprendre de partages. Choisissez-en un autre."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

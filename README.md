@@ -41,8 +41,8 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
 - **Lookup & Orphans** — search a user, group or email and see **every file and
   folder they can reach**, with *revoke all access* (built for audits and
   offboarding suppliers); plus shares still owned by **disabled or deleted
-  accounts**, with bulk revoke — a classic offboarding risk Nextcloud does not
-  surface.
+  accounts**, which you can bulk revoke or **transfer to a colleague** who takes
+  the work over — a classic offboarding risk Nextcloud does not surface.
 - **Deleted shares** — a recycle bin for revoked shares. Unsharing in Nextcloud
   is normally immediate and irreversible; here a removed share is kept for a
   retention window (30 days by default, configurable) and can be **restored** or
@@ -240,10 +240,11 @@ showcase the app.*
 
 ## Roadmap
 
-Planned features (ownership transfer, email compliance reports, acknowledging an
-alert as an accepted exception, and more) are documented in
-[ROADMAP.md](ROADMAP.md). Soft delete / recycle bin, once the top item there, has
-shipped — see **Deleted shares** above.
+Planned features (owner notifications, an email digest and compliance reports,
+and more) are documented in [ROADMAP.md](ROADMAP.md). The recycle bin, accepting
+an alert as an exception and transferring orphan shares, once the top items
+there, have shipped — see **Deleted shares**, **Security alerts** and
+**Lookup & Orphans** above.
 
 ## Changelog
 

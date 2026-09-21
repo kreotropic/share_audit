@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
+use OCA\ShareAuditDashboard\Service\OrphanTransferService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
@@ -34,6 +35,7 @@ class OrphanShareController extends AdminController {
         string $appName,
         IRequest $request,
         private OrphanShareService $orphanService,
+        private OrphanTransferService $transferService,
         IUserSession $userSession,
         IGroupManager $groupManager,
     ) {
@@ -73,5 +75,40 @@ class OrphanShareController extends AdminController {
         }
         $result = $this->orphanService->revoke($ids);
         return new JSONResponse($result);
+    }
+
+    /**
+     * POST /api/orphans/transfer — hand selected orphan shares to another
+     * account. Each share that cannot move comes back with the reason, see
+     * OrphanTransferService::transfer().
+     *
+     * @param int[] $ids
+     */
+    public function transfer(array $ids = [], string $newOwner = ''): JSONResponse {
+        if (($guard = $this->requireAdmin()) !== null) {
+            return $guard;
+        }
+        if (count($ids) > self::MAX_IDS) {
+            return new JSONResponse(
+                ['message' => 'Too many ids in one request (max ' . self::MAX_IDS . ').'],
+                Http::STATUS_BAD_REQUEST,
+            );
+        }
+        try {
+            return new JSONResponse($this->transferService->transfer($ids, trim($newOwner)));
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * GET /api/orphans/transfer-targets — enabled accounts that can take
+     * shares over, for the new-owner picker.
+     */
+    public function transferTargets(string $search = ''): JSONResponse {
+        if (($guard = $this->requireAdmin()) !== null) {
+            return $guard;
+        }
+        return new JSONResponse(['items' => $this->transferService->searchTargets(trim($search))]);
     }
 }

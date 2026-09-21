@@ -22,7 +22,7 @@ fix them in bulk. Regular users get a personal view to audit and clean up the fi
   and human‑readable permissions. Export the filtered view to CSV.
 - Security alerts: public links with no password, no expiration, or a sensitive file type — fixable
   individually or in bulk (add a generated password, set an expiration, revoke). Rules configurable.
-- Orphan shares: shares still owned by disabled or deleted accounts, with bulk revoke.
+- Orphan shares: shares still owned by disabled or deleted accounts, with bulk revoke or transfer to another account.
 - Exposure map: internal / external / public reach, a 0‑100 exposure score and the top public sharers.
 - Access lookup: search a user, group or email and see every file they can reach, with revoke‑all.
 

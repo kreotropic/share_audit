@@ -11,11 +11,13 @@ namespace OCA\ShareAuditDashboard\Db;
 
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Share\IShare;
 
 /**
- * Direct, read-only access to the oc_share table (joined with oc_filecache
- * for file paths). Used for the heavy reporting queries where iterating the
- * IShareManager per user would be too slow.
+ * Direct access to the oc_share table (joined with oc_filecache for file
+ * paths). Used for the heavy reporting queries where iterating the
+ * IShareManager per user would be too slow. Read-only, with one exception:
+ * reassignOwner(), the write behind handing an orphan share to another user.
  *
  * All queries filter out the internal per-recipient rows that Nextcloud
  * generates for group / room / deck shares, so counts are not inflated.
@@ -284,6 +286,80 @@ class ShareMapper {
         $rows = $result->fetchAll();
         $result->closeCursor();
         return $rows;
+    }
+
+    /**
+     * What a transfer needs to decide whether a share can be handed to another
+     * owner: who owns and who created it, who it goes to, what it grants and
+     * which file it points at. No other filtering, like findByIds().
+     *
+     * @param int[] $ids
+     * @return array<int, array{id: int|string, share_type: int|string, uid_owner: string, uid_initiator: ?string, share_with: ?string, permissions: int|string, file_source: int|string|null}>
+     */
+    public function findTransferCandidates(array $ids): array {
+        if ($ids === []) {
+            return [];
+        }
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('id', 'share_type', 'uid_owner', 'uid_initiator', 'share_with', 'permissions', 'file_source')
+            ->from('share')
+            ->where($qb->expr()->in('id',
+                $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+        $result = $qb->executeQuery();
+        $rows = $result->fetchAll();
+        $result->closeCursor();
+        return $rows;
+    }
+
+    /**
+     * Hand share $id from $from to $to: the owner, and the creator too when
+     * that was $from. A reshare made by somebody else keeps its author, which
+     * is also how `occ files:transfer-ownership` treats it. The per-user rows
+     * of a group share follow their parent.
+     *
+     * The owner is compared as well as set, so a share whose owner changed
+     * since the caller looked (it was reactivated, or moved by someone else)
+     * is left alone. The rows change together or not at all.
+     *
+     * @return bool false when the share no longer belongs to $from
+     */
+    public function reassignOwner(int $id, string $from, string $to): bool {
+        $this->db->beginTransaction();
+        try {
+            $qb = $this->db->getQueryBuilder();
+            $qb->update('share')
+                ->set('uid_owner', $qb->createNamedParameter($to))
+                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+                ->andWhere($qb->expr()->eq('uid_owner', $qb->createNamedParameter($from)));
+            if ($qb->executeStatement() === 0) {
+                $this->db->commit();
+                return false;
+            }
+
+            $qb = $this->db->getQueryBuilder();
+            $qb->update('share')
+                ->set('uid_initiator', $qb->createNamedParameter($to))
+                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+                ->andWhere($qb->expr()->eq('uid_initiator', $qb->createNamedParameter($from)));
+            $qb->executeStatement();
+
+            foreach (['uid_owner', 'uid_initiator'] as $column) {
+                $qb = $this->db->getQueryBuilder();
+                $qb->update('share')
+                    ->set($column, $qb->createNamedParameter($to))
+                    ->where($qb->expr()->eq('parent', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+                    ->andWhere($qb->expr()->eq('share_type',
+                        $qb->createNamedParameter(IShare::TYPE_USERGROUP, IQueryBuilder::PARAM_INT)))
+                    ->andWhere($qb->expr()->eq($column, $qb->createNamedParameter($from)));
+                $qb->executeStatement();
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
     }
 
     /**

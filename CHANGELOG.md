@@ -49,6 +49,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   ([#12](https://github.com/kreotropic/share_audit/issues/12)).
 - The alert's details drawer shows the share's own name (*Share name*) when it
   has one, and the tooltip on the file name carries it too.
+- **Transfer orphan shares to another account.** On *Lookup & Orphans*, select
+  shares whose owner is disabled or deleted and choose *Transfer selected*
+  instead of revoking them: pick the colleague who takes over, and each share
+  keeps working under the new owner — same link, same recipients. Handy when
+  someone leaves and a teammate inherits their work. A share moves only when the
+  new owner can already reach the file (a Team Folder they belong to, an
+  external storage), may share it and holds at least the permissions the share
+  grants; the others stay where they were, and the result names the reason for
+  each. Files in the departed person's own storage can't be reached by anyone
+  else — move them first with `occ files:transfer-ownership`. User, group and
+  public-link shares are supported, and every transfer is recorded in the audit
+  log. Thanks [@michel-thomas](https://github.com/michel-thomas)
+  ([#13](https://github.com/kreotropic/share_audit/issues/13)).
 
 ### Changed
 - **Security alerts are one line each.** An alert used to take ~140px over

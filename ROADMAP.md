@@ -64,6 +64,15 @@ already implemented and working:
 **Lookup & Orphans**
 - **Orphan shares**: shares whose owner is disabled or deleted, with bulk
   revoke and a dashboard badge
+- **Transfer ownership of orphan shares** ([issue #13](https://github.com/kreotropic/share_audit/issues/13)):
+  hand them to another account instead of revoking, in bulk, from a user
+  picker. A share moves only when the new owner already reaches the file in
+  their own file tree (a Team Folder they belong to, an external storage), may
+  share it and holds at least the permissions it grants — the same rule
+  `IShareManager` applies when a share is created; each one that can't move is
+  reported with its reason. The creator changes only when it was the departed
+  owner (as in `occ files:transfer-ownership`), a group share's per-user rows
+  follow it, and the audit log records it. User, group and public-link shares
 - **Access lookup** (reverse drill-down): search by user, group or email
   and list **every file/folder that recipient can reach**, with *revoke all
   access* (server-side batches of 500)
@@ -131,6 +140,7 @@ they turn out to matter in practice:
 - **DE/ES/FR translations for the 7 new UI strings** were done directly (not
   reviewed by the community translators credited for those languages in
   CHANGELOG.md) — worth a native-speaker pass before the next release.
+  The 18 strings of the orphan-transfer UI are in the same state.
   EN and PT-PT are the maintainer's own and authoritative as always.
 
 With G2 done, every remaining backlog item below is explicitly gated on App
@@ -148,37 +158,16 @@ already done isn't lost.
 
 | # | Feature | Depends on | Effort | Impact |
 |---|---------|-----------|--------|--------|
-| 1 | Transfer ownership (orphans) | — | 2-3 days | Medium+ |
-| 2 | Notify the owner (alerts and remediations) | — | 1-2 days | Medium |
-| 3 | Exposure history/trend | — | 2-3 days | Medium |
-| 4 | Weekly email digest for admins | — | 2-3 days | Medium |
-| 5 | Compliance reports by email | (3) | 3-4 days | Medium |
-| 6 | Per-group policies | — | 4-5 days | Medium |
-| 7 | Signed PDF/HTML report (external audits) | — | 3-4 days | Medium- |
+| 1 | Notify the owner (alerts and remediations) | — | 1-2 days | Medium |
+| 2 | Exposure history/trend | — | 2-3 days | Medium |
+| 3 | Weekly email digest for admins | — | 2-3 days | Medium |
+| 4 | Compliance reports by email | (2) | 3-4 days | Medium |
+| 5 | Per-group policies | — | 4-5 days | Medium |
+| 6 | Signed PDF/HTML report (external audits) | — | 3-4 days | Medium- |
 
 ---
 
-### 1. Transfer ownership of orphan shares ([issue #13](https://github.com/kreotropic/share_audit/issues/13))
-
-Detection and bulk revoke already exist; missing the **non-destructive**
-alternative: reassign the share to another user when someone leaves and a
-colleague takes over their work (UX inspiration:
-`occ files:transfer-ownership`).
-
-- `OrphanShareService::transferShare(shareId, newOwnerId)` — updates
-  `uid_owner` and `uid_initiator` in `oc_share`
-- Verify the new owner has access to the file (via `filecache`, group, or
-  external storage)
-- `POST /api/orphans/transfer` + a target-user picker modal
-- **LDAP/AD:** users disabled in AD can show as *enabled* in Nextcloud if
-  the sync doesn't map that state — document this and consider a
-  double-check
-- **Performance:** on instances with many deleted users, consider a daily
-  background job populating an orphan-cache table
-
----
-
-### 2. Notify the owner (alerts and remediations)
+### 1. Notify the owner (alerts and remediations)
 
 Two parts, to be done together:
 
@@ -210,7 +199,7 @@ will touch.
 
 ---
 
-### 3. Exposure history / trend
+### 2. Exposure history / trend
 
 The Exposure section shows the **current** state. Missing: how it evolved
 over time.
@@ -228,23 +217,23 @@ Business case for prioritizing this early: cheap to build, and gives a
 
 ---
 
-### 4. Weekly email digest for admins
+### 3. Weekly email digest for admins
 
-Distinct from #5 (which is more formal/periodic and depends on the history
-from #3). This one is a light, frequent digest: a weekly `TimedJob` +
+Distinct from #4 (which is more formal/periodic and depends on the history
+from #2). This one is a light, frequent digest: a weekly `TimedJob` +
 `IMailer`, summarizing **new** insecure links, **new** orphans, and score
 movement since the last digest. It's what keeps the app in use past the
-second week, even before the full history (#3) exists — it can start by
+second week, even before the full history (#2) exists — it can start by
 comparing against just the previous week's snapshot, without waiting for
 the full time series.
 
 Do this after G2/G3, so the digest already reflects "acknowledged" alerts
 (no point emailing weekly about something the admin already marked as an
-exception). Implement before or alongside #5, not after.
+exception). Implement before or alongside #4, not after.
 
 ---
 
-### 5. Compliance reports by email
+### 4. Compliance reports by email
 
 Scheduled delivery of a periodic summary (insecure links, orphans, exposure
 score) to administrators. The current `ReportService` only generates the
@@ -254,7 +243,7 @@ links since the last report").
 
 ---
 
-### 6. Per-group policies
+### 5. Per-group policies
 
 Alerts today are global rules (`SettingsService::RULES` applies
 instance-wide). The proposal is to let rules/exceptions be tied to specific
@@ -277,7 +266,7 @@ visually — a real differentiator, but not a quick win.
 
 ---
 
-### 7. Signed PDF/HTML report, for compliance/external audits
+### 6. Signed PDF/HTML report, for compliance/external audits
 
 The current CSV (`ReportService`) is for the admin to work the data; a
 formatted report — header with instance name, generation date/time, period
@@ -296,6 +285,25 @@ upfront). Like the CSV, the report must not include access tokens.
 
 ## Minor backlog
 
+- **Transfer of orphan shares: what it leaves out.** Email, federated, Talk and
+  other share types keep their state outside `oc_share`'s owner column (a
+  remote server, a room, a mail token), so a local update wouldn't reach it —
+  they're skipped, with the reason. A share whose *creator* isn't the departed
+  owner (a reshare) keeps that creator, as in `occ files:transfer-ownership`;
+  if the creator has since lost access to the file, Nextcloud treats the share
+  as invalid and it stays broken after the transfer — checking the creator too
+  would catch it. It also updates `oc_share` directly rather than through
+  `IShareManager::updateShare()`, whose `onlyValid` parameter (needed for a
+  disabled owner) is confirmed only on Nextcloud 33 while the app supports 31
+  to 35 — worth switching once 31/32 are checked or dropped.
+- **Orphans on LDAP/AD.** An account disabled in the directory can still show as
+  *enabled* in Nextcloud when the sync doesn't map that state, so its shares
+  aren't flagged as orphans (and can't be transferred or revoked from here).
+  Worth documenting, and a directory-side double-check if it turns out to bite.
+- **Orphan detection cost on large instances.** `getOrphanOwners()` needs one
+  lookup per distinct owner to tell "deleted" from "active" (cached 90 s). With
+  many departed users, a daily job filling an orphan-cache table would spare the
+  request path — same "wait for evidence" bar as the missing indexes below.
 - ~~Screenshots with clean demo data~~ — done (2026-08-02): all 7
   screenshots retaken against the real dev instance, with realistic share
   data and the current UI (including 0.4.0's "Deleted shares" tab); the
