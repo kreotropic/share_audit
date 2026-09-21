@@ -203,6 +203,44 @@ export async function purgeDeletedShares(ids) {
 }
 
 /**
+ * Accept $ruleCodes (every issue code currently shown on that alert row) as
+ * an exception on share $id, with an optional free-text note.
+ *
+ * @param {number} id
+ * @param {string[]} ruleCodes
+ * @param {string} note
+ */
+export async function acknowledgeAlert(id, ruleCodes, note = '') {
+	const { data } = await axios.post(base('/api/alerts/' + id + '/ack'), { ruleCodes, note })
+	return data
+}
+
+/**
+ * Undo a previously accepted exception, restoring $ruleCodes to the active
+ * alert list for share $id.
+ *
+ * @param {number} id
+ * @param {string[]} ruleCodes
+ */
+export async function unacknowledgeAlert(id, ruleCodes) {
+	const { data } = await axios.delete(base('/api/alerts/' + id + '/ack'), { data: { ruleCodes } })
+	return data
+}
+
+/**
+ * Acknowledge many alerts at once. Each item names its own ruleCodes — an
+ * alert's issue set isn't uniform across a selection the way a shared
+ * action (revoke, set expiration) is.
+ *
+ * @param {Array<{id: number, ruleCodes: string[]}>} items
+ * @param {string} note applies to every item in the batch
+ */
+export async function bulkAcknowledgeAlerts(items, note = '') {
+	const { data } = await axios.post(base('/api/alerts/bulk-ack'), { items, note })
+	return data
+}
+
+/**
  * Fetch the configurable security-alert rules.
  */
 export async function fetchSettings() {

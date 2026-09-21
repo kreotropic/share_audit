@@ -80,7 +80,7 @@
 			</section>
 
 			<div class="sad-settings__actions">
-				<NcButton type="primary" :disabled="saving" @click="save">
+				<NcButton variant="primary" :disabled="saving" @click="save">
 					{{ saving ? t('share_audit_dashboard', 'Saving…') : t('share_audit_dashboard', 'Save') }}
 				</NcButton>
 				<span v-if="saved" class="sad-settings__saved">

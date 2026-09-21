@@ -147,7 +147,7 @@ class SoftDeleteServiceTest extends TestCase {
             'permissions' => 31,
             'token' => null,
             'password' => null,
-            'share_name' => null,
+            'label' => 'Contract draft',
             'expiration' => null,
             'stime' => 100,
         ]);
@@ -155,8 +155,36 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertSame(7, $captured->getOriginalShareId());
         $this->assertSame('carol', $captured->getShareWith());
         $this->assertSame('dave', $captured->getUidOwner());
+
+        $this->assertSame('Contract draft', $captured->getShareName());
         $this->assertNull($captured->getDeletedBy());
         $this->assertSame(500 + 7 * 86400, $captured->getPurgeAfter());
+    }
+
+    public function testCaptureRowTreatsEmptyLabelAsNoName(): void {
+        $this->time->method('getTime')->willReturn(500);
+        $this->settings->method('getRetentionDays')->willReturn(7);
+        $this->userSession->method('getUser')->willReturn(null);
+
+        $captured = null;
+        $this->mapper->expects($this->once())->method('insert')
+            ->with($this->callback(function (DeletedShare $e) use (&$captured) {
+                $captured = $e;
+                return true;
+            }));
+
+        // oc_share stores "no label" as '' (or NULL), never as a name.
+        $this->service->captureRow([
+            'id' => 8,
+            'share_type' => IShare::TYPE_LINK,
+            'uid_owner' => 'dave',
+            'item_type' => 'file',
+            'file_source' => 55,
+            'permissions' => 1,
+            'label' => '',
+        ]);
+
+        $this->assertNull($captured->getShareName());
     }
 
     // -------------------------------------------------------------------
@@ -243,19 +271,7 @@ class SoftDeleteServiceTest extends TestCase {
         $created->method('getId')->willReturn('777');
         $this->shareManager->method('createShare')->willReturn($created);
 
-        // Raw token/password restore UPDATE — permissive query builder mock,
-        // same pattern as ShareMapperTest: this test cares that the retention
-        // row is deleted and the new id is reported, not the exact SQL shape.
-        $expr = $this->createMock(IExpressionBuilder::class);
-        $expr->method('eq')->willReturn('expr');
-        $qb = $this->createMock(IQueryBuilder::class);
-        $qb->method('update')->willReturnSelf();
-        $qb->method('set')->willReturnSelf();
-        $qb->method('where')->willReturnSelf();
-        $qb->method('expr')->willReturn($expr);
-        $qb->method('createNamedParameter')->willReturnArgument(0);
-        $qb->method('executeStatement')->willReturn(1);
-        $this->db->method('getQueryBuilder')->willReturn($qb);
+        $this->stubTokenPasswordUpdateQuery();
 
         $this->mapper->expects($this->once())->method('delete')->with($entity);
         // The restored share is exactly as risky as before it was revoked —
@@ -268,6 +284,76 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertTrue($result['success']);
         $this->assertSame(777, $result['id']);
         $this->assertFalse($result['tokenChanged']);
+    }
+
+    /**
+     * A stored expiration already in the past (the retention window can
+     * easily outlast a short original expiration — see the docblock on
+     * restore()) must not fail the whole restore: IShareManager rejects a
+     * past expiration outright, so restore() must skip setting one instead.
+     */
+    public function testRestoreDropsAnExpirationAlreadyInThePastRatherThanFailing(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setExpiration('2000-01-01 00:00:00');
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+
+        $node = $this->createMock(Node::class);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($node);
+
+        $newShare = $this->createMock(IShare::class);
+        $newShare->expects($this->never())->method('setExpirationDate');
+        $this->shareManager->method('newShare')->willReturn($newShare);
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $this->stubTokenPasswordUpdateQuery();
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['expirationCleared']);
+    }
+
+    public function testRestoreKeepsAnExpirationStillInTheFuture(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setExpiration((new \DateTimeImmutable('+30 days'))->format('Y-m-d H:i:s'));
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+
+        $node = $this->createMock(Node::class);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($node);
+
+        $newShare = $this->createMock(IShare::class);
+        $newShare->expects($this->once())->method('setExpirationDate')->with($this->isInstanceOf(\DateTime::class));
+        $this->shareManager->method('newShare')->willReturn($newShare);
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $this->stubTokenPasswordUpdateQuery();
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertFalse($result['expirationCleared']);
+    }
+
+    /**
+     * Raw token/password restore UPDATE — permissive query builder mock,
+     * same pattern as ShareMapperTest: these tests care that the retention
+     * row is deleted and the new id is reported, not the exact SQL shape.
+     */
+    private function stubTokenPasswordUpdateQuery(): void {
+        $expr = $this->createMock(IExpressionBuilder::class);
+        $expr->method('eq')->willReturn('expr');
+        $qb = $this->createMock(IQueryBuilder::class);
+        $qb->method('update')->willReturnSelf();
+        $qb->method('set')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($expr);
+        $qb->method('createNamedParameter')->willReturnArgument(0);
+        $qb->method('executeStatement')->willReturn(1);
+        $this->db->method('getQueryBuilder')->willReturn($qb);
     }
 
     // -------------------------------------------------------------------

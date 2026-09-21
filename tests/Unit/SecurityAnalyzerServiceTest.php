@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Tests\Unit;
 
+use OCA\ShareAuditDashboard\Db\Ack;
+use OCA\ShareAuditDashboard\Db\AckMapper;
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
 use OCA\ShareAuditDashboard\Service\PathFormatter;
@@ -25,7 +27,10 @@ use PHPUnit\Framework\TestCase;
  * expiring soon / already expired) crossed with the configurable rule
  * toggles — the highest-value place for coverage given how easy it'd be to
  * break silently. Also covers the two newest rules (public_upload,
- * group_share_editable).
+ * group_share_editable), and acknowledgment (ROADMAP.md's G2): an
+ * acknowledged issue dropping out of the default view, a partially-
+ * acknowledged alert keeping only its still-active issues, and
+ * $includeAcknowledged=true returning everything annotated instead.
  */
 class SecurityAnalyzerServiceTest extends TestCase {
 
@@ -33,6 +38,7 @@ class SecurityAnalyzerServiceTest extends TestCase {
     private SettingsService&MockObject $settings;
     private IGroupManager&MockObject $groupManager;
     private DisplayNameResolver&MockObject $displayNames;
+    private AckMapper&MockObject $ackMapper;
     private ArrayCache $cache;
 
     protected function setUp(): void {
@@ -50,8 +56,25 @@ class SecurityAnalyzerServiceTest extends TestCase {
         // return type), which is a safe default — buildAlert()'s consumer
         // falls back to the raw uid. Tests that care configure it themselves.
         $this->displayNames = $this->createMock(DisplayNameResolver::class);
+        // Unconfigured: findAll() auto-returns [] — no acknowledgments,
+        // matching the pre-G2 behaviour every existing test in this file
+        // relies on. Ack-specific tests configure it themselves.
+        $this->ackMapper = $this->createMock(AckMapper::class);
 
         $this->cache = new ArrayCache();
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     */
+    private function ack(int $shareId, string $ruleCode, array $overrides = []): Ack {
+        $ack = new Ack();
+        $ack->setShareId($shareId);
+        $ack->setRuleCode($ruleCode);
+        $ack->setAcknowledgedBy($overrides['acknowledgedBy'] ?? 'admin1');
+        $ack->setAcknowledgedAt($overrides['acknowledgedAt'] ?? 1700000000);
+        $ack->setNote($overrides['note'] ?? null);
+        return $ack;
     }
 
     /**
@@ -86,6 +109,7 @@ class SecurityAnalyzerServiceTest extends TestCase {
             new PathFormatter(),
             $this->groupManager,
             $this->displayNames,
+            $this->ackMapper,
             $cacheFactory,
         );
     }
@@ -457,7 +481,6 @@ class SecurityAnalyzerServiceTest extends TestCase {
 
     public function testCountAlertsIncludesGroupShareAlerts(): void {
         $this->stubRules();
-        $this->mapper->method('countInsecureLinks')->willReturn(0);
         $this->mapper->method('findGroupShares')->willReturn([$this->groupShareRow()]);
         $this->groupManager->method('get')->willReturn($this->groupWithMembers(85));
 
@@ -497,4 +520,203 @@ class SecurityAnalyzerServiceTest extends TestCase {
         $alerts = $this->analyzer()->getAlerts();
         $this->assertSame('Alice Silva', $alerts[0]['ownerDisplayName']);
     }
+
+    // -------------------------------------------------------------------
+    // Acknowledgment (ROADMAP.md's G2) — see AckService for the write side.
+    // -------------------------------------------------------------------
+
+    public function testFullyAcknowledgedSingleIssueAlertIsDroppedByDefault(): void {
+        $this->stubRules();
+        // password set: the only candidate signal is no_expiration.
+        $this->mapper->method('findInsecureLinks')->willReturn([$this->row(['password' => 'x'])]);
+        $this->ackMapper->method('findAll')->willReturn([$this->ack(1, 'no_expiration')]);
+
+        $alerts = $this->analyzer()->getAlerts();
+        $this->assertCount(0, $alerts);
+    }
+
+    public function testPartiallyAcknowledgedAlertKeepsOnlyItsActiveIssues(): void {
+        $this->stubRules();
+        // Both no_password and no_expiration apply to this row.
+        $this->mapper->method('findInsecureLinks')->willReturn([$this->row()]);
+        $this->ackMapper->method('findAll')->willReturn([$this->ack(1, 'no_password')]);
+
+        $alerts = $this->analyzer()->getAlerts();
+
+        $this->assertCount(1, $alerts);
+        $this->assertSame(['no_expiration'], $this->issueCodes($alerts[0]));
+        // Severity must be recomputed from what's left, not the original
+        // critical (no_password, now hidden).
+        $this->assertSame('warning', $alerts[0]['severity']);
+    }
+
+    public function testIncludeAcknowledgedReturnsEveryIssueAnnotated(): void {
+        $this->stubRules();
+        $this->mapper->method('findInsecureLinks')->willReturn([$this->row()]);
+        $this->ackMapper->method('findAll')->willReturn([
+            $this->ack(1, 'no_password', ['acknowledgedBy' => 'admin7', 'acknowledgedAt' => 1234, 'note' => 'known newsletter link']),
+        ]);
+
+        $alerts = $this->analyzer()->getAlerts(null, true);
+
+        $this->assertCount(1, $alerts);
+        $this->assertSame(['no_password', 'no_expiration'], $this->issueCodes($alerts[0]));
+        $this->assertFalse($alerts[0]['acknowledged']); // not *every* issue is acked
+        $noPassword = $alerts[0]['issues'][0];
+        $this->assertTrue($noPassword['acknowledged']);
+        $this->assertSame('admin7', $noPassword['acknowledgedBy']);
+        $this->assertSame(1234, $noPassword['acknowledgedAt']);
+        $this->assertSame('known newsletter link', $noPassword['note']);
+        $this->assertFalse($alerts[0]['issues'][1]['acknowledged']);
+    }
+
+    public function testIncludeAcknowledgedStillReturnsAFullyAcknowledgedAlert(): void {
+        $this->stubRules();
+        $this->mapper->method('findInsecureLinks')->willReturn([$this->row(['password' => 'x'])]);
+        $this->ackMapper->method('findAll')->willReturn([$this->ack(1, 'no_expiration')]);
+
+        $alerts = $this->analyzer()->getAlerts(null, true);
+
+        $this->assertCount(1, $alerts);
+        $this->assertTrue($alerts[0]['acknowledged']);
+    }
+
+    public function testAcknowledgedGroupShareAlertIsDroppedByDefault(): void {
+        $this->stubRules();
+        $this->mapper->method('findGroupShares')->willReturn([$this->groupShareRow()]);
+        $this->groupManager->method('get')->willReturn($this->groupWithMembers(85));
+        // groupShareRow()'s id is 10 — see its default fixture.
+        $this->ackMapper->method('findAll')->willReturn([$this->ack(10, 'group_share_editable')]);
+
+        $alerts = $this->analyzer()->getAlerts();
+        $this->assertCount(0, $alerts);
+    }
+
+    public function testCountAlertsExcludesFullyAcknowledgedAlerts(): void {
+        $this->stubRules();
+        $this->mapper->method('findInsecureLinks')->willReturn([
+            $this->row(['id' => 1, 'password' => 'x']), // no_expiration only
+            $this->row(['id' => 2]), // no_password + no_expiration
+        ]);
+        $this->ackMapper->method('findAll')->willReturn([$this->ack(1, 'no_expiration')]);
+
+        // Share 1 is fully acknowledged and disappears; share 2 stays.
+        $this->assertSame(1, $this->analyzer()->countAlerts());
+    }
+
+    // -------------------------------------------------------------------
+    // Share label, search and sort by name (the alerts list's search box
+    // and its "Name" sort options).
+    // -------------------------------------------------------------------
+
+    public function testAnAlertCarriesTheNameGivenToTheShare(): void {
+        $this->stubRules();
+        $this->mapper->method('findInsecureLinks')->willReturn([
+            $this->row(['id' => 1, 'label' => 'Contrato Q3']),
+            $this->row(['id' => 2, 'label' => '']),
+            $this->row(['id' => 3]),
+        ]);
+
+        $labels = array_column($this->analyzer()->getAlerts(), 'label', 'id');
+
+        $this->assertSame('Contrato Q3', $labels[1]);
+        // No custom name is null, not '': the UI shows a label only if there is one.
+        $this->assertNull($labels[2]);
+        $this->assertNull($labels[3]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function searchable(): array {
+        return [
+            ['id' => 1, 'path' => '/Finance/Contrato Q3.pdf', 'label' => null, 'owner' => 'FBEAD109', 'ownerDisplayName' => 'Ana Silva'],
+            ['id' => 2, 'path' => '/Marketing/logo.png', 'label' => 'Campanha Verão', 'owner' => 'alice', 'ownerDisplayName' => 'alice'],
+            ['id' => 3, 'path' => '/Finance/orcamento.xlsx', 'label' => null, 'owner' => 'bob', 'ownerDisplayName' => 'Bob Costa',
+                'recipient' => 'finance', 'recipientLabel' => 'Finance team'],
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $alerts
+     * @return int[]
+     */
+    private function ids(array $alerts): array {
+        return array_column($alerts, 'id');
+    }
+
+    public function testSearchMatchesTheFileNameWhateverTheCase(): void {
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'contrato')));
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'CONTRATO q3')));
+    }
+
+    public function testSearchMatchesTheShareLabelIncludingAccentedLetters(): void {
+        $this->assertSame([2], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'VERÃO')));
+    }
+
+    public function testSearchMatchesTheOwnerByDisplayNameAndByUid(): void {
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'silva')));
+        // An LDAP-style opaque uid is what the owner really is: still findable.
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'fbead')));
+    }
+
+    public function testSearchMatchesAGroupRecipient(): void {
+        $this->assertSame([3], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'team')));
+    }
+
+    public function testSearchDoesNotLookInTheFolderPartOfThePath(): void {
+        // "Finance" and "Marketing" are folders here; only names are searched.
+        $this->assertSame([], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'marketing')));
+    }
+
+    public function testEveryWordMustMatchButEachMayMatchADifferentField(): void {
+        $this->assertSame([1], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'contrato ana')));
+        $this->assertSame([], $this->ids($this->analyzer()->filterBySearch($this->searchable(), 'contrato bob')));
+    }
+
+    public function testAnEmptySearchKeepsEveryAlert(): void {
+        $this->assertSame([1, 2, 3], $this->ids($this->analyzer()->filterBySearch($this->searchable(), '   ')));
+    }
+
+    public function testSearchResultsAreReindexedForPaging(): void {
+        $found = $this->analyzer()->filterBySearch($this->searchable(), 'bob');
+        $this->assertSame([0], array_keys($found));
+    }
+
+    /**
+     * @param string[]|null[] $names file names, null for an alert with no path
+     * @return array<int, array<string, mixed>>
+     */
+    private function named(array $names): array {
+        $alerts = [];
+        foreach ($names as $i => $name) {
+            $alerts[] = ['id' => $i + 1, 'path' => $name === null ? null : '/some/folder/' . $name];
+        }
+        return $alerts;
+    }
+
+    public function testSortByNameIsCaseInsensitiveAndNatural(): void {
+        $alerts = $this->named(['b10.txt', 'B2.txt', 'a.txt', 'C.txt']);
+
+        $asc = $this->analyzer()->sortByName($alerts, true);
+        // a, then b2 before b10 (natural), then c — capitals do not jump the queue.
+        $this->assertSame([3, 2, 1, 4], $this->ids($asc));
+        $this->assertSame([4, 1, 2, 3], $this->ids($this->analyzer()->sortByName($alerts, false)));
+    }
+
+    public function testSortByNameLooksAtTheLastPathSegmentOnly(): void {
+        $alerts = [
+            ['id' => 1, 'path' => '/aaa/zebra.txt'],
+            ['id' => 2, 'path' => '/zzz/apple.txt'],
+        ];
+        $this->assertSame([2, 1], $this->ids($this->analyzer()->sortByName($alerts, true)));
+    }
+
+    public function testAlertsWithoutANameGoLastWhicheverWayTheSortRuns(): void {
+        $alerts = $this->named(['b.txt', null, 'a.txt']);
+
+        $this->assertSame([3, 1, 2], $this->ids($this->analyzer()->sortByName($alerts, true)));
+        $this->assertSame([1, 3, 2], $this->ids($this->analyzer()->sortByName($alerts, false)));
+    }
 }
+

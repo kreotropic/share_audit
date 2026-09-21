@@ -161,8 +161,8 @@ and regenerate the matching `l10n/<locale>.js` with `python3 build/l10n.py`.
 
 ## Requirements
 
-- Nextcloud 31–34
-- PHP 8.1 or later (tested up to PHP 8.5, which Nextcloud 34 ships with)
+- Nextcloud 31–35
+- PHP 8.1 or later (tested up to PHP 8.5, which Nextcloud 34 and 35 ship with)
 - MySQL/MariaDB or PostgreSQL — both are tested by running the same fixture on
   each and diffing the app's output, so the two return identical results
 

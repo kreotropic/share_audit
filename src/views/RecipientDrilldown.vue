@@ -41,7 +41,7 @@
 		<!-- Selected recipient detail -->
 		<template v-if="selected">
 			<div class="sad-recipient__head">
-				<NcButton type="tertiary" @click="clearSelection">
+				<NcButton variant="tertiary" @click="clearSelection">
 					{{ t('share_audit_dashboard', '← Back') }}
 				</NcButton>
 				<h3 class="sad-recipient__title">
@@ -58,7 +58,7 @@
 					:disabled="loading || revoking" />
 				<template v-if="total > 0">
 					<template v-if="!confirming">
-						<NcButton type="error" :disabled="revoking" @click="confirming = true">
+						<NcButton variant="error" :disabled="revoking" @click="confirming = true">
 							{{ t('share_audit_dashboard', 'Revoke all access') }}
 						</NcButton>
 					</template>
@@ -66,10 +66,10 @@
 						<span class="sad-recipient__confirm">
 							{{ n('share_audit_dashboard', 'Revoke %n share?', 'Revoke %n shares?', total) }}
 						</span>
-						<NcButton type="error" :disabled="revoking" @click="revokeAll">
+						<NcButton variant="error" :disabled="revoking" @click="revokeAll">
 							{{ t('share_audit_dashboard', 'Confirm') }}
 						</NcButton>
-						<NcButton type="tertiary" :disabled="revoking" @click="confirming = false">
+						<NcButton variant="tertiary" :disabled="revoking" @click="confirming = false">
 							{{ t('share_audit_dashboard', 'Cancel') }}
 						</NcButton>
 					</template>

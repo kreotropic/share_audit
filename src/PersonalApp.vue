@@ -42,7 +42,7 @@
 						<li v-for="(pw, i) in generatedPasswords" :key="i" class="sad-pw-row">
 							<span class="sad-pw-row__path">{{ pw.path }}</span>
 							<code class="sad-pw-row__code">{{ pw.password }}</code>
-							<NcButton type="tertiary" @click="copy(pw.password)">
+							<NcButton variant="tertiary" @click="copy(pw.password)">
 								{{ t('share_audit_dashboard', 'Copy') }}
 							</NcButton>
 						</li>
@@ -56,21 +56,26 @@
 				<!-- My alerts -->
 				<section v-if="alerts.length" class="sad-personal__block">
 					<h3>{{ t('share_audit_dashboard', 'Your links that need attention') }}</h3>
-					<BulkActionBar :count="selectedIds.length"
+					<AlertList :count="selectedIds.length"
 						:all-selected="allSelected"
 						:busy="busy"
+						:default-expiry-days="expiryDefaults.days"
+						:max-expiry-days="expiryDefaults.maxDays"
 						@bulk="onBulk"
 						@toggle-all="toggleAll"
-						@clear="selectedIds = []" />
-					<ul class="sad-alerts">
+						@clear="selectedIds = []">
 						<AlertCard v-for="alert in alerts"
 							:key="alert.id"
 							:alert="alert"
 							:busy="busy"
 							:selected="selectedIds.includes(alert.id)"
+							:expanded="expandedId === alert.id"
+							:allow-acknowledge="false"
+							:expiry-days="expiryDefaults.days"
 							@update:selected="toggleSelect(alert.id, $event)"
+							@toggle="toggleExpand(alert.id)"
 							@action="onAction" />
-					</ul>
+					</AlertList>
 				</section>
 
 				<!-- My shares -->
@@ -135,7 +140,7 @@ import NcChip from '@nextcloud/vue/components/NcChip'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AlertCard from './components/AlertCard.vue'
-import BulkActionBar from './components/BulkActionBar.vue'
+import AlertList from './components/AlertList.vue'
 import { categoryLabel, permissionLabel, formatDate } from './utils/format.js'
 import {
 	fetchMySummary, fetchMyShares, fetchMyAlerts,
@@ -157,7 +162,7 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		AlertCard,
-		BulkActionBar,
+		AlertList,
 	},
 	data() {
 		return {
@@ -166,9 +171,14 @@ export default {
 			busy: false,
 			summary: { total: 0, alertsCount: 0 },
 			alerts: [],
+			// The instance's expiration policy for public links (see
+			// ExpiryDefaultsService); the alerts response carries it.
+			expiryDefaults: { days: 30, maxDays: null },
 			shares: [],
 			sharesTotal: 0,
 			selectedIds: [],
+			// Alert whose details drawer is open — one at a time.
+			expandedId: null,
 			generatedPasswords: [],
 			notice: null,
 			icons: { total: svg(ICON_TOTAL), alert: svg(ICON_ALERT) },
@@ -188,6 +198,9 @@ export default {
 		categoryLabel,
 		permissionLabel,
 		formatDate,
+		toggleExpand(id) {
+			this.expandedId = this.expandedId === id ? null : id
+		},
 		toggleSelect(id, checked) {
 			if (checked) {
 				if (!this.selectedIds.includes(id)) {
@@ -251,6 +264,7 @@ export default {
 				])
 				this.summary = summary
 				this.alerts = alerts.items
+				this.expiryDefaults = alerts.expiryDefaults ?? this.expiryDefaults
 				this.shares = shares.items
 				this.sharesTotal = shares.total
 			} catch (e) {
@@ -267,9 +281,13 @@ export default {
 			])
 			this.summary = summary
 			this.alerts = alerts.items
+			this.expiryDefaults = alerts.expiryDefaults ?? this.expiryDefaults
 			this.shares = shares.items
 			this.sharesTotal = shares.total
 			this.selectedIds = this.selectedIds.filter((id) => this.alerts.some((a) => a.id === id))
+			if (!this.alerts.some((a) => a.id === this.expandedId)) {
+				this.expandedId = null
+			}
 		},
 		async onAction({ type, id, days, path }) {
 			this.busy = true
@@ -387,12 +405,6 @@ export default {
 .sad-personal__block h3 {
 	font-size: 15px;
 	margin: 0 0 12px;
-}
-
-.sad-alerts {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
 }
 
 .sad-personal__notice,

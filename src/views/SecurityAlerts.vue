@@ -22,13 +22,13 @@
 					<li v-for="(pw, i) in generatedPasswords" :key="i" class="sad-pw-row">
 						<span class="sad-pw-row__path">{{ pw.path }}</span>
 						<code class="sad-pw-row__code">{{ pw.password }}</code>
-						<NcButton type="tertiary" @click="copy(pw.password)">
+						<NcButton variant="tertiary" @click="copy(pw.password)">
 							{{ t('share_audit_dashboard', 'Copy') }}
 						</NcButton>
 					</li>
 				</ul>
 				<template #actions>
-					<NcButton type="tertiary" @click="generatedPasswords = []">
+					<NcButton variant="tertiary" @click="generatedPasswords = []">
 						{{ t('share_audit_dashboard', 'Dismiss') }}
 					</NcButton>
 				</template>
@@ -38,7 +38,16 @@
 				{{ notice.message }}
 			</NcNoteCard>
 
-			<NcEmptyContent v-if="items.length === 0 && !activeIssue"
+			<!-- Only shown standalone when AlertList isn't rendered (no
+			     active items to select) — otherwise this toggle lives next to
+			     "Select all" inside its toolbar, via the #leading slot. -->
+			<div v-if="items.length === 0 && !searching" class="sad-alerts-toolbar">
+				<NcCheckboxRadioSwitch :model-value="showAcknowledged" @update:model-value="onToggleShowAcknowledged">
+					{{ t('share_audit_dashboard', 'Show acknowledged') }}
+				</NcCheckboxRadioSwitch>
+			</div>
+
+			<NcEmptyContent v-if="items.length === 0 && !activeIssue && !searching"
 				:name="t('share_audit_dashboard', 'All clear')"
 				:description="t('share_audit_dashboard', 'No insecure public links were found.')">
 				<template #icon>
@@ -50,7 +59,7 @@
 				<section class="sad-alerts-breakdown">
 					<div class="sad-alerts-breakdown__header">
 						<h3>{{ t('share_audit_dashboard', 'Alerts by category') }}</h3>
-						<NcButton v-if="activeIssue" type="tertiary" @click="clearIssueFilter">
+						<NcButton v-if="activeIssue" variant="tertiary" @click="clearIssueFilter">
 							{{ t('share_audit_dashboard', 'Showing: {label} — clear filter', { label: issueLabel(activeIssue) }) }}
 						</NcButton>
 					</div>
@@ -62,7 +71,7 @@
 						@select="onIssueSelect" />
 				</section>
 
-				<NcEmptyContent v-if="items.length === 0"
+				<NcEmptyContent v-if="items.length === 0 && !searching"
 					:name="t('share_audit_dashboard', 'No alerts in this category')"
 					:description="t('share_audit_dashboard', 'Clear the filter to see the other insecure links.')">
 					<template #icon>
@@ -71,17 +80,39 @@
 				</NcEmptyContent>
 
 				<template v-else>
-					<BulkActionBar :count="selectedIds.length"
+					<AlertList :count="selectedIds.length"
 						:all-selected="allSelected"
 						:busy="busy"
+						show-acknowledge
+						:default-expiry-days="expiryDefaults.days"
+						:max-expiry-days="expiryDefaults.maxDays"
 						@bulk="onBulk"
 						@toggle-all="toggleAll"
 						@clear="selectedIds = []">
+						<template #leading>
+							<NcCheckboxRadioSwitch :model-value="showAcknowledged" @update:model-value="onToggleShowAcknowledged">
+								{{ t('share_audit_dashboard', 'Show acknowledged') }}
+							</NcCheckboxRadioSwitch>
+						</template>
+						<template #search>
+							<NcTextField v-model="searchText"
+								:label="t('share_audit_dashboard', 'Search alerts')"
+								:label-outside="true"
+								:placeholder="t('share_audit_dashboard', 'Name or owner…')"
+								:show-trailing-button="searchText !== ''"
+								:trailing-button-label="t('share_audit_dashboard', 'Clear search')"
+								@update:model-value="onSearch"
+								@trailing-button-click="clearSearch">
+								<template #icon>
+									<NcIconSvgWrapper :path="mdiMagnify" />
+								</template>
+							</NcTextField>
+						</template>
 						<template #trailing>
 							<PageSizeSelect v-model="sortOption"
 								:options="sortOptions"
 								:label="t('share_audit_dashboard', 'Sort by')"
-								:width="220"
+								:width="250"
 								:disabled="busy"
 								:aria-label="t('share_audit_dashboard', 'Sort alerts by')" />
 							<PageSizeSelect v-model="pageSize"
@@ -90,17 +121,24 @@
 								:disabled="busy"
 								:aria-label="t('share_audit_dashboard', 'Alerts per page')" />
 						</template>
-					</BulkActionBar>
 
-					<ul class="sad-alerts">
+						<li v-if="items.length === 0" class="sad-alerts-nomatch">
+							{{ t('share_audit_dashboard', 'No alerts match your search.') }}
+							<NcButton variant="tertiary" @click="clearSearch">
+								{{ t('share_audit_dashboard', 'Clear search') }}
+							</NcButton>
+						</li>
 						<AlertCard v-for="alert in items"
 							:key="alert.id"
 							:alert="alert"
 							:busy="busy"
 							:selected="selectedIds.includes(alert.id)"
+							:expanded="expandedId === alert.id"
+							:expiry-days="expiryDefaults.days"
 							@update:selected="toggleSelect(alert.id, $event)"
+							@toggle="toggleExpand(alert.id)"
 							@action="onCardAction" />
-					</ul>
+					</AlertList>
 
 					<div v-if="!isAll && total > apiLimit" class="sad-pagination">
 						<span class="sad-pagination__range">{{ rangeLabel }}</span>
@@ -115,17 +153,22 @@
 <script>
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
 import AlertCard from '../components/AlertCard.vue'
-import BulkActionBar from '../components/BulkActionBar.vue'
+import AlertList from '../components/AlertList.vue'
 import HBarChart from '../components/HBarChart.vue'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
 import { issueLabel } from '../utils/format.js'
+import { mdiMagnify } from '../utils/icons.js'
 import {
 	fetchAlerts, setSharePassword, setShareExpiration, revokeShare, bulkShareAction,
+	acknowledgeAlert, unacknowledgeAlert, bulkAcknowledgeAlerts,
 } from '../services/api.js'
 
 // Must match ShareActionController::BULK_MAX_IDS — larger selections ("Select
@@ -137,11 +180,14 @@ export default {
 	name: 'SecurityAlerts',
 	components: {
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcEmptyContent,
+		NcIconSvgWrapper,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcTextField,
 		AlertCard,
-		BulkActionBar,
+		AlertList,
 		HBarChart,
 		PageNavigation,
 		PageSizeSelect,
@@ -154,6 +200,9 @@ export default {
 			busy: false,
 			items: [],
 			breakdown: {},
+			// The instance's expiration policy for public links (see
+			// ExpiryDefaultsService); the alerts response carries it.
+			expiryDefaults: { days: 30, maxDays: null },
 			total: 0,
 			page: 1,
 			pageSizeOptions: [
@@ -168,15 +217,30 @@ export default {
 				{ id: 'severity', label: t('share_audit_dashboard', 'Severity (default)') },
 				{ id: 'created_asc', label: t('share_audit_dashboard', 'Oldest first') },
 				{ id: 'created_desc', label: t('share_audit_dashboard', 'Newest first') },
+				{ id: 'name_asc', label: t('share_audit_dashboard', 'Name (A–Z)') },
+				{ id: 'name_desc', label: t('share_audit_dashboard', 'Name (Z–A)') },
 			],
 			sortOption: { id: 'severity', label: t('share_audit_dashboard', 'Severity (default)') },
 			selectedIds: [],
+			// Alert whose details drawer is open — one at a time.
+			expandedId: null,
 			generatedPasswords: [],
 			notice: null,
 			// Issue code (e.g. 'no_password') the list is currently restricted
 			// to, set by clicking a bar in the "Alerts by category" chart.
 			// '' means no filter.
 			activeIssue: '',
+			// When true, alerts an admin has already acknowledged (see
+			// AckService) are included too — each issue annotated with who
+			// accepted it and when — instead of being dropped from the
+			// active list. See ShareApiController::alerts()'s
+			// $includeAcknowledged.
+			showAcknowledged: false,
+			// The search box: alerts whose file/folder name, share name or owner
+			// contain every word (see SecurityAnalyzerService::filterBySearch()).
+			searchText: '',
+			searchTimer: null,
+			mdiMagnify,
 		}
 	},
 	computed: {
@@ -210,10 +274,20 @@ export default {
 		},
 		// Maps the selected sort option to the API's sort/sortDir params.
 		apiSort() {
-			return this.sortOption.id === 'severity' ? 'severity' : 'created'
+			const id = this.sortOption.id
+			if (id === 'severity') {
+				return 'severity'
+			}
+			return id.startsWith('name') ? 'name' : 'created'
 		},
 		apiSortDir() {
-			return this.sortOption.id === 'created_asc' ? 'asc' : 'desc'
+			return ['created_asc', 'name_asc'].includes(this.sortOption.id) ? 'asc' : 'desc'
+		},
+		// Whether a search is narrowing the list. While it is, the list (and its
+		// search box) stays on screen even with nothing to show, so the box keeps
+		// its focus and can always be cleared.
+		searching() {
+			return this.searchText.trim() !== ''
 		},
 		totalPages() {
 			if (this.isAll) {
@@ -246,14 +320,26 @@ export default {
 	mounted() {
 		this.load()
 	},
+	beforeUnmount() {
+		clearTimeout(this.searchTimer)
+	},
 	methods: {
 		t,
 		n,
 		async load() {
 			try {
-				const data = await fetchAlerts({ page: this.page, limit: this.apiLimit, issue: this.activeIssue, sort: this.apiSort, sortDir: this.apiSortDir })
+				const data = await fetchAlerts({
+					page: this.page,
+					limit: this.apiLimit,
+					issue: this.activeIssue,
+					sort: this.apiSort,
+					sortDir: this.apiSortDir,
+					includeAcknowledged: this.showAcknowledged,
+					search: this.searchText.trim() || undefined,
+				})
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
+				this.expiryDefaults = data.expiryDefaults ?? this.expiryDefaults
 				this.total = data.total ?? this.items.length
 				// A revoke/expire on the last page can leave it empty — step back.
 				if (this.items.length === 0 && this.page > 1) {
@@ -262,6 +348,9 @@ export default {
 					return
 				}
 				this.selectedIds = this.selectedIds.filter((id) => this.items.some((a) => a.id === id))
+				if (!this.items.some((a) => a.id === this.expandedId)) {
+					this.expandedId = null
+				}
 				// The tab badge always reflects every insecure link, not just
 				// the current category filter.
 				this.$emit('alerts-count', data.totalAll ?? this.total)
@@ -284,6 +373,28 @@ export default {
 			this.selectedIds = []
 			this.load()
 		},
+		// Debounced: one request per pause in typing, not one per key.
+		onSearch() {
+			clearTimeout(this.searchTimer)
+			this.searchTimer = setTimeout(() => {
+				this.page = 1
+				this.selectedIds = []
+				this.load()
+			}, 400)
+		},
+		clearSearch() {
+			clearTimeout(this.searchTimer)
+			this.searchText = ''
+			this.page = 1
+			this.selectedIds = []
+			this.load()
+		},
+		onToggleShowAcknowledged(value) {
+			this.showAcknowledged = value
+			this.page = 1
+			this.selectedIds = []
+			this.load()
+		},
 		goto(page) {
 			if (page < 1 || page > this.totalPages || page === this.page) {
 				return
@@ -294,6 +405,9 @@ export default {
 		},
 		toggleAll(checked) {
 			this.selectedIds = checked ? this.items.map((a) => a.id) : []
+		},
+		toggleExpand(id) {
+			this.expandedId = this.expandedId === id ? null : id
 		},
 		toggleSelect(id, checked) {
 			if (checked) {
@@ -307,7 +421,9 @@ export default {
 		copy(text) {
 			navigator.clipboard?.writeText(text)
 		},
-		async onCardAction({ type, id, days, path }) {
+		async onCardAction({
+			type, id, days, path, ruleCodes, note,
+		}) {
 			this.busy = true
 			this.notice = null
 			try {
@@ -320,6 +436,12 @@ export default {
 				} else if (type === 'revoke') {
 					await revokeShare(id)
 					this.notice = { type: 'success', message: t('share_audit_dashboard', 'Share revoked.') }
+				} else if (type === 'acknowledge') {
+					await acknowledgeAlert(id, ruleCodes, note)
+					this.notice = { type: 'success', message: t('share_audit_dashboard', 'Marked as accepted.') }
+				} else if (type === 'unacknowledge') {
+					await unacknowledgeAlert(id, ruleCodes)
+					this.notice = { type: 'success', message: t('share_audit_dashboard', 'Exception removed — this alert is active again.') }
 				}
 				await this.load()
 			} catch (e) {
@@ -333,6 +455,9 @@ export default {
 				return
 			}
 			const idToPath = Object.fromEntries(this.items.map((a) => [a.id, a.path]))
+			// Only used for 'acknowledge': each alert keeps its own issue set,
+			// unlike revoke/password/expiration which apply uniformly.
+			const idToIssues = Object.fromEntries(this.items.map((a) => [a.id, a.issues.map((iss) => iss.code)]))
 			this.busy = true
 			this.notice = null
 			try {
@@ -341,7 +466,9 @@ export default {
 				let total = 0
 				for (let i = 0; i < this.selectedIds.length; i += BULK_CHUNK_SIZE) {
 					const chunk = this.selectedIds.slice(i, i + BULK_CHUNK_SIZE)
-					const data = await bulkShareAction(action, chunk, days ? { days } : {})
+					const data = action === 'acknowledge'
+						? await bulkAcknowledgeAlerts(chunk.map((id) => ({ id, ruleCodes: idToIssues[id] || [] })))
+						: await bulkShareAction(action, chunk, days ? { days } : {})
 					succeeded += data.succeeded
 					failed += data.failed
 					total += data.total
@@ -370,6 +497,26 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.sad-alerts-toolbar {
+	display: flex;
+	// Left-aligned so it sits above "Select all" (AlertList's own
+	// left-aligned checkbox) rather than opposite it — this toggle must stay
+	// outside that bar so it's still reachable with zero *active* alerts
+	// (the "All clear" empty state), but it should still read as part of the
+	// same left-hand control cluster once the bar appears below it.
+	justify-content: flex-start;
+	margin-bottom: 8px;
+}
+
+.sad-alerts-nomatch {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 28px 16px;
+	color: var(--color-text-maxcontrast);
+}
+
 .sad-alerts-breakdown {
 	padding: 16px;
 	margin-bottom: 20px;
@@ -388,12 +535,6 @@ export default {
 	justify-content: space-between;
 	gap: 12px;
 	margin-bottom: 12px;
-}
-
-.sad-alerts {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
 }
 
 .sad-pw-panel__title {

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\ReportService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
@@ -38,6 +39,7 @@ class ShareApiController extends AdminController {
         private SettingsService $settings,
         private OrphanShareService $orphanService,
         private SoftDeleteService $softDelete,
+        private ExpiryDefaultsService $expiryDefaults,
         IUserSession $userSession,
         IGroupManager $groupManager,
     ) {
@@ -59,6 +61,9 @@ class ShareApiController extends AdminController {
 
     /**
      * GET /api/shares — paginated, filterable list of all shares.
+     *
+     * $limit keeps Nextcloud's default 1..500 rule (no "all" page size here:
+     * the collector clamps it to at least 1).
      */
     public function index(
         int $page = 1,
@@ -163,26 +168,47 @@ class ShareApiController extends AdminController {
      * the FULL set, unfiltered, so the chart stays a stable overview the admin
      * can use to jump between categories.
      *
-     * A $limit of 0 (or less) returns every matching alert on a single page,
+     * A $limit of 0 returns every matching alert on a single page,
      * so the "select all" bulk action can span the whole (filtered) set.
      *
      * $sort defaults to 'severity' (today's behaviour: critical > warning >
      * info, as ranked by SecurityAnalyzerService::getAlerts()). Passing
      * 'created' re-sorts by share creation date instead, direction per
      * $sortDir — lets an admin triage the oldest risky shares first.
+     *
+     * $includeAcknowledged (the alerts view's "show acknowledged" toggle)
+     * mirrors getAlerts()'s own parameter: false (default) hides anything
+     * an admin has already accepted (see AckService), so `items`,
+     * `breakdown` and `totalAll` all reflect only what's still active —
+     * true returns everything, each issue annotated with its acknowledgment
+     * details, for reviewing or undoing exceptions.
+     *
+     * $search keeps only the alerts whose file/folder name, share label or owner
+     * contain every word of it (see SecurityAnalyzerService::filterBySearch()).
+     * The breakdown counts follow it, so the chart always adds up to the list;
+     * `totalAll` — the tab badge — deliberately does not.
+     *
+     * $sort = 'name' orders by file/folder name, direction per $sortDir.
+     *
+     * @param int<0, 500> $limit page size, 0 = everything on one page. Declared
+     *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
+     *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
-    public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc'): JSONResponse {
+    public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc', bool $includeAcknowledged = false, string $search = ''): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        $all = $this->security->getAlerts();
-        $breakdown = $this->security->countByIssue($all);
+        $all = $this->security->getAlerts(null, $includeAcknowledged);
+        $searched = $this->security->filterBySearch($all, $search);
+        $breakdown = $this->security->countByIssue($searched);
         $filtered = $issue !== ''
-            ? array_values(array_filter($all, static fn ($alert) => in_array($issue, array_column($alert['issues'], 'code'), true)))
-            : $all;
+            ? array_values(array_filter($searched, static fn ($alert) => in_array($issue, array_column($alert['issues'], 'code'), true)))
+            : $searched;
         if ($sort === 'created') {
             $direction = $sortDir === 'asc' ? 1 : -1;
             usort($filtered, static fn ($a, $b) => $direction * (($a['created'] ?? 0) <=> ($b['created'] ?? 0)));
+        } elseif ($sort === 'name') {
+            $filtered = $this->security->sortByName($filtered, $sortDir === 'asc');
         }
         $total = count($filtered);
         $offset = max(0, ($page - 1) * $limit);
@@ -196,6 +222,8 @@ class ShareApiController extends AdminController {
             'page' => $page,
             'limit' => $limit,
             'breakdown' => $breakdown,
+            // What "Set expiry" should offer: the instance's own sharing policy.
+            'expiryDefaults' => $this->expiryDefaults->forLinks(),
         ]);
     }
 

@@ -20,7 +20,7 @@ services:
 
   app:
     # See the note in docker-compose.pgsql.yml about keeping the two in step.
-    image: nextcloud:34-apache
+    image: nextcloud:35-apache
     container_name: shareaudit-my-app
     restart: unless-stopped
     ports:

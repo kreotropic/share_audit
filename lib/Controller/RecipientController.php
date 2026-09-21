@@ -45,7 +45,11 @@ class RecipientController extends AdminController {
     /**
      * GET /api/recipients/shares — shares granting access to a recipient.
      *
-     * A $limit of 0 (or less) returns every matching share on a single page.
+     * A $limit of 0 returns every matching share on a single page.
+     *
+     * @param int<0, 500> $limit page size, 0 = everything on one page. Declared
+     *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
+     *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
     #[UserRateLimit(limit: 60, period: 60)]
     public function shares(string $shareWith = '', int $shareType = -1, int $page = 1, int $limit = 25): JSONResponse {

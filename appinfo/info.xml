@@ -50,7 +50,7 @@ Unlike the CLI‑only sharelisting app, everything is available in the browser.
 
     <dependencies>
         <php min-version="8.1"/>
-        <nextcloud min-version="31" max-version="34"/>
+        <nextcloud min-version="31" max-version="35"/>
     </dependencies>
 
     <!-- Order matters below: info.xsd declares these as a sequence

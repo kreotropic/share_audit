@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Service;
 
+use OCA\ShareAuditDashboard\Db\Ack;
+use OCA\ShareAuditDashboard\Db\AckMapper;
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCP\Constants;
 use OCP\ICache;
@@ -50,6 +52,18 @@ class SecurityAnalyzerService {
     /** Permission bits that make a group share "editable" for the group_share_editable rule. */
     private const EDIT_PERMISSIONS = Constants::PERMISSION_UPDATE | Constants::PERMISSION_SHARE;
 
+    /**
+     * Every issue code an alert can carry: SettingsService::RULES (the five
+     * toggleable rules) plus expiring_soon/already_expired, which aren't
+     * configurable (see issuesFor()). Single source of truth for validating
+     * a caller-supplied rule code — see AckService::acknowledge().
+     */
+    public const ISSUE_CODES = [
+        'no_password', 'no_expiration', 'sensitive_file',
+        'group_share_editable', 'public_upload',
+        'expiring_soon', 'already_expired',
+    ];
+
     private ICache $cache;
     private ICache $groupMemberCache;
 
@@ -59,6 +73,7 @@ class SecurityAnalyzerService {
         private PathFormatter $pathFormatter,
         private IGroupManager $groupManager,
         private DisplayNameResolver $displayNames,
+        private AckMapper $ackMapper,
         ICacheFactory $cacheFactory,
     ) {
         $this->cache = $cacheFactory->createDistributed('share_audit_dashboard-alerts');
@@ -66,28 +81,17 @@ class SecurityAnalyzerService {
     }
 
     /**
-     * Number of shares flagged as insecure (used for dashboard badges).
-     * Link-based rules are computed directly in SQL — see
-     * ShareMapper::countInsecureLinks() — so badges don't pay the cost of
-     * normalizing every alert just for a count; group_share_editable can't
-     * take that shortcut (member counts aren't in oc_share) and reuses the
-     * same row-filtering as getAlerts(), just without building full alert
-     * records — cheap in practice since group shares are a small slice of
-     * the share table.
+     * Number of shares still actively needing attention (used for dashboard
+     * badges) — i.e. excluding anything an admin has already acknowledged
+     * (see ROADMAP.md's G2). Delegates to getAlerts(), which already carries
+     * this exact filtering and a short cache (CACHE_TTL): a dedicated
+     * SQL-only count (the pre-G2 approach — see ShareMapper's git history)
+     * can't know which rows are acknowledged without re-deriving the same
+     * per-issue logic getAlerts() already does, so there's nothing cheaper
+     * left to shortcut to once acknowledgment has to be honored.
      */
     public function countAlerts(?string $owner = null): int {
-        $count = $this->mapper->countInsecureLinks(
-            $this->settings->isRuleEnabled('no_password'),
-            $this->settings->isRuleEnabled('no_expiration'),
-            $this->settings->isRuleEnabled('sensitive_file'),
-            $this->settings->getSensitiveExtensions(),
-            $owner,
-            $this->expiringSoonCutoff(),
-        );
-        if ($this->settings->isRuleEnabled('group_share_editable')) {
-            $count += count($this->riskyGroupShareRows($owner));
-        }
-        return $count;
+        return count($this->getAlerts($owner));
     }
 
     /**
@@ -95,17 +99,96 @@ class SecurityAnalyzerService {
      * (personal view), scoped to links this user owns OR initiated — see
      * ShareMapper::findInsecureLinks().
      *
+     * By default ($includeAcknowledged = false — every existing caller),
+     * an issue an admin has acknowledged (see AckService) is dropped from
+     * its alert's `issues`, and the whole alert disappears once none are
+     * left — this is what keeps an intentionally-accepted link from
+     * permanently inflating the count. Pass true (the alerts view's "show
+     * acknowledged" filter) to get every alert back unfiltered, each issue
+     * annotated with `acknowledged` (+ `acknowledgedBy`/`acknowledgedAt`/
+     * `note` when true) so the UI can review and undo exceptions.
+     *
      * @return array<int, array<string, mixed>>
      */
-    public function getAlerts(?string $owner = null): array {
+    public function getAlerts(?string $owner = null, bool $includeAcknowledged = false): array {
         $cacheKey = $owner ?? '__admin__';
         $cached = $this->cache->get($cacheKey);
-        if (is_array($cached)) {
-            return $cached;
+        if (!is_array($cached)) {
+            $cached = $this->computeAlerts($owner);
+            $this->cache->set($cacheKey, $cached, self::CACHE_TTL);
         }
-        $alerts = $this->computeAlerts($owner);
-        $this->cache->set($cacheKey, $alerts, self::CACHE_TTL);
+        return $includeAcknowledged ? $cached : $this->stripAcknowledged($cached);
+    }
+
+    /**
+     * The alerts whose file/folder name, share label, owner (uid or display
+     * name) or group recipient contain every word of $search — case-
+     * insensitively, in any order, each word free to match a different field
+     * ("contrato ana" finds Ana's contract). An empty search keeps them all.
+     *
+     * Deliberately not the path: a folder name in it would flood a search for
+     * a file. Done here rather than in SQL because the list is computed and
+     * cached whole (see getAlerts()) and paged in PHP.
+     *
+     * @param array<int, array<string, mixed>> $alerts
+     * @return array<int, array<string, mixed>>
+     */
+    public function filterBySearch(array $alerts, string $search): array {
+        $words = preg_split('/\s+/u', trim($search), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($words === []) {
+            return $alerts;
+        }
+        return array_values(array_filter($alerts, static function (array $alert) use ($words): bool {
+            $fields = [
+                self::nameOf($alert), $alert['label'] ?? '', $alert['owner'] ?? '',
+                $alert['ownerDisplayName'] ?? '', $alert['recipient'] ?? '', $alert['recipientLabel'] ?? '',
+            ];
+            foreach ($words as $word) {
+                $found = false;
+                foreach ($fields as $field) {
+                    if ($field !== '' && mb_stripos((string)$field, $word) !== false) {
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    return false;
+                }
+            }
+            return true;
+        }));
+    }
+
+    /**
+     * $alerts ordered alphabetically by file/folder name — case-insensitive,
+     * and "natural" so file2 comes before file10. An alert with no known name
+     * (its file has left the cache) goes last whichever way the sort runs, so
+     * reversing it reorders the named ones instead of dragging those to the top.
+     *
+     * @param array<int, array<string, mixed>> $alerts
+     * @return array<int, array<string, mixed>>
+     */
+    public function sortByName(array $alerts, bool $ascending): array {
+        $direction = $ascending ? 1 : -1;
+        usort($alerts, static function (array $a, array $b) use ($direction): int {
+            $nameA = self::nameOf($a);
+            $nameB = self::nameOf($b);
+            if ($nameA === '' || $nameB === '') {
+                return ($nameA === '') <=> ($nameB === '');
+            }
+            return $direction * strnatcmp(mb_strtolower($nameA), mb_strtolower($nameB));
+        });
         return $alerts;
+    }
+
+    /**
+     * The file/folder name of an alert: the last segment of its path, or ''.
+     *
+     * @param array<string, mixed> $alert
+     */
+    private static function nameOf(array $alert): string {
+        $parts = array_values(array_filter(explode('/', (string)($alert['path'] ?? '')), 'strlen'));
+        return $parts === [] ? '' : $parts[count($parts) - 1];
     }
 
     /**
@@ -128,6 +211,8 @@ class SecurityAnalyzerService {
      * @return array<int, array<string, mixed>>
      */
     private function computeAlerts(?string $owner): array {
+        $acked = $this->loadAcknowledgedPairs();
+
         $alerts = [];
         foreach ($this->mapper->findInsecureLinks($owner, $this->expiringSoonCutoff()) as $row) {
             $issues = $this->issuesFor($row);
@@ -156,10 +241,83 @@ class SecurityAnalyzerService {
         $names = $this->displayNames->resolveMany(array_column($alerts, 'owner'));
         foreach ($alerts as &$alert) {
             $alert['ownerDisplayName'] = $names[$alert['owner']] ?? $alert['owner'];
+            $alert = $this->annotateAcknowledgements($alert, $acked);
         }
         unset($alert);
 
         return $alerts;
+    }
+
+    /**
+     * Every recorded exception, indexed by "shareId:ruleCode" for O(1)
+     * lookup while annotating each alert's issues — see AckMapper::findAll().
+     *
+     * @return array<string, Ack>
+     */
+    private function loadAcknowledgedPairs(): array {
+        $pairs = [];
+        foreach ($this->ackMapper->findAll() as $ack) {
+            $pairs[$ack->getShareId() . ':' . $ack->getRuleCode()] = $ack;
+        }
+        return $pairs;
+    }
+
+    /**
+     * Attach `acknowledged` (+ details when true) to every issue on $alert,
+     * and an overall `acknowledged` flag on the alert itself — true only
+     * when *every* issue is covered, matching stripAcknowledged()'s "drop
+     * the whole alert only once nothing active is left" behaviour.
+     *
+     * @param array<string, mixed> $alert
+     * @param array<string, Ack> $acked
+     * @return array<string, mixed>
+     */
+    private function annotateAcknowledgements(array $alert, array $acked): array {
+        $allAcked = true;
+        foreach ($alert['issues'] as &$issue) {
+            $ack = $acked[$alert['id'] . ':' . $issue['code']] ?? null;
+            $issue['acknowledged'] = $ack !== null;
+            if ($ack !== null) {
+                $issue['acknowledgedBy'] = $ack->getAcknowledgedBy();
+                $issue['acknowledgedAt'] = $ack->getAcknowledgedAt();
+                $issue['note'] = $ack->getNote();
+            } else {
+                $allAcked = false;
+            }
+        }
+        unset($issue);
+        $alert['acknowledged'] = $allAcked;
+        return $alert;
+    }
+
+    /**
+     * Default view of getAlerts(): drop acknowledged issues from each
+     * alert's `issues`, and the alert itself once none are left. Severity is
+     * recomputed from whatever remains, so an alert that was critical only
+     * because of its (now acknowledged) no_password issue correctly drops
+     * to whatever its remaining issues warrant.
+     *
+     * @param array<int, array<string, mixed>> $alerts
+     * @return array<int, array<string, mixed>>
+     */
+    private function stripAcknowledged(array $alerts): array {
+        $result = [];
+        foreach ($alerts as $alert) {
+            if ($alert['acknowledged']) {
+                continue;
+            }
+            $activeIssues = array_values(array_filter(
+                $alert['issues'],
+                static fn (array $issue) => !$issue['acknowledged'],
+            ));
+            if ($activeIssues === []) {
+                continue;
+            }
+            $alert['issues'] = $activeIssues;
+            $alert['severity'] = $this->maxSeverity($activeIssues);
+            $result[] = $alert;
+        }
+        return $result;
     }
 
     /**
@@ -177,6 +335,10 @@ class SecurityAnalyzerService {
             'owner' => (string)$row['uid_owner'],
             'fileId' => isset($row['file_source']) ? (int)$row['file_source'] : null,
             'path' => $this->pathFormatter->prettyPath($row['file_path'] ?? null),
+            // The name given to the share itself (a link's custom label), if any.
+            // oc_share keeps it in `label`; `share_name` is a legacy column
+            // that is always NULL.
+            'label' => ($row['label'] ?? '') !== '' ? (string)$row['label'] : null,
             'token' => $token,
             'created' => isset($row['stime']) ? (int)$row['stime'] : null,
             'issues' => $issues,
@@ -187,8 +349,8 @@ class SecurityAnalyzerService {
     /**
      * Group shares that grant edit/reshare permission to a group with at
      * least SettingsService::getGroupShareMinMembers() members — the
-     * candidate pool for the group_share_editable rule. Reused by both
-     * getAlerts() (full records) and countAlerts() (just the count).
+     * candidate pool for the group_share_editable rule, used by
+     * computeAlerts() (and, through it, both getAlerts() and countAlerts()).
      *
      * @return array<int, array<string, mixed>> rows annotated with `_memberCount`
      */

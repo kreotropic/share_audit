@@ -21,7 +21,7 @@
 					<div v-if="stats.alertsCount > 0" class="sad-alert-row sad-alert-row--error">
 						<span class="sad-alert-row__msg">{{ n('share_audit_dashboard',
 							'%n share needs attention', '%n shares need attention', stats.alertsCount) }}</span>
-						<NcButton type="tertiary" @click="$emit('navigate', 'alerts')">
+						<NcButton variant="tertiary" @click="$emit('navigate', 'alerts')">
 							{{ t('share_audit_dashboard', 'Review alerts') }}
 						</NcButton>
 					</div>
@@ -29,7 +29,7 @@
 						<span class="sad-alert-row__msg">{{ n('share_audit_dashboard',
 							'%n share owned by a disabled or deleted account',
 							'%n shares owned by disabled or deleted accounts', stats.orphanCount) }}</span>
-						<NcButton type="tertiary" @click="$emit('navigate', 'lookup')">
+						<NcButton variant="tertiary" @click="$emit('navigate', 'lookup')">
 							{{ t('share_audit_dashboard', 'Review orphans') }}
 						</NcButton>
 					</div>

@@ -8,12 +8,12 @@
 ## Current state (v0.5.0)
 
 The app is **published on the App Store** (`min-version` 31, `max-version`
-34) and functionally complete: three review rounds (security, pre-submission
+35) and functionally complete: three review rounds (security, pre-submission
 and a line-by-line quality audit) were run and closed before 0.3.0 — see
 [CHANGELOG.md](CHANGELOG.md) for what each version fixed. 0.4.0 added soft
 delete (recycle bin) for shares and Nextcloud 34 support; 0.5.0 added German
 and Spanish translations and a Nextcloud Playground preview. The app has a
-test suite (`phpunit`, `tests/Unit/`, 84 tests) and CI
+test suite (`phpunit`, `tests/Unit/`, 135 tests) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -40,11 +40,26 @@ already implemented and working:
   upload without a password (file drop), and group shares with edit/reshare
   granted to large groups — with **configurable rules** (Settings tab)
 - Breakdown by category (bar chart)
+- **Search and sort by name**: a search box over the alert list matches the
+  file/folder name, the share's own name (the label of a public link), the
+  owner (user id or display name) and, for group shares, the group — every
+  word must match somewhere, ignoring case. The list can also be
+  sorted by name (A–Z / Z–A, natural order). Both work on top of the category
+  filter and paging; the chart follows the search. GitHub issues
+  [#12](https://github.com/kreotropic/share_audit/issues/12) and
+  [#14](https://github.com/kreotropic/share_audit/issues/14).
 - Individual and **bulk** actions: generate a password, set an expiration
-  (7/30/90d), revoke. Generated passwords are shown once.
-- Copy public-link URL and "Open in Files" on each alert
+  (7/30/90d, or your Sharing settings' default — capped where expiration is
+  enforced), revoke. Generated passwords are shown once.
+- Copy the public link, open it in a new tab, or "Open in Files", from each alert
 - Every revocation and remediation is logged to Nextcloud's audit channel
   (requires the `admin_audit` app enabled)
+- **Acknowledge/exception** (per (share, rule) pair, optionally with a
+  note): an intentionally-accepted alert (e.g. a public newsletter link) can
+  be dismissed instead of permanently inflating the count — closes GitHub
+  issue [#5](https://github.com/kreotropic/share_audit/issues/5). A "Show
+  acknowledged" toggle reviews or undoes any exception. The app's **second**
+  database migration (`oc_shareaudit_ack`).
 
 **Lookup & Orphans**
 - **Orphan shares**: shares whose owner is disabled or deleted, with bulk
@@ -76,39 +91,52 @@ already implemented and working:
   instead of relying on discipline)
 - README, screenshots, `krankerl.toml` + `.nextcloudignore` for packaging
 - `min-version` 31 (NC 30 is no longer supported — orphan-share revoke
-  depends on a parameter only available from NC 31 onward), `max-version` 34
+  depends on a parameter only available from NC 31 onward), `max-version` 35
 
 ---
 
-## Next up — G2: acknowledge/exception on alerts
+## G2 — acknowledge/exception on alerts (delivered)
 
-The highest-impact item left, and it **doesn't** depend on App Store
-traction.
+Implemented as designed: `AckController`/`AckService` +
+`oc_shareaudit_ack` (`share_id`, `rule_code`, `acknowledged_by`,
+`acknowledged_at`, optional `note`, unique on `(share_id, rule_code)`,
+migration `Version0006Date20260920160000`). `SecurityAnalyzerService::
+getAlerts()` takes an `$includeAcknowledged` flag: false (every existing
+caller — admin view, personal view, the dashboard widget, `countAlerts()`)
+drops an acknowledged issue from its alert and the alert itself once none
+are left, recomputing severity from what remains; true (the alerts view's
+"Show acknowledged" toggle) returns everything, each issue annotated with
+who accepted it, when, and any note, so exceptions can be reviewed or
+undone (`unacknowledge()`). Covers all current rules, including
+`group_share_editable`/`public_upload`. Closes GitHub issue
+[#5](https://github.com/kreotropic/share_audit/issues/5) ("Mark as already
+reviewed"). Bulk acknowledge (`AckController::bulkAcknowledge()`, `POST
+/api/alerts/bulk-ack`, "Acknowledge all" next to the other bulk actions)
+was added right after first use surfaced the need — each selected alert
+keeps its own issue set (unlike revoke/password/expiration, which apply
+uniformly), so each item in the request names its own `ruleCodes`. See
+CHANGELOG.md for the release this lands in.
 
-**Problem:** in practice, every instance has public links that are
-intentionally passwordless (a public page, a newsletter). With no way to
-mark "this is accepted", the alert count never reaches zero — and a
-permanently red counter stops being looked at after ~2 weeks.
+**Deliberately left out of this pass** — none block shipping, revisit if
+they turn out to matter in practice:
+- **Bulk *un*acknowledge.** The "Show acknowledged" filter still only
+  removes an exception one row at a time; a symmetric bulk action would
+  reuse the same `BulkActionBar`/`AckController` plumbing bulk-acknowledge
+  already added, so it's a small lift whenever it's asked for.
+- **Orphaned `shareaudit_ack` rows.** A share's exceptions aren't cleaned up
+  when it's later revoked/purged — harmless (an id is never reused, so a
+  stale row can never match a future alert) and, in practice, small in
+  number. Same call already made for the missing `share_with`/`path`
+  indexes below; revisit with the same "wait for evidence" bar.
+- **DE/ES/FR translations for the 7 new UI strings** were done directly (not
+  reviewed by the community translators credited for those languages in
+  CHANGELOG.md) — worth a native-speaker pass before the next release.
+  EN and PT-PT are the maintainer's own and authoritative as always.
 
-**Fix:** a new `oc_shareaudit_ack` table (`share_id`, `rule_code`,
-`acknowledged_by`, `acknowledged_at`, optional `note`). `getAlerts()` will
-exclude (or mark as "acknowledged", with a show/hide filter) any
-`(share_id, rule_code)` pair present in the table. Needs:
-- `AckController` (`POST /api/alerts/{id}/ack`, `DELETE` to remove the
-  exception), admin-only.
-- UI: an "Acknowledge" button per alert row, and a "show acknowledged"
-  filter in the alerts view (for audit purposes — they don't disappear,
-  they just drop out of the active count).
-- Needs its own migration (`lib/Migration/`) — this will be the app's
-  **second** migration (the first, `oc_shareaudit_deleted`, shipped in 0.4.0
-  with soft delete).
-- Must cover **all** current rules, including the two most recent
-  (`group_share_editable`, `public_upload`), not just the original three.
-- Reuse the existing test pattern in `tests/Unit/` for the new
-  `acknowledged` logic.
-
-**Effort/impact:** medium effort, high impact — no native NC tool offers
-this.
+With G2 done, every remaining backlog item below is explicitly gated on App
+Store traction (or is a GitHub issue awaiting the maintainer's own
+prioritization) — there's no other currently-identified "ungated" item to
+promote here automatically.
 
 ---
 
@@ -293,41 +321,5 @@ upfront). Like the CSV, the report must not include access tokens.
 - Missing an index on `share_with` (autocomplete/recipient search,
   `ILIKE %...%`) and on `path` (sorting). Tolerable on a ~300-user instance
   (tens of thousands of rows); decision deferred until there's evidence of
-  larger instances. When it's justified, add via migration — coordinate
-  with G2 (acknowledge), which will need a migration anyway.
-- **Name-based search & sort for "All shares"** ([issue #14](https://github.com/kreotropic/share_audit/issues/14)
-  + [issue #12](https://github.com/kreotropic/share_audit/issues/12)) — both
-  land on the same "Path" column header (its search funnel and its sort
-  toggle), and both turn out cheap:
-  - **Search (#14).** The "Path" filter (`pathSearch`) only matches
-    `f.path`; a custom share label (`share_name`, the OCS "label" field
-    settable when creating a share) isn't matched by any current filter, so
-    a share labelled e.g. "Q3 Budget — external review" is unreachable by
-    search unless you already know its file path. Substring search on the
-    path already covers "search by file/folder name" reasonably well
-    (`ILIKE %query%` matches the basename portion too, wherever it sits in
-    the path) — the real gap is just `share_name`. The groundwork already
-    exists and is mostly orphaned: `ShareMapper::findShares()` still has a
-    `search` filter (`f.path` OR `s.share_with` OR `s.share_name`, ILIKE)
-    reachable via the `GET /api/shares?search=` and CSV-export query
-    params — it predates the column-header funnel redesign and nothing in
-    the current UI sends it anymore. Fix: fold `s.share_name` into the
-    existing `pathSearch` condition (same funnel, no new UI element) rather
-    than reviving a separate global search box.
-  - **Sort (#12).** Today's path sort orders by the *full path string*, so
-    two files both named `notas.txt` in different folders don't sort
-    adjacently — the request is ordering by *basename specifically*.
-    **Turns out `oc_filecache` already carries the basename in its own
-    `name` column** (indexed, and already joined + used elsewhere in this
-    file for the sensitive-extension check — see `f.name` in
-    `SecurityAnalyzerService`'s file-type matching), so no cross-engine
-    string-splitting is needed at all: add `'name' => 'f.name'` to
-    `ShareMapper::SORT_COLUMNS` and `'name'` to `NULLABLE_SORT_COLUMNS`
-    (same nulls-last handling `path` already gets, for free — a share whose
-    file left the cache has no name either) and wire a sort control to it
-    on the frontend. (Earlier version of this note assumed a
-    `SUBSTRING_INDEX`/`split_part` extraction would be needed — wrong,
-    caught before it shipped.)
-  - Decide at implementation time whether "Path" still reads right as a
-    column label once its search also matches the share's custom name, and
-    whether "sort by name" reuses that same header control or gets its own.
+  larger instances. G2's migration (`oc_shareaudit_ack`) shipped without
+  bundling this, so it'll need its own migration whenever it's justified.

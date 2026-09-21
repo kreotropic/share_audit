@@ -17,7 +17,7 @@
 				:key="tab.id"
 				class="sad-tab-wrap"
 				:class="{ 'sad-tab-wrap--active': activeTab === tab.id }">
-				<NcButton :type="activeTab === tab.id ? 'primary' : 'tertiary'"
+				<NcButton :variant="activeTab === tab.id ? 'primary' : 'tertiary'"
 					@click="selectTab(tab.id)">
 					<span class="sad-tab">
 						{{ tab.label }}

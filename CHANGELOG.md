@@ -8,6 +8,94 @@
 All notable changes to Share Audit Dashboard are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- **Nextcloud 35 support.** The app is declared compatible with Nextcloud
+  35 (`max-version` 35), so Nextcloud no longer warns about it before
+  upgrading. Checked on real Nextcloud 34.0.4 and 35.0.0 instances (PHP 8.5,
+  SQLite, MariaDB and PostgreSQL): both migrations, the alert / acknowledge /
+  recycle-bin flows and every admin API endpoint work — apart from the *All*
+  page size, fixed below
+  ([#20](https://github.com/kreotropic/share_audit/issues/20)).
+- **Open a public link from its alert.** Every alert with a public link has an
+  *Open link in a new tab* action next to *Copy link*, so a link whose file
+  name means nothing without context can be judged by what it actually shows.
+  The link opens with `noopener`, so the page it opens cannot reach back into
+  the admin page. Thanks [@michel-thomas](https://github.com/michel-thomas)
+  ([#7](https://github.com/kreotropic/share_audit/issues/7)).
+- **"Set expiry" follows your sharing policy.** The action used a fixed 30
+  days; it now starts from what *Administration settings → Sharing* defines
+  for public links — the default number of days when a default expiration is
+  switched on (30 days when it isn't). Where expiration is *enforced*, no
+  period beyond the allowed maximum is offered, and a longer request is capped
+  to it instead of failing. It applies to the row action, the bulk *Set
+  expiry* and the personal view. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#6](https://github.com/kreotropic/share_audit/issues/6)).
+- **Search the security alerts.** A search box in the alert list's toolbar
+  narrows it to the alerts whose file or folder name, share name (the label
+  of a public link), owner (user id or display name) or group contain every
+  word typed, ignoring case. The category chart follows the
+  search; the tab's badge keeps counting every alert. The box stays on
+  screen, with *Clear search*, when nothing matches. On narrow windows the
+  search drops to a line of its own instead of squeezing the other controls.
+  Thanks [@michel-thomas](https://github.com/michel-thomas)
+  ([#14](https://github.com/kreotropic/share_audit/issues/14)).
+- **Sort the security alerts by name.** *Name (A–Z)* and *Name (Z–A)* join the
+  existing orderings; digits sort naturally (`file2` before `file10`), case is
+  ignored, and alerts with no name come last in both directions. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#12](https://github.com/kreotropic/share_audit/issues/12)).
+- The alert's details drawer shows the share's own name (*Share name*) when it
+  has one, and the tooltip on the file name carries it too.
+
+### Changed
+- **Security alerts are one line each.** An alert used to take ~140px over
+  three lines; it is now a single 44px row (severity, file, path, reasons and
+  icon actions). Owner, date and share token moved into a details drawer,
+  opened with the chevron or Enter on the row (one alert open at a time).
+  Accepting (with its optional note) and revoking now confirm in a step that
+  opens under the row.
+- **Bulk actions float over the list.** Selecting alerts no longer grows the
+  toolbar from one line to three and pushes the list down. The toolbar stays a
+  single fixed-height line of filters; the selection count and bulk actions
+  appear in a floating bar at the bottom of the list, which folds
+  *Add password* and *Set expiry* into a *More* menu when the list is narrow.
+  The personal *My shares audit* view uses the same list.
+
+### Fixed
+- **Choosing *All* items per page failed on Nextcloud 34 and 35.** Those
+  versions reject any `limit` request parameter outside 1–500 unless the
+  endpoint declares its own range, and *All* sends `limit=0` — so on the
+  alerts, orphan shares, deleted shares and access-lookup lists it ended in an
+  error (a 500 on 34.0.x, a 400 on 35) while working on 32 and 33. The four
+  endpoints now declare a 0–500 range, and a test fails if a paginated
+  endpoint is added without making that choice.
+- **The *Confirm* step of a destructive action stands out.** Revoking (orphan
+  shares, *Revoke all access*) or permanently deleting shares asks *"Revoke N
+  shares?"* with *Confirm* / *Cancel*, but every button looked the same, so it
+  was easy to miss which one commits the action. *Confirm* is now red and
+  *Cancel* a discreet button. The cause was wider than those buttons: since
+  `@nextcloud/vue` 9 a button's look comes from `variant`, and the app still
+  passed the old `type`, which is ignored — so no button in the app rendered
+  with its intended emphasis. That is fixed everywhere: the active tab and the
+  current page number are filled, *Save* is a primary button, and secondary
+  actions are subtle. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#8](https://github.com/kreotropic/share_audit/issues/8)).
+- **A public link's own name was never read.** The name given to a link share
+  is stored in the `label` column of `oc_share`, but the app read `share_name`,
+  a legacy column that is always empty — so the alert and *All shares* APIs
+  returned no share name, and a share deleted outside the app's own delete
+  action (a raw database row, e.g. by another app or `occ`) lost its label in
+  the recycle bin. Both now read `label`; the recycle bin's own column keeps
+  its name.
+- The personal *My shares audit* view showed an *Acknowledge* button that did
+  nothing (regular users have no acknowledge endpoint); it is hidden there now.
+- Alert checkboxes had no accessible name, and the icon-only actions are
+  labelled for screen readers.
+
 ## [0.5.0]
 
 ### Added

@@ -25,6 +25,7 @@ class ShareRemediationService {
         private PasswordGeneratorService $passwordGenerator,
         private ShareAuditLogger $auditLogger,
         private SecurityAnalyzerService $analyzer,
+        private ExpiryDefaultsService $expiryDefaults,
     ) {
     }
 
@@ -41,12 +42,22 @@ class ShareRemediationService {
     }
 
     /**
+     * Expire a share $days days from today. A $days of zero or less means
+     * "the instance's default" (see ExpiryDefaultsService) — and where the
+     * instance enforces a longest lifetime, a longer request is capped to it
+     * rather than failing: IShareManager would reject the share otherwise,
+     * and "as long as your sharing policy allows" is what the caller wants.
+     *
      * @return array<string, mixed>
      */
-    public function applyExpiration(int $id, int $days): array {
-        $days = max(1, $days);
-        $date = (new \DateTime('today'))->modify('+' . $days . ' days');
+    public function applyExpiration(int $id, int $days = 0): array {
         $share = $this->loadShare($id);
+        $policy = $this->expiryDefaults->forShareType($share->getShareType());
+        $days = $days > 0 ? $days : $policy['days'];
+        if ($policy['maxDays'] !== null) {
+            $days = min($days, $policy['maxDays']);
+        }
+        $date = (new \DateTime('today'))->modify('+' . $days . ' days');
         $share->setExpirationDate($date);
         $this->shareManager->updateShare($share);
         $this->analyzer->invalidate($share->getShareOwner(), $share->getSharedBy());

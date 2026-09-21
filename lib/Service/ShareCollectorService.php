@@ -284,7 +284,9 @@ class ShareCollectorService {
             // an expiration in the past is, for this purpose, the same as no
             // expiration at all.
             'hasExpiration' => $this->hasFutureExpiration($row['expiration'] ?? null),
-            'name' => $row['share_name'] ?? null,
+            // The share's own name (a link's custom label). oc_share keeps it in
+            // `label`; `share_name` is a legacy column that is always NULL.
+            'name' => ($row['label'] ?? '') !== '' ? (string)$row['label'] : null,
         ];
         if ($includeToken) {
             $share['token'] = $row['token'] ?? null;

@@ -44,7 +44,7 @@
 						{{ t('share_audit_dashboard', 'Restore selected') }}
 					</NcButton>
 					<template v-if="!confirmingPurge">
-						<NcButton type="error" :disabled="busy" @click="confirmingPurge = true">
+						<NcButton variant="error" :disabled="busy" @click="confirmingPurge = true">
 							{{ t('share_audit_dashboard', 'Delete permanently') }}
 						</NcButton>
 					</template>
@@ -52,10 +52,10 @@
 						<span class="sad-deleted-bar__confirm">
 							{{ n('share_audit_dashboard', 'Permanently delete %n share?', 'Permanently delete %n shares?', selectedIds.length) }}
 						</span>
-						<NcButton type="error" :disabled="busy" @click="purgeSelected">
+						<NcButton variant="error" :disabled="busy" @click="purgeSelected">
 							{{ t('share_audit_dashboard', 'Confirm') }}
 						</NcButton>
-						<NcButton type="tertiary" :disabled="busy" @click="confirmingPurge = false">
+						<NcButton variant="tertiary" :disabled="busy" @click="confirmingPurge = false">
 							{{ t('share_audit_dashboard', 'Cancel') }}
 						</NcButton>
 					</template>
@@ -275,18 +275,43 @@ export default {
 				this.loading = false
 			}
 		},
+		// Maps restoreDeletedShare()'s success flags (tokenChanged,
+		// expirationCleared) to a translated notice — reused by restoreOne()
+		// and (via its plural counters) restoreSelected().
+		restoreSuccessNotice(res) {
+			if (res.tokenChanged && res.expirationCleared) {
+				return { type: 'warning', message: t('share_audit_dashboard', 'Restored, but with a new link URL and no expiration (the original had already passed).') }
+			}
+			if (res.tokenChanged) {
+				return { type: 'warning', message: t('share_audit_dashboard', 'Restored, but the original link URL could not be kept — it now has a new one.') }
+			}
+			if (res.expirationCleared) {
+				return { type: 'warning', message: t('share_audit_dashboard', 'Restored, but its original expiration date had already passed — it now has none.') }
+			}
+			return { type: 'success', message: t('share_audit_dashboard', 'Share restored.') }
+		},
+		// restoreDeletedShare() rejects (axios throws) on failure — the actual
+		// reason is a stable code from SoftDeleteService::restore(), not the
+		// (English-only, log-oriented) message, so each maps to its own
+		// translated text instead of one message regardless of cause.
+		restoreErrorMessage(e) {
+			const messages = {
+				not_found: t('share_audit_dashboard', 'This entry is no longer in the recycle bin — it may have already been restored or purged.'),
+				file_missing: t('share_audit_dashboard', 'Could not restore this share — the original file may no longer exist.'),
+				create_failed: t('share_audit_dashboard', 'Could not restore this share — the recipient or permissions may no longer be valid.'),
+			}
+			return messages[e.response?.data?.reason] ?? t('share_audit_dashboard', 'Could not restore this share.')
+		},
 		async restoreOne(share) {
 			this.busy = true
 			this.notice = null
 			try {
 				const res = await restoreDeletedShare(share.id)
-				this.notice = res.tokenChanged
-					? { type: 'warning', message: t('share_audit_dashboard', 'Restored, but the original link URL could not be kept — it now has a new one.') }
-					: { type: 'success', message: t('share_audit_dashboard', 'Share restored.') }
+				this.notice = this.restoreSuccessNotice(res)
 				this.selectedIds = this.selectedIds.filter((id) => id !== share.id)
 				await this.load()
 			} catch (e) {
-				this.notice = { type: 'error', message: t('share_audit_dashboard', 'Could not restore this share — the original file may no longer exist.') }
+				this.notice = { type: 'error', message: this.restoreErrorMessage(e) }
 			} finally {
 				this.busy = false
 			}
@@ -297,6 +322,7 @@ export default {
 			try {
 				let restored = 0
 				let changed = 0
+				let expirationCleared = 0
 				let failed = 0
 				for (const id of [...this.selectedIds]) {
 					try {
@@ -305,6 +331,9 @@ export default {
 						if (res.tokenChanged) {
 							changed++
 						}
+						if (res.expirationCleared) {
+							expirationCleared++
+						}
 					} catch (e) {
 						failed++
 					}
@@ -312,6 +341,9 @@ export default {
 				const parts = [n('share_audit_dashboard', 'Restored %n share.', 'Restored %n shares.', restored)]
 				if (changed > 0) {
 					parts.push(n('share_audit_dashboard', '%n got a new link URL.', '%n got new link URLs.', changed))
+				}
+				if (expirationCleared > 0) {
+					parts.push(n('share_audit_dashboard', '%n lost an already-passed expiration date.', '%n lost an already-passed expiration date.', expirationCleared))
 				}
 				if (failed > 0) {
 					parts.push(n('share_audit_dashboard', '%n could not be restored.', '%n could not be restored.', failed))

@@ -228,7 +228,7 @@ class ShareMapper {
         $qb->select(
             's.id', 's.share_type', 's.share_with', 's.uid_owner', 's.uid_initiator',
             's.item_type', 's.file_source', 's.file_target', 's.permissions',
-            's.stime', 's.expiration', 's.token', 's.password', 's.share_name',
+            's.stime', 's.expiration', 's.token', 's.password', 's.label',
         )
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
@@ -304,7 +304,7 @@ class ShareMapper {
         $qb->select(
             's.id', 's.share_type', 's.uid_owner', 's.uid_initiator',
             's.item_type', 's.file_source', 's.permissions', 's.stime',
-            's.expiration', 's.token', 's.password',
+            's.expiration', 's.token', 's.password', 's.label',
         )
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
@@ -345,7 +345,7 @@ class ShareMapper {
         $qb = $this->db->getQueryBuilder();
         $qb->select(
             's.id', 's.share_type', 's.share_with', 's.uid_owner', 's.uid_initiator',
-            's.item_type', 's.file_source', 's.permissions', 's.stime',
+            's.item_type', 's.file_source', 's.permissions', 's.stime', 's.label',
         )
             ->selectAlias('f.path', 'file_path')
             ->from('share', 's')
@@ -373,10 +373,11 @@ class ShareMapper {
      * given) an expiration at/before it — covers both "already expired" and
      * "expiring soon" in one comparison, since the past is always <= cutoff.
      *
-     * Single source of truth for the base filter, shared by
-     * findInsecureLinks() and countInsecureLinks() so they can never drift
-     * apart on *which rows are even candidates* (as opposed to which of
-     * those trip an enabled rule, which is each method's own concern).
+     * Single source of truth for the base filter — findInsecureLinks() is
+     * its only caller now that SecurityAnalyzerService::countAlerts()
+     * delegates to getAlerts() instead of a dedicated SQL count (a
+     * pre-G2/acknowledge-feature approach that couldn't know which rows an
+     * admin had already accepted; see that method's docblock).
      *
      * @return array<int, mixed>
      */
@@ -391,81 +392,6 @@ class ShareMapper {
                 $qb->createNamedParameter($expiringSoonCutoff->format('Y-m-d H:i:s')));
         }
         return $conditions;
-    }
-
-    /**
-     * Count of public links matching at least one *enabled* alert rule,
-     * computed entirely in SQL — used for dashboard badges (see
-     * SecurityAnalyzerService::countAlerts()) where only the number is
-     * needed, so evaluating and normalizing every row in PHP is wasted work.
-     *
-     * The extension check is a superset of the real "sensitive file" rule
-     * (a LIKE match on the name, vs. an exact extension match after
-     * pathinfo()), so this can very slightly over-count — acceptable for a
-     * badge; the alerts list itself still uses the precise PHP evaluation.
-     * expiring_soon/already_expired aren't configurable rules (see
-     * SecurityAnalyzerService::issuesFor()), so they're always counted when
-     * $expiringSoonCutoff is given.
-     *
-     * @param string[] $sensitiveExtensions lowercase, without the dot
-     */
-    public function countInsecureLinks(
-        bool $noPassword,
-        bool $noExpiration,
-        bool $sensitiveFile,
-        array $sensitiveExtensions,
-        ?string $ownerOrInitiator = null,
-        ?\DateTimeImmutable $expiringSoonCutoff = null,
-    ): int {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select($qb->func()->count('s.id', 'cnt'))
-            ->from('share', 's')
-            ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
-            ->where($qb->expr()->eq('s.share_type', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->orX(...$this->insecureLinkConditions($qb, $expiringSoonCutoff)));
-
-        $conditions = [];
-        if ($noPassword) {
-            $conditions[] = $qb->expr()->orX(
-                $qb->expr()->isNull('s.password'),
-                $qb->expr()->eq('s.password', $qb->createNamedParameter('')),
-            );
-        }
-        if ($noExpiration) {
-            $conditions[] = $qb->expr()->isNull('s.expiration');
-        }
-        if ($expiringSoonCutoff !== null) {
-            $conditions[] = $qb->expr()->andX(
-                $qb->expr()->isNotNull('s.expiration'),
-                $qb->expr()->lte('s.expiration',
-                    $qb->createNamedParameter($expiringSoonCutoff->format('Y-m-d H:i:s'))),
-            );
-        }
-        if ($sensitiveFile && $sensitiveExtensions !== []) {
-            $extConditions = array_map(
-                fn (string $ext) => $qb->expr()->iLike('f.name', $qb->createNamedParameter('%.' . $ext)),
-                $sensitiveExtensions,
-            );
-            $conditions[] = $qb->expr()->orX(...$extConditions);
-        }
-
-        if ($conditions === []) {
-            return 0;
-        }
-        $qb->andWhere($qb->expr()->orX(...$conditions));
-
-        if ($ownerOrInitiator !== null) {
-            $uid = $qb->createNamedParameter($ownerOrInitiator);
-            $qb->andWhere($qb->expr()->orX(
-                $qb->expr()->eq('s.uid_owner', $uid),
-                $qb->expr()->eq('s.uid_initiator', $uid),
-            ));
-        }
-
-        $result = $qb->executeQuery();
-        $count = (int)$result->fetchOne();
-        $result->closeCursor();
-        return $count;
     }
 
     /**
@@ -534,7 +460,7 @@ class ShareMapper {
             $qb->andWhere($qb->expr()->orX(
                 $qb->expr()->iLike('f.path', $qb->createNamedParameter($like)),
                 $qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like)),
-                $qb->expr()->iLike('s.share_name', $qb->createNamedParameter($like)),
+                $qb->expr()->iLike('s.label', $qb->createNamedParameter($like)),
             ));
         }
 
