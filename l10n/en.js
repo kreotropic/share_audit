@@ -277,6 +277,7 @@ OC.L10N.register(
     "Unexpected error, try again" : "Unexpected error, try again",
     "Move the files first with occ files:transfer-ownership, then transfer the shares." : "Move the files first with occ files:transfer-ownership, then transfer the shares.",
     "Could not transfer the selected shares." : "Could not transfer the selected shares.",
-    "That account cannot take over shares. Pick another one." : "That account cannot take over shares. Pick another one."
+    "That account cannot take over shares. Pick another one." : "That account cannot take over shares. Pick another one.",
+    "Path or share name" : "Path or share name"
 },
 "nplurals=2; plural=(n != 1);");

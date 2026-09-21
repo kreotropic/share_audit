@@ -339,7 +339,8 @@
         "Unexpected error, try again": "Erro inesperado, tente novamente",
         "Move the files first with occ files:transfer-ownership, then transfer the shares.": "Mova primeiro os ficheiros com occ files:transfer-ownership e depois transfira as partilhas.",
         "Could not transfer the selected shares.": "Não foi possível transferir as partilhas selecionadas.",
-        "That account cannot take over shares. Pick another one.": "Essa conta não pode assumir partilhas. Escolha outra."
+        "That account cannot take over shares. Pick another one.": "Essa conta não pode assumir partilhas. Escolha outra.",
+        "Path or share name": "Caminho ou nome da partilha"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

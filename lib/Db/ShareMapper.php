@@ -480,7 +480,11 @@ class ShareMapper {
      *  - ownerOrInitiator: string uid, matches uid_owner OR uid_initiator —
      *                  a user who created a share on a folder owned by
      *                  someone else is still responsible for it
-     *  - search:       string LIKE match on file path or recipient
+     *  - search:       string LIKE match on file path, recipient or the
+     *                  share's own name (`label`)
+     *  - pathSearch:   string LIKE match on file path or the share's own
+     *                  name — the "Path" column filter, which has to find a
+     *                  link by the name it was given as well as by where it is
      *  - ownerSearch:  string LIKE match on uid_owner, OR'd with
      *                  ownerSearchUids when present
      *  - ownerSearchUids: string[] uids whose display name matched
@@ -542,8 +546,13 @@ class ShareMapper {
 
         // Per-column search (from the table-header filters).
         if (!empty($filters['pathSearch'])) {
+            // The name a public link was given (`label`, NULL when it has none)
+            // is otherwise unreachable: nothing on the row says where the file is.
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['pathSearch']) . '%';
-            $qb->andWhere($qb->expr()->iLike('f.path', $qb->createNamedParameter($like)));
+            $qb->andWhere($qb->expr()->orX(
+                $qb->expr()->iLike('f.path', $qb->createNamedParameter($like)),
+                $qb->expr()->iLike('s.label', $qb->createNamedParameter($like)),
+            ));
         }
 
         // Owner column search: the table shows the resolved display name,

@@ -47,10 +47,10 @@
 								<!-- Text search -->
 								<NcActionInput v-else-if="col.filter === 'search'"
 									:model-value="f[col.field]"
-									:label="col.label"
+									:label="col.filterLabel || col.label"
 									@update:model-value="onSearch(col.field, $event)"
 									@submit="emitFilter">
-									{{ col.label }}
+									{{ col.filterLabel || col.label }}
 								</NcActionInput>
 
 								<!-- Tri-state (password / expiration) -->
@@ -77,6 +77,9 @@
 							{{ share.path || '—' }}
 						</a>
 						<span v-else>{{ share.path || '—' }}</span>
+						<span v-if="share.name"
+							class="sad-table__share-name"
+							:title="t('share_audit_dashboard', 'Share name: {name}', { name: share.name })">{{ share.name }}</span>
 					</td>
 					<td>
 						{{ share.ownerDisplayName || share.owner }}
@@ -177,7 +180,16 @@ export default {
 			]
 			return [
 				{ key: 'type', label: t('share_audit_dashboard', 'Type'), sortable: true, filter: 'types' },
-				{ key: 'path', label: t('share_audit_dashboard', 'Path'), sortable: true, filter: 'search', field: 'pathSearch' },
+				{
+					key: 'path',
+					label: t('share_audit_dashboard', 'Path'),
+					// The filter also matches the name a share was given, which is not
+					// something the column header suggests.
+					filterLabel: t('share_audit_dashboard', 'Path or share name'),
+					sortable: true,
+					filter: 'search',
+					field: 'pathSearch',
+				},
 				{ key: 'owner', label: t('share_audit_dashboard', 'Owner'), sortable: true, filter: 'search', field: 'ownerSearch' },
 				{ key: 'recipient', label: t('share_audit_dashboard', 'Recipient'), sortable: true, filter: 'search', field: 'recipientSearch' },
 				{ key: 'permissions', label: t('share_audit_dashboard', 'Permissions'), sortable: false },
@@ -377,6 +389,17 @@ export default {
 
 .sad-table__uid {
 	display: block;
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
+}
+
+// The name a share was given, under its path: it is why a row matches when the
+// Path filter finds it by name. Its own ellipsis, as the cell's only reaches
+// the path on the line above.
+.sad-table__share-name {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	color: var(--color-text-maxcontrast);
 	font-size: 12px;
 }

@@ -29,9 +29,13 @@ already implemented and working:
 
 **All shares**
 - Table of every share on the instance
-- Column-header filters (type, path, owner, recipient, password,
-  expiration), sorting and **server-side** pagination
-- **CSV** export of the filtered view (respects active filters)
+- Column-header filters (type, path or share name, owner, recipient,
+  password, expiration), sorting and **server-side** pagination. The *Path*
+  filter also matches the name a share was given (the label of a public link),
+  and the row shows it under the path — GitHub issue
+  [#14](https://github.com/kreotropic/share_audit/issues/14)
+- **CSV** export of the filtered view (respects active filters), with a *Share
+  name* column
 - Deterministic sort order across MySQL/MariaDB and PostgreSQL (0.4.0)
 
 **Security alerts**
@@ -285,6 +289,15 @@ upfront). Like the CSV, the report must not include access tokens.
 
 ## Minor backlog
 
+- **Sort *All shares* by file name.** The table sorts by the full path, so two
+  files called `notas.txt` in different folders don't sort next to each other.
+  `oc_filecache` already holds the basename in its own indexed `name` column
+  (`f.name`, already joined and used by the sensitive-extension check), so it
+  needs no cross-engine string splitting: add `'name' => 'f.name'` to
+  `ShareMapper::SORT_COLUMNS` and `NULLABLE_SORT_COLUMNS` (nulls last, like
+  `path`) and a sort control on the *Path* header. No open issue asks for it —
+  the alerts list, which [#12](https://github.com/kreotropic/share_audit/issues/12)
+  was about, sorts by name already.
 - **Transfer of orphan shares: what it leaves out.** Email, federated, Talk and
   other share types keep their state outside `oc_share`'s owner column (a
   remote server, a room, a mail token), so a local update wouldn't reach it —

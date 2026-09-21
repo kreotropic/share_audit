@@ -277,6 +277,7 @@ OC.L10N.register(
     "Unexpected error, try again" : "Erreur inattendue, réessayez",
     "Move the files first with occ files:transfer-ownership, then transfer the shares." : "Déplacez d’abord les fichiers avec occ files:transfer-ownership, puis transférez les partages.",
     "Could not transfer the selected shares." : "Impossible de transférer les partages sélectionnés.",
-    "That account cannot take over shares. Pick another one." : "Ce compte ne peut pas reprendre de partages. Choisissez-en un autre."
+    "That account cannot take over shares. Pick another one." : "Ce compte ne peut pas reprendre de partages. Choisissez-en un autre.",
+    "Path or share name" : "Chemin ou nom du partage"
 },
 "nplurals=2; plural=(n != 1);");

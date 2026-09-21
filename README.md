@@ -33,8 +33,9 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
   sharers. Attention banners flag insecure links and orphaned shares. Click a
   stat card or exposure category to jump straight into the filtered list.
 - **All shares** — a filterable, sortable, server‑side paginated table of every
-  share on the instance. Filters live in the column headers (type, path, owner,
-  recipient, password, expiration). Export the filtered view to **CSV**.
+  share on the instance. Filters live in the column headers (type, path or share
+  name, owner, recipient, password, expiration). Export the filtered view to
+  **CSV**.
 - **Security alerts** — public links with no password, no expiration, or exposing
   a sensitive file type. Fix them individually or in **bulk**: add a generated
   password, set an expiration, or revoke. The alert rules are configurable.

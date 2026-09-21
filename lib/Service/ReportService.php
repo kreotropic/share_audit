@@ -18,9 +18,14 @@ class ReportService {
     /** UTF-8 BOM so spreadsheet apps (Excel) detect the encoding correctly. */
     private const BOM = "\xEF\xBB\xBF";
 
+    /**
+     * "Share name" was added after the others, at the end of this base set, so
+     * no column an existing spreadsheet or script reads moves (only the opt-in
+     * Token column, which is always last, shifts by one).
+     */
     private const HEADERS = [
         'Type', 'Path', 'Owner', 'Initiator', 'Recipient',
-        'Permissions', 'Created', 'Expires', 'Password',
+        'Permissions', 'Created', 'Expires', 'Password', 'Share name',
     ];
 
     /**
@@ -53,6 +58,10 @@ class ReportService {
                 !empty($row['created']) ? date('Y-m-d H:i', (int)$row['created']) : '',
                 $row['expiration'] ?? '',
                 !empty($row['hasPassword']) ? 'yes' : 'no',
+                // Free text any user can type into a share's name: it goes
+                // through cell() like the path, or "=HYPERLINK(...)" would run
+                // in the admin's spreadsheet.
+                $this->cell((string)($row['name'] ?? '')),
             ];
             if ($includeTokens) {
                 $line[] = $this->cell($row['token'] ?? '');

@@ -49,6 +49,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   ([#12](https://github.com/kreotropic/share_audit/issues/12)).
 - The alert's details drawer shows the share's own name (*Share name*) when it
   has one, and the tooltip on the file name carries it too.
+- **Find a share by its name in *All shares*.** The *Path* filter now also
+  matches the name a share was given (the label of a public link), not only where
+  its file is, and the row shows that name under the path — so a link called
+  "Q3 Budget — external review" can be found without knowing which folder it is
+  in. The CSV export follows the filter, as before, and has a new *Share name*
+  column after *Password*: the columns it already had keep their positions
+  (*Token*, when included, is still the last). Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#14](https://github.com/kreotropic/share_audit/issues/14)).
 - **Transfer orphan shares to another account.** On *Lookup & Orphans*, select
   shares whose owner is disabled or deleted and choose *Transfer selected*
   instead of revoking them: pick the colleague who takes over, and each share

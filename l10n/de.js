@@ -277,6 +277,7 @@ OC.L10N.register(
     "Unexpected error, try again" : "Unerwarteter Fehler, bitte erneut versuchen",
     "Move the files first with occ files:transfer-ownership, then transfer the shares." : "Verschieben Sie zuerst die Dateien mit occ files:transfer-ownership und übertragen Sie danach die Freigaben.",
     "Could not transfer the selected shares." : "Die ausgewählten Freigaben konnten nicht übertragen werden.",
-    "That account cannot take over shares. Pick another one." : "Dieses Konto kann keine Freigaben übernehmen. Wählen Sie ein anderes."
+    "That account cannot take over shares. Pick another one." : "Dieses Konto kann keine Freigaben übernehmen. Wählen Sie ein anderes.",
+    "Path or share name" : "Pfad oder Freigabename"
 },
 "nplurals=2; plural=(n != 1);");
