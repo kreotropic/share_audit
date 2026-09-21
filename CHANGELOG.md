@@ -10,7 +10,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.6.0]
+
 ### Added
+- **Accept an alert as an exception.** Some alerts are intentional — a newsletter
+  link that is meant to be public, say — and used to stay in the list, and in
+  the count, for ever. An admin can now *Accept* an alert, with an optional note
+  saying why, one at a time or in bulk with *Acknowledge all*: the accepted
+  reason stops counting, and the alert leaves the list once none of its reasons
+  is left. A *Show acknowledged* switch brings them back with who accepted each
+  one, when and why, so an exception can be reviewed or undone. An exception
+  covers one reason on one share, so accepting *No expiration* on a link does
+  not hide it if it later exposes a sensitive file. The alert badge, the
+  dashboard widget and the personal view leave accepted alerts out too. **This
+  release adds a database table (`oc_shareaudit_ack`)**, which Nextcloud creates
+  when the app is updated. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#5](https://github.com/kreotropic/share_audit/issues/5)).
 - **Nextcloud 35 support.** The app is declared compatible with Nextcloud
   35 (`max-version` 35), so Nextcloud no longer warns about it before
   upgrading. Checked on real Nextcloud 34.0.4 and 35.0.0 instances (PHP 8.5,
@@ -108,6 +124,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   [php/php-src#22558](https://github.com/php/php-src/issues/22558). The README
   now says so, and that switching the JIT off is the workaround
   ([#3](https://github.com/kreotropic/share_audit/issues/3)).
+- **French labels refined.** Several labels of the French translation were
+  reworded. Thanks [@QwazarFR](https://github.com/QwazarFR)
+  ([#19](https://github.com/kreotropic/share_audit/pull/19)).
 
 ### Fixed
 - **Choosing *All* items per page failed on Nextcloud 34 and 35.** Those
@@ -140,6 +159,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   nothing (regular users have no acknowledge endpoint); it is hidden there now.
 - Alert checkboxes had no accessible name, and the icon-only actions are
   labelled for screen readers.
+- **Restoring a deleted share whose expiration had passed always failed.**
+  Nextcloud refuses to create a share that expires in the past, so a share
+  revoked with an expiration that then elapsed in the recycle bin (or that had
+  already expired when it was revoked) could never be restored. It is restored
+  now, without the stale expiration, and the result says so. The restore error
+  also told every failure "the file may no longer exist"; it now gives the real
+  reason — a missing file, an invalid recipient or permissions, or an entry that
+  is already gone from the bin.
 - **The Security alerts toolbar lines up.** *Select all* sat 16px to the right
   of the rows' checkboxes, and the sort, page-size and search boxes were three
   different heights (36, 36 and 30px) on slightly different centre lines. They

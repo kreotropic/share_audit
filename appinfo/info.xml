@@ -32,7 +32,7 @@ fix them in bulk. Regular users get a personal view to audit and clean up the fi
 
 Unlike the CLI‑only sharelisting app, everything is available in the browser.
     ]]></description>
-    <version>0.5.0</version>
+    <version>0.6.0</version>
     <licence>AGPL-3.0-or-later</licence>
     <author mail="rsfneg@gmail.com">Ricardo Ferreira</author>
     <namespace>ShareAuditDashboard</namespace>
