@@ -35,7 +35,9 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
 - **All shares** — a filterable, sortable, server‑side paginated table of every
   share on the instance. Filters live in the column headers (type, path or share
   name, owner, recipient, password, expiration). Export the filtered view to
-  **CSV**.
+  **CSV**. A share made into a **Talk conversation** or a **Deck card** shows that
+  conversation's or card's name and how many people it reaches, not its internal
+  key, and flags a conversation anyone can join.
 - **Security alerts** — public links with no password, no expiration, or exposing
   a sensitive file type. Fix them individually or in **bulk**: add a generated
   password, set an expiration, or revoke. The alert rules are configurable.

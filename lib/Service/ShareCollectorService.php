@@ -35,6 +35,7 @@ class ShareCollectorService {
         IShare::TYPE_REMOTE => 'federated',
         IShare::TYPE_REMOTE_GROUP => 'federated',
         IShare::TYPE_ROOM => 'talk',
+        IShare::TYPE_DECK => 'deck',
     ];
 
     public function __construct(
@@ -42,6 +43,7 @@ class ShareCollectorService {
         private SecurityAnalyzerService $security,
         private PathFormatter $pathFormatter,
         private DisplayNameResolver $displayNames,
+        private RecipientDetailsResolver $recipientDetails,
     ) {
     }
 
@@ -59,7 +61,10 @@ class ShareCollectorService {
         ];
         foreach ($rawCounts as $type => $count) {
             $category = self::CATEGORY_BY_TYPE[$type] ?? 'other';
-            $byType[$category] += $count;
+            // A Deck share is labelled "Deck" on its row, but the dashboard has
+            // no bucket, colour or internal/external call for it yet, so its
+            // counters keep counting it under "other" (see ROADMAP.md).
+            $byType[$category === 'deck' ? 'other' : $category] += $count;
         }
 
         $now = time();
@@ -181,7 +186,9 @@ class ShareCollectorService {
         $rows = $this->mapper->findShares($filters, $limit, $offset, $sort, $dir);
 
         return [
-            'items' => $this->withDisplayNames(array_map([$this, 'normalizeRow'], $rows)),
+            'items' => $this->recipientDetails->decorate(
+                $this->withDisplayNames(array_map([$this, 'normalizeRow'], $rows)),
+            ),
             'total' => $this->mapper->countShares($filters),
             'page' => $page,
             'limit' => $limit,
@@ -233,8 +240,9 @@ class ShareCollectorService {
     /**
      * Expands a 'recipientSearch' filter term into the uids/gids of
      * accounts/groups whose display name matches it — a recipient can be
-     * either, so both DisplayNameResolver searches are combined. Same
-     * reasoning as withOwnerSearchUids() above.
+     * either, so both DisplayNameResolver searches are combined — and into the
+     * Talk conversations and Deck cards whose name does. Same reasoning as
+     * withOwnerSearchUids() above.
      *
      * @param array<string, mixed> $filters
      * @return array<string, mixed>
@@ -246,6 +254,9 @@ class ShareCollectorService {
                 $this->displayNames->searchUids($term),
                 $this->displayNames->searchGroupIds($term),
             );
+            // Talk conversations and Deck cards are shown by name too.
+            $filters['recipientSearchRooms'] = $this->recipientDetails->searchRoomTokens($term);
+            $filters['recipientSearchCards'] = $this->recipientDetails->searchCardIds($term);
         }
         return $filters;
     }

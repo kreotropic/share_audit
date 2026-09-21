@@ -112,9 +112,12 @@
 									<td><NcChip :text="categoryLabel(share.category)" :no-close="true" /></td>
 									<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
 									<td>
-										{{ recipientOf(share) }}
-										<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
-											class="sad-table__uid">{{ share.recipient }}</span>
+										<RecipientCell v-if="share.recipientInfo" :share="share" />
+										<template v-else>
+											{{ recipientOf(share) }}
+											<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
+												class="sad-table__uid">{{ share.recipient }}</span>
+										</template>
 									</td>
 									<td class="sad-table__perms">{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}</td>
 									<td>{{ formatDate(share.created) }}</td>
@@ -141,6 +144,7 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AlertCard from './components/AlertCard.vue'
 import AlertList from './components/AlertList.vue'
+import RecipientCell from './components/RecipientCell.vue'
 import { categoryLabel, permissionLabel, formatDate } from './utils/format.js'
 import {
 	fetchMySummary, fetchMyShares, fetchMyAlerts,
@@ -163,6 +167,7 @@ export default {
 		NcNoteCard,
 		AlertCard,
 		AlertList,
+		RecipientCell,
 	},
 	data() {
 		return {

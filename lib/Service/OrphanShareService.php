@@ -42,6 +42,7 @@ class OrphanShareService {
         private ShareCollectorService $collector,
         private ShareDeletionService $deletion,
         private DisplayNameResolver $displayNames,
+        private RecipientDetailsResolver $recipientDetails,
         ICacheFactory $cacheFactory,
     ) {
         $this->cache = $cacheFactory->createDistributed('share_audit_dashboard-orphans');
@@ -150,12 +151,12 @@ class OrphanShareService {
         // page (every row's owner is one of them, by construction of
         // $filters above) — resolve once for all rather than per row.
         $names = $this->displayNames->resolveMany($owners);
-        $items = array_map(function (array $row) use ($statuses, $names) {
+        $items = $this->recipientDetails->decorate(array_map(function (array $row) use ($statuses, $names) {
             $share = $this->collector->normalizeRow($row);
             $share['ownerStatus'] = $statuses[$share['owner']] ?? 'unknown';
             $share['ownerDisplayName'] = $names[$share['owner']] ?? $share['owner'];
             return $share;
-        }, $rows);
+        }, $rows));
 
         return [
             'items' => $items,

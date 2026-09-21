@@ -340,7 +340,25 @@
         "Move the files first with occ files:transfer-ownership, then transfer the shares.": "Mova primeiro os ficheiros com occ files:transfer-ownership e depois transfira as partilhas.",
         "Could not transfer the selected shares.": "Não foi possível transferir as partilhas selecionadas.",
         "That account cannot take over shares. Pick another one.": "Essa conta não pode assumir partilhas. Escolha outra.",
-        "Path or share name": "Caminho ou nome da partilha"
+        "Path or share name": "Caminho ou nome da partilha",
+        "Deck": "Deck",
+        "Private conversation": "Conversa privada",
+        "_%n participant_::_%n participants_": [
+            "%n participante",
+            "%n participantes"
+        ],
+        "_%n group_::_%n groups_": [
+            "%n grupo",
+            "%n grupos"
+        ],
+        "_%n person_::_%n people_": [
+            "%n pessoa",
+            "%n pessoas"
+        ],
+        "Public conversation": "Conversa pública",
+        "Anyone with the link can join": "Qualquer pessoa com a hiperligação pode entrar",
+        "Open conversation": "Conversa aberta",
+        "Any user of this instance can find and join it": "Qualquer utilizador desta instância pode encontrá-la e entrar"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

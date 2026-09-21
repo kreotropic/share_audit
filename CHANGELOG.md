@@ -49,6 +49,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   ([#12](https://github.com/kreotropic/share_audit/issues/12)).
 - The alert's details drawer shows the share's own name (*Share name*) when it
   has one, and the tooltip on the file name carries it too.
+- **Talk conversations and Deck cards are shown by name, not by their key.** A
+  share made into a Talk conversation used to list its token (`kz6giye3`) as the
+  recipient, and a Deck share the card's number, which says nothing about who can
+  read the file. The recipient now shows the conversation's name — or, for a
+  private one-to-one, its two people — with how many participants and groups it
+  has, and a *Public conversation* or *Open conversation* mark when anyone with
+  the link, or any user of the instance, can join it. A Deck share shows the
+  card's title, its board and how many people the board reaches. It appears in
+  *All shares*, *Orphan shares* and the personal view, and the *Recipient* filter
+  finds a share by the name on screen (a card also by its board's title). Deck
+  shares are labelled *Deck* now (they were *Other*) and can be filtered by it.
+  Talk and Deck are optional: without them, or if their tables change, the list
+  shows the raw key as before. The CSV export keeps the raw key, as it does for
+  accounts, and its *Type* column says `deck` for a Deck share. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#18](https://github.com/kreotropic/share_audit/issues/18)).
 - **Find a share by its name in *All shares*.** The *Path* filter now also
   matches the name a share was given (the label of a public link), not only where
   its file is, and the row shows that name under the path — so a link called

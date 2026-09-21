@@ -87,9 +87,12 @@
 							class="sad-table__uid">{{ share.owner }}</span>
 					</td>
 					<td>
-						{{ recipientOf(share) }}
-						<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
-							class="sad-table__uid">{{ share.recipient }}</span>
+						<RecipientCell v-if="share.recipientInfo" :share="share" />
+						<template v-else>
+							{{ recipientOf(share) }}
+							<span v-if="share.recipientDisplayName && share.recipientDisplayName !== share.recipient"
+								class="sad-table__uid">{{ share.recipient }}</span>
+						</template>
 					</td>
 					<td class="sad-table__perms">
 						{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}
@@ -120,6 +123,7 @@ import NcActions from '@nextcloud/vue/components/NcActions'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActionInput from '@nextcloud/vue/components/NcActionInput'
 import NcChip from '@nextcloud/vue/components/NcChip'
+import RecipientCell from './RecipientCell.vue'
 import { categoryLabel, permissionLabel, formatDate, typeFilterOptions } from '../utils/format.js'
 
 export default {
@@ -129,6 +133,7 @@ export default {
 		NcActionButton,
 		NcActionInput,
 		NcChip,
+		RecipientCell,
 	},
 	props: {
 		shares: {

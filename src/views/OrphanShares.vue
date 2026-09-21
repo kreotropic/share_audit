@@ -130,7 +130,12 @@
 									class="sad-owner__uid">{{ share.owner }}</span>
 							</td>
 							<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
-							<td>{{ recipientOf(share) }}</td>
+							<td>
+								<RecipientCell v-if="share.recipientInfo" :share="share" />
+								<template v-else>
+									{{ recipientOf(share) }}
+								</template>
+							</td>
 							<td><NcChip :text="categoryLabel(share.category)" :no-close="true" /></td>
 							<td class="sad-table__perms">
 								{{ share.permissionLabels.map(permissionLabel).join(', ') || '—' }}
@@ -164,6 +169,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
+import RecipientCell from '../components/RecipientCell.vue'
 import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
 import { fetchOrphans, revokeOrphans, searchTransferTargets, transferOrphans } from '../services/api.js'
 
@@ -188,6 +194,7 @@ export default {
 		NcSelect,
 		PageNavigation,
 		PageSizeSelect,
+		RecipientCell,
 	},
 	emits: ['orphan-count'],
 	data() {

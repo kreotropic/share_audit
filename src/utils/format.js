@@ -21,6 +21,7 @@ export function categoryLabel(category) {
 		email: t(APP, 'Email'),
 		federated: t(APP, 'Federated'),
 		talk: t(APP, 'Talk'),
+		deck: t(APP, 'Deck'),
 		other: t(APP, 'Other'),
 	}
 	return labels[category] ?? category
@@ -54,6 +55,7 @@ export function typeFilterOptions() {
 		{ id: 'email', label: categoryLabel('email'), types: [4] },
 		{ id: 'federated', label: categoryLabel('federated'), types: [6, 9] },
 		{ id: 'talk', label: categoryLabel('talk'), types: [10] },
+		{ id: 'deck', label: categoryLabel('deck'), types: [12] },
 	]
 }
 

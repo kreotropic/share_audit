@@ -340,7 +340,25 @@
         "Move the files first with occ files:transfer-ownership, then transfer the shares.": "Move the files first with occ files:transfer-ownership, then transfer the shares.",
         "Could not transfer the selected shares.": "Could not transfer the selected shares.",
         "That account cannot take over shares. Pick another one.": "That account cannot take over shares. Pick another one.",
-        "Path or share name": "Path or share name"
+        "Path or share name": "Path or share name",
+        "Deck": "Deck",
+        "Private conversation": "Private conversation",
+        "_%n participant_::_%n participants_": [
+            "%n participant",
+            "%n participants"
+        ],
+        "_%n group_::_%n groups_": [
+            "%n group",
+            "%n groups"
+        ],
+        "_%n person_::_%n people_": [
+            "%n person",
+            "%n people"
+        ],
+        "Public conversation": "Public conversation",
+        "Anyone with the link can join": "Anyone with the link can join",
+        "Open conversation": "Open conversation",
+        "Any user of this instance can find and join it": "Any user of this instance can find and join it"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

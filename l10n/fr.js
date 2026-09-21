@@ -278,6 +278,15 @@ OC.L10N.register(
     "Move the files first with occ files:transfer-ownership, then transfer the shares." : "Déplacez d’abord les fichiers avec occ files:transfer-ownership, puis transférez les partages.",
     "Could not transfer the selected shares." : "Impossible de transférer les partages sélectionnés.",
     "That account cannot take over shares. Pick another one." : "Ce compte ne peut pas reprendre de partages. Choisissez-en un autre.",
-    "Path or share name" : "Chemin ou nom du partage"
+    "Path or share name" : "Chemin ou nom du partage",
+    "Deck" : "Deck",
+    "Private conversation" : "Conversation privée",
+    "_%n participant_::_%n participants_" : ["%n participant", "%n participants"],
+    "_%n group_::_%n groups_" : ["%n groupe", "%n groupes"],
+    "_%n person_::_%n people_" : ["%n personne", "%n personnes"],
+    "Public conversation" : "Conversation publique",
+    "Anyone with the link can join" : "Toute personne disposant du lien peut la rejoindre",
+    "Open conversation" : "Conversation ouverte",
+    "Any user of this instance can find and join it" : "Tout utilisateur de cette instance peut la trouver et la rejoindre"
 },
 "nplurals=2; plural=(n != 1);");

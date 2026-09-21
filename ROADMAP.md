@@ -36,6 +36,14 @@ already implemented and working:
   [#14](https://github.com/kreotropic/share_audit/issues/14)
 - **CSV** export of the filtered view (respects active filters), with a *Share
   name* column
+- **Talk conversations and Deck cards by name**: a share made into one shows the
+  conversation's name (a private one-to-one, its two people) or the card's title
+  and board, how many people it reaches, and a mark on a conversation that is
+  public or open to every user, instead of the token or card number — GitHub
+  issue [#18](https://github.com/kreotropic/share_audit/issues/18). Read from
+  Talk's and Deck's own tables, once per page and fenced, so a missing or changed
+  app leaves the raw key (see `RecipientDetailsResolver`). The Recipient filter
+  matches those names, and Deck shares have their own label and filter.
 - Deterministic sort order across MySQL/MariaDB and PostgreSQL (0.4.0)
 
 **Security alerts**
@@ -144,7 +152,8 @@ they turn out to matter in practice:
 - **DE/ES/FR translations for the 7 new UI strings** were done directly (not
   reviewed by the community translators credited for those languages in
   CHANGELOG.md) — worth a native-speaker pass before the next release.
-  The 18 strings of the orphan-transfer UI are in the same state.
+  The 18 strings of the orphan-transfer UI and the 9 of the Talk/Deck recipient
+  (conversation and card names) are in the same state.
   EN and PT-PT are the maintainer's own and authoritative as always.
 
 With G2 done, every remaining backlog item below is explicitly gated on App
@@ -289,6 +298,30 @@ upfront). Like the CSV, the report must not include access tokens.
 
 ## Minor backlog
 
+- **Exposure score: Talk and Deck are classified too coarsely.**
+  `ExposureMapService` files every Talk conversation under *internal*, so a file
+  shared into a **public** conversation (anyone with the link joins as a guest) or
+  an **open** one (any user can join) counts as internal, and a Deck share falls
+  under *other*, which weighs like *external*. `RecipientDetailsResolver` already
+  reads how open a conversation is (`openTo`), so a public conversation could count
+  as public and a Deck share as internal. It moves the dashboard's score, so it is
+  a decision, not a fix — and Deck still has no dashboard bucket, colour or
+  internal/external call of its own (its counters keep counting it under *other*).
+- **Access lookup does not see access through a conversation, a circle or a Deck
+  board.** `RecipientLookupService` matches `share_with`, so a person who reads a
+  file because they are in a Talk conversation, a circle or a board's ACL is not
+  listed as reaching it, and a conversation is found by its token, not its name.
+  The lists show the names now; this is the audit view that would need to expand
+  them.
+- **Recycle bin and CSV still show the raw key of a Talk or Deck recipient.** The
+  bin builds its rows from its own table (`SoftDeleteService`), and the CSV keeps
+  raw ids on purpose (see `ShareCollectorService::getAllForExport()`); neither
+  goes through `RecipientDetailsResolver` yet.
+- **Talk participants list.** The recipient shows a headcount and, for a
+  one-to-one, the two people; the names of a group conversation's participants (and
+  the members of a group or circle inside it) are one query away in
+  `talk_attendees` but are not shown — a tooltip or drawer would need a bounded
+  read per conversation.
 - **Sort *All shares* by file name.** The table sorts by the full path, so two
   files called `notas.txt` in different folders don't sort next to each other.
   `oc_filecache` already holds the basename in its own indexed `name` column

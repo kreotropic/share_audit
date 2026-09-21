@@ -340,7 +340,25 @@
         "Move the files first with occ files:transfer-ownership, then transfer the shares.": "Verschieben Sie zuerst die Dateien mit occ files:transfer-ownership und übertragen Sie danach die Freigaben.",
         "Could not transfer the selected shares.": "Die ausgewählten Freigaben konnten nicht übertragen werden.",
         "That account cannot take over shares. Pick another one.": "Dieses Konto kann keine Freigaben übernehmen. Wählen Sie ein anderes.",
-        "Path or share name": "Pfad oder Freigabename"
+        "Path or share name": "Pfad oder Freigabename",
+        "Deck": "Deck",
+        "Private conversation": "Private Unterhaltung",
+        "_%n participant_::_%n participants_": [
+            "%n Teilnehmer",
+            "%n Teilnehmer"
+        ],
+        "_%n group_::_%n groups_": [
+            "%n Gruppe",
+            "%n Gruppen"
+        ],
+        "_%n person_::_%n people_": [
+            "%n Person",
+            "%n Personen"
+        ],
+        "Public conversation": "Öffentliche Unterhaltung",
+        "Anyone with the link can join": "Jeder mit dem Link kann beitreten",
+        "Open conversation": "Offene Unterhaltung",
+        "Any user of this instance can find and join it": "Jeder Benutzer dieser Instanz kann sie finden und beitreten"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

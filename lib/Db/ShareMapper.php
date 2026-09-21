@@ -493,6 +493,12 @@ class ShareMapper {
      *                  recipientSearchIds when present
      *  - recipientSearchIds: string[] uids/gids whose display name matched
      *                  recipientSearch (see ShareCollectorService)
+     *  - recipientSearchRooms: string[] tokens of the Talk conversations whose
+     *                  name matched recipientSearch — a room share's
+     *                  share_with is the token, so this only applies to
+     *                  TYPE_ROOM rows
+     *  - recipientSearchCards: string[] ids of the Deck cards whose title (or
+     *                  board's title) matched, for TYPE_DECK rows likewise
      *  - hasPassword:  bool
      *  - hasExpiration:bool
      *  - createdSince: int unix timestamp
@@ -576,6 +582,20 @@ class ShareMapper {
             if (!empty($filters['recipientSearchIds'])) {
                 $recipientConditions[] = $qb->expr()->in('s.share_with',
                     $qb->createNamedParameter($filters['recipientSearchIds'], IQueryBuilder::PARAM_STR_ARRAY));
+            }
+            // A token or a card number could equal somebody's uid, so these
+            // are only matched on the type of share they belong to.
+            foreach ([
+                'recipientSearchRooms' => IShare::TYPE_ROOM,
+                'recipientSearchCards' => IShare::TYPE_DECK,
+            ] as $key => $shareType) {
+                if (!empty($filters[$key])) {
+                    $recipientConditions[] = $qb->expr()->andX(
+                        $qb->expr()->eq('s.share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)),
+                        $qb->expr()->in('s.share_with',
+                            $qb->createNamedParameter(array_map('strval', $filters[$key]), IQueryBuilder::PARAM_STR_ARRAY)),
+                    );
+                }
             }
             $qb->andWhere($qb->expr()->orX(...$recipientConditions));
         }

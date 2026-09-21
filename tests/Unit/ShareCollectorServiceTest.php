@@ -11,6 +11,7 @@ namespace OCA\ShareAuditDashboard\Tests\Unit;
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
 use OCA\ShareAuditDashboard\Service\PathFormatter;
+use OCA\ShareAuditDashboard\Service\RecipientDetailsResolver;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
 use OCP\Share\IShare;
@@ -28,18 +29,23 @@ class ShareCollectorServiceTest extends TestCase {
 
     private ShareMapper&MockObject $mapper;
     private DisplayNameResolver&MockObject $displayNames;
+    private RecipientDetailsResolver&MockObject $recipientDetails;
 
     protected function setUp(): void {
         $this->mapper = $this->createMock(ShareMapper::class);
         $this->displayNames = $this->createMock(DisplayNameResolver::class);
+        $this->recipientDetails = $this->createMock(RecipientDetailsResolver::class);
+        // Pass-through unless a test says otherwise, as for a list with no Talk or Deck rows.
+        $this->recipientDetails->method('decorate')->willReturnArgument(0);
     }
 
-    private function collector(): ShareCollectorService {
+    private function collector(?RecipientDetailsResolver $details = null): ShareCollectorService {
         return new ShareCollectorService(
             $this->mapper,
             $this->createMock(SecurityAnalyzerService::class),
             new PathFormatter(),
             $this->displayNames,
+            $details ?? $this->recipientDetails,
         );
     }
 
@@ -229,5 +235,76 @@ class ShareCollectorServiceTest extends TestCase {
         $this->displayNames->expects($this->never())->method('searchGroupIds');
 
         $this->collector()->getShares([], 1, 25);
+    }
+
+    // -------------------------------------------------------------------
+    // Talk and Deck
+    // -------------------------------------------------------------------
+
+    public function testAListIsHandedToTheRecipientDetailsBeforeItIsReturned(): void {
+        $this->mapper->method('findShares')->willReturn([['id' => 9, 'share_type' => 10, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e']]);
+        $this->mapper->method('countShares')->willReturn(1);
+        $details = $this->createMock(RecipientDetailsResolver::class);
+        $details->expects($this->once())->method('decorate')->willReturnCallback(static function (array $items) {
+            $items[0]['recipientDisplayName'] = 'Equipa de Marketing';
+            return $items;
+        });
+
+        $result = $this->collector($details)->getShares([], 1, 25);
+
+        $this->assertSame('Equipa de Marketing', $result['items'][0]['recipientDisplayName']);
+        $this->assertSame('iitqa25e', $result['items'][0]['recipient'], 'the stored key is still there for whoever needs it');
+    }
+
+    public function testTheRecipientSearchAlsoLooksUpConversationsAndCardsByName(): void {
+        $details = $this->createMock(RecipientDetailsResolver::class);
+        $details->method('decorate')->willReturnArgument(0);
+        $details->method('searchRoomTokens')->with('market')->willReturn(['iitqa25e']);
+        $details->method('searchCardIds')->with('market')->willReturn(['6']);
+        $this->displayNames->method('searchUids')->willReturn([]);
+        $this->displayNames->method('searchGroupIds')->willReturn([]);
+        $seen = null;
+        $this->mapper->method('findShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen = $filters;
+            return [];
+        });
+
+        $this->collector($details)->getShares(['recipientSearch' => 'market'], 1, 25);
+
+        $this->assertSame(['iitqa25e'], $seen['recipientSearchRooms']);
+        $this->assertSame(['6'], $seen['recipientSearchCards']);
+    }
+
+    public function testNoRecipientSearchMeansNoLookupInTalkOrDeck(): void {
+        $details = $this->createMock(RecipientDetailsResolver::class);
+        $details->method('decorate')->willReturnArgument(0);
+        $details->expects($this->never())->method('searchRoomTokens');
+        $details->expects($this->never())->method('searchCardIds');
+        $this->mapper->method('findShares')->willReturn([]);
+
+        $this->collector($details)->getShares(['ownerSearch' => ''], 1, 25);
+    }
+
+    public function testADeckShareIsLabelledDeckOnItsRow(): void {
+        $share = $this->collector()->normalizeRow(['id' => 1, 'share_type' => 12, 'uid_owner' => 'alice', 'permissions' => 1]);
+
+        $this->assertSame('deck', $share['category']);
+        $this->assertSame('deck', $share['typeLabel']);
+    }
+
+    public function testADeckShareStillCountsAsOtherOnTheDashboard(): void {
+        // No bucket, colour or internal/external call for it yet: the cards and
+        // the donut must still add up to the total.
+        $this->mapper->method('countByType')->willReturn([0 => 3, 12 => 2]);
+        $this->mapper->method('countRecentBuckets')->willReturn([]);
+        $this->mapper->method('findCreatedTimestampsSince')->willReturn([]);
+        $this->mapper->method('topOwners')->willReturn([]);
+
+        $stats = $this->collector()->getStats();
+
+        $this->assertSame(2, $stats['byType']['other']);
+        $this->assertArrayNotHasKey('deck', $stats['byType']);
+        $this->assertSame(5, $stats['total']);
+        $this->assertSame($stats['total'], array_sum($stats['byType']));
     }
 }

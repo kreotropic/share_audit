@@ -340,7 +340,25 @@
         "Move the files first with occ files:transfer-ownership, then transfer the shares.": "Mueva primero los archivos con occ files:transfer-ownership y después transfiera los recursos compartidos.",
         "Could not transfer the selected shares.": "No se pudieron transferir los recursos compartidos seleccionados.",
         "That account cannot take over shares. Pick another one.": "Esa cuenta no puede asumir recursos compartidos. Elija otra.",
-        "Path or share name": "Ruta o nombre del recurso compartido"
+        "Path or share name": "Ruta o nombre del recurso compartido",
+        "Deck": "Deck",
+        "Private conversation": "Conversación privada",
+        "_%n participant_::_%n participants_": [
+            "%n participante",
+            "%n participantes"
+        ],
+        "_%n group_::_%n groups_": [
+            "%n grupo",
+            "%n grupos"
+        ],
+        "_%n person_::_%n people_": [
+            "%n persona",
+            "%n personas"
+        ],
+        "Public conversation": "Conversación pública",
+        "Anyone with the link can join": "Cualquiera con el enlace puede unirse",
+        "Open conversation": "Conversación abierta",
+        "Any user of this instance can find and join it": "Cualquier usuario de esta instancia puede encontrarla y unirse"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }
