@@ -288,7 +288,7 @@
         "Remove exception": "Ausnahme entfernen",
         "Show acknowledged": "Akzeptierte anzeigen",
         "Marked as accepted.": "Als akzeptiert markiert.",
-        "Exception removed — this alert is active again.": "Ausnahme entfernt — dieser Alarm ist wieder aktiv.",
+        "Exception removed — this alert is active again.": "Ausnahme entfernt — diese Warnung ist wieder aktiv.",
         "Accepted by {by} · {date}": "Akzeptiert von {by} · {date}",
         "Acknowledge all": "Alle akzeptieren",
         "Could not restore this share — the recipient or permissions may no longer be valid.": "Diese Freigabe konnte nicht wiederhergestellt werden — der Empfänger oder die Berechtigungen sind möglicherweise nicht mehr gültig.",
@@ -297,8 +297,8 @@
         "Restored, but with a new link URL and no expiration (the original had already passed).": "Wiederhergestellt, aber mit einer neuen Link-URL und ohne Ablaufdatum (das ursprüngliche lag bereits in der Vergangenheit).",
         "This entry is no longer in the recycle bin — it may have already been restored or purged.": "Dieser Eintrag befindet sich nicht mehr im Papierkorb — er wurde möglicherweise bereits wiederhergestellt oder endgültig gelöscht.",
         "_%n lost an already-passed expiration date._::_%n lost an already-passed expiration date._": [
-            "%n hat ein bereits abgelaufenes Ablaufdatum verloren.",
-            "%n haben ein bereits abgelaufenes Ablaufdatum verloren."
+            "%n hat ein bereits überschrittenes Ablaufdatum verloren.",
+            "%n haben ein bereits überschrittenes Ablaufdatum verloren."
         ],
         "Open link in a new tab": "Link in neuem Tab öffnen",
         "Set expiry ({days}d)": "Ablauf festlegen ({days}d)",
