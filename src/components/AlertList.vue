@@ -9,7 +9,8 @@
 			     bulk actions, so it can't change height when rows are selected
 			     (those float in BulkActionBar below). -->
 			<div class="sad-alertlist__toolbar">
-				<NcCheckboxRadioSwitch :model-value="allSelected"
+				<NcCheckboxRadioSwitch class="sad-alertlist__select-all"
+					:model-value="allSelected"
 					@update:model-value="$emit('toggle-all', $event)">
 					{{ t('share_audit_dashboard', 'Select all') }}
 				</NcCheckboxRadioSwitch>
@@ -104,6 +105,11 @@ export default {
 }
 
 .sad-alertlist__toolbar {
+	--sad-toolbar-inset: 20px;
+
+	// What an NcSelect measures: the clickable area plus its two borders.
+	--sad-select-height: calc(var(--default-clickable-area) + 2 * var(--border-width-input, 1px));
+
 	display: flex;
 	// One line whenever it fits — which never depends on the selection. Only
 	// a narrow list wraps it (rather than squeezing the labels).
@@ -112,10 +118,17 @@ export default {
 	gap: 8px 12px;
 	box-sizing: border-box;
 	min-height: 52px;
-	padding: 4px 20px;
+	padding: 4px var(--sad-toolbar-inset);
 	border-bottom: 1px solid var(--color-border);
 	border-radius: calc(var(--border-radius-container, 12px) - 1px) calc(var(--border-radius-container, 12px) - 1px) 0 0;
 	background-color: var(--color-background-hover);
+}
+
+// The rows start 4px in, where AlertCard's severity stripe ends, while this bar
+// is inset 20px: pull "Select all" back so its checkbox sits in the same column
+// as the rows' checkboxes. The other controls keep the bar's inset.
+.sad-alertlist__select-all {
+	margin-inline-start: calc(4px - var(--sad-toolbar-inset));
 }
 
 // Slotted controls keep their natural width; the spacer takes what is left.
@@ -128,6 +141,11 @@ export default {
 // that much: it takes the room the other controls leave (up to max-width) and,
 // when even the floor doesn't fit, wraps onto a line of its own.
 .sad-alertlist__search {
+	// Beside the selects, the field is 6px shorter: its box is the clickable area
+	// minus the two 2px rings it keeps for focus, theirs the area plus two
+	// borders. Asking it for a taller area makes its box the selects' height.
+	--default-clickable-area: calc(var(--sad-select-height) + 2 * var(--border-width-input-focused, 2px));
+
 	flex: 1 1 150px;
 	min-width: 150px;
 	max-width: 320px;

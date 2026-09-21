@@ -108,6 +108,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   nothing (regular users have no acknowledge endpoint); it is hidden there now.
 - Alert checkboxes had no accessible name, and the icon-only actions are
   labelled for screen readers.
+- **The Security alerts toolbar lines up.** *Select all* sat 16px to the right
+  of the rows' checkboxes, and the sort, page-size and search boxes were three
+  different heights (36, 36 and 30px) on slightly different centre lines. They
+  now share one height and one line, and *Select all* is in the checkbox column.
+  The page-size dropdown no longer sits 2px high beside buttons and checkboxes in
+  the other lists either.
 
 ## [0.5.0]
 

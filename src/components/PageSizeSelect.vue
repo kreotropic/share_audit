@@ -82,6 +82,11 @@ export default {
 	}
 
 	&__select {
+		// NcSelect leaves a 4px margin under itself (".v-select.select { margin: 0 0
+		// 4px }"), which makes this box 4px taller than the select and, centred
+		// beside a checkbox or a button, sits the select 2px too high.
+		margin: 0 !important;
+
 		// !important beats NcSelect's own ".v-select.select { min-width: 260px }"
 		// (equal specificity), which would otherwise leave dead space inside.
 		width: var(--sad-pagesize-width, 120px) !important;
