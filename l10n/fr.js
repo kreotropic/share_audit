@@ -287,6 +287,12 @@ OC.L10N.register(
     "Public conversation" : "Conversation publique",
     "Anyone with the link can join" : "Toute personne disposant du lien peut la rejoindre",
     "Open conversation" : "Conversation ouverte",
-    "Any user of this instance can find and join it" : "Tout utilisateur de cette instance peut la trouver et la rejoindre"
+    "Any user of this instance can find and join it" : "Tout utilisateur de cette instance peut la trouver et la rejoindre",
+    "Auditor groups" : "Groupes d’auditeurs",
+    "Members of these groups get a read-only view of every share on this instance — paths, file names, owners and recipients of every user — without becoming administrators. They can never change, revoke, restore or transfer a share, and public-link tokens are never shown to them." : "Les membres de ces groupes obtiennent une vue en lecture seule de tous les partages de cette instance — chemins, noms de fichiers, propriétaires et destinataires de chaque utilisateur — sans devenir administrateurs. Ils ne peuvent jamais modifier, révoquer, restaurer ou transférer un partage, et les jetons des liens publics ne leur sont jamais montrés.",
+    "Search for a group…" : "Rechercher un groupe…",
+    "Read-only access — you can see every share on this instance, but not change or revoke any of them." : "Accès en lecture seule — vous pouvez voir tous les partages de cette instance, mais ne pouvez en modifier ni en révoquer aucun.",
+    "You don't have access to the Share Audit Dashboard" : "Vous n’avez pas accès au tableau de bord d’audit des partages",
+    "Ask an administrator to add you to one of its auditor groups." : "Demandez à un administrateur de vous ajouter à l’un de ses groupes d’auditeurs."
 },
 "nplurals=2; plural=(n > 1);");

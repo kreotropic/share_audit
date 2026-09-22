@@ -54,6 +54,18 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
   app, `occ` or the sharing API lands in the bin just the same. A daily
   background job clears out anything past its retention date.
 
+### For read-only auditors
+
+An admin can name one or more groups, in **Settings → Auditor groups**,
+whose members get a **read-only** copy of the whole instance-wide dashboard
+above — Dashboard, All shares, Security alerts, Lookup & Orphans and Deleted
+shares — through their own page (a "Share Audit Dashboard" icon in the top
+app menu), without becoming administrators. They can see every share, its
+owner, initiator and recipient, but can never set a password or expiration,
+revoke, restore or transfer a share, or reach the settings; every one of
+those actions is refused by the server itself, not just hidden in the
+interface, and public-link tokens are never shown to them.
+
 ### For every user (Settings → Personal → My shares audit)
 
 - Review the files and folders **you** share, and fix your own risky public links

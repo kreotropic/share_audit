@@ -9,16 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\AccessService;
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\OrphanTransferService;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
- * Admin-only API for orphan shares (owned by disabled/deleted accounts).
+ * API for orphan shares (owned by disabled/deleted accounts). Listing is
+ * read-only and open to admins and auditors; revoke/transfer stay admin-only.
  */
 class OrphanShareController extends AdminController {
 
@@ -36,10 +37,9 @@ class OrphanShareController extends AdminController {
         IRequest $request,
         private OrphanShareService $orphanService,
         private OrphanTransferService $transferService,
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        AccessService $access,
     ) {
-        parent::__construct($appName, $request, $userSession, $groupManager);
+        parent::__construct($appName, $request, $access);
     }
 
     /**
@@ -51,9 +51,10 @@ class OrphanShareController extends AdminController {
      *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
      *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
+    #[NoAdminRequired]
     public function index(int $page = 1, int $limit = 25): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
         return new JSONResponse($this->orphanService->getOrphanShares($page, $limit));
     }

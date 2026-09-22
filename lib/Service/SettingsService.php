@@ -95,6 +95,18 @@ class SettingsService {
     }
 
     /**
+     * Groups whose members get read-only access to the whole instance's
+     * audit data (All shares, alerts, orphans, exposure map, deleted
+     * shares — never the settings or any action that changes a share). See
+     * AccessService. Empty by default: nobody but admins can see it.
+     *
+     * @return string[] group ids
+     */
+    public function getAuditorGroups(): array {
+        return $this->config->getValueArray(Application::APP_ID, 'auditor_groups', []);
+    }
+
+    /**
      * Full settings payload for the frontend.
      *
      * @return array<string, mixed>
@@ -110,13 +122,20 @@ class SettingsService {
             'rules' => $rules,
             'personalViewEnabled' => $this->isPersonalViewEnabled(),
             'retentionDays' => $this->getRetentionDays(),
+            'auditorGroups' => $this->getAuditorGroups(),
         ];
     }
 
     /**
      * Persist settings from the admin form.
      *
+     * $auditorGroups is nullable so a caller that doesn't know about it (an
+     * older cached frontend bundle) leaves the current list untouched
+     * instead of silently wiping it; the Settings tab always sends its
+     * current selection, an empty array included, to actually clear it.
+     *
      * @param array<string, bool> $rules rule code => enabled
+     * @param string[]|null $auditorGroups group ids, null = leave unchanged
      */
     public function saveSettings(
         string $extensions,
@@ -124,6 +143,7 @@ class SettingsService {
         bool $personalViewEnabled = true,
         int $groupShareMinMembers = self::DEFAULT_GROUP_SHARE_MIN_MEMBERS,
         int $retentionDays = self::DEFAULT_RETENTION_DAYS,
+        ?array $auditorGroups = null,
     ): void {
         $this->config->setValueString(
             Application::APP_ID,
@@ -141,6 +161,13 @@ class SettingsService {
             $personalViewEnabled ? 'yes' : 'no',
         );
         $this->config->setValueInt(Application::APP_ID, 'retention_days', max(1, $retentionDays));
+        if ($auditorGroups !== null) {
+            $groups = array_values(array_unique(array_filter(
+                array_map('strval', $auditorGroups),
+                static fn (string $g) => $g !== '',
+            )));
+            $this->config->setValueArray(Application::APP_ID, 'auditor_groups', $groups);
+        }
     }
 
     /**

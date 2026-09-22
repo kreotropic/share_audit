@@ -9,15 +9,16 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\AccessService;
 use OCA\ShareAuditDashboard\Service\RecipientLookupService;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
- * Admin-only API for the reverse recipient drill-down.
+ * API for the reverse recipient drill-down. search()/shares() are read-only
+ * and open to admins and auditors; revokeAll() stays admin-only.
  */
 class RecipientController extends AdminController {
 
@@ -25,19 +26,19 @@ class RecipientController extends AdminController {
         string $appName,
         IRequest $request,
         private RecipientLookupService $lookup,
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        AccessService $access,
     ) {
-        parent::__construct($appName, $request, $userSession, $groupManager);
+        parent::__construct($appName, $request, $access);
     }
 
     /**
      * GET /api/recipients/search — autocomplete recipients.
      */
+    #[NoAdminRequired]
     #[UserRateLimit(limit: 60, period: 60)]
     public function search(string $q = ''): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
         return new JSONResponse(['items' => $this->lookup->search($q)]);
     }
@@ -51,10 +52,11 @@ class RecipientController extends AdminController {
      *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
      *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
+    #[NoAdminRequired]
     #[UserRateLimit(limit: 60, period: 60)]
     public function shares(string $shareWith = '', int $shareType = -1, int $page = 1, int $limit = 25): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
         return new JSONResponse($this->lookup->getShares($shareWith, $shareType, $page, $limit));
     }

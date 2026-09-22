@@ -10,6 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Read-only access for non-admin auditors.** An admin can now name one or
+  more groups, in Settings → *Auditor groups*, whose members get their own
+  page (a "Share Audit Dashboard" icon in the top app menu — they don't have
+  administrator rights, so Settings → Administration stays closed to them)
+  showing the same instance-wide dashboard, *All shares*, *Security alerts*,
+  *Lookup & Orphans* and *Deleted shares* an admin sees. They can never set a
+  password or expiration, revoke, restore, transfer a share, or change the
+  settings, and every such action is enforced on the server, not just hidden
+  in the interface — a request to one of those endpoints from an auditor
+  account is refused regardless of what the browser sends. Public-link tokens
+  (the bare credential in `Copy link` and the CSV's *Token* column) are never
+  handed to an auditor either. Thanks
+  [@McKoy61](https://github.com/McKoy61)
+  ([#16](https://github.com/kreotropic/share_audit/issues/16)).
+
 ## [0.6.0]
 
 ### Added

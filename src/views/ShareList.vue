@@ -10,7 +10,10 @@
 			</NcButton>
 
 			<div class="sad-list-toolbar__right">
-				<NcCheckboxRadioSwitch v-model="includeTokens" type="checkbox">
+				<!-- An auditor never gets tokens back regardless of this switch
+				     (ShareApiController::export() strips them), so it would just
+				     mislead — not offered at all. -->
+				<NcCheckboxRadioSwitch v-if="canManage" v-model="includeTokens" type="checkbox">
 					{{ t('share_audit_dashboard', 'Include link tokens') }}
 				</NcCheckboxRadioSwitch>
 
@@ -91,6 +94,9 @@ export default {
 			type: Array,
 			default: null,
 		},
+	},
+	inject: {
+		canManage: { default: true },
 	},
 	data() {
 		return {

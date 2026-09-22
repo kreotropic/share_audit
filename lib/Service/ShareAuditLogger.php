@@ -79,6 +79,25 @@ class ShareAuditLogger {
         ));
     }
 
+    /**
+     * Records a CSV export by a read-only viewer (auditor, or later a
+     * manager — see AccessService): unlike an admin, who already has
+     * unaudited access to everything, this is new-since-#16 visibility into
+     * every user's shares handed to a non-admin account, so who took a copy
+     * of it and how many rows belongs on the record. Not called for an
+     * admin's own export — nothing new is being exposed there.
+     */
+    public function logExport(int $rowCount, string $role): void {
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: "%s" (%s) exported %s share(s) to CSV',
+            [
+                'actor' => $this->actor(),
+                'role' => $role,
+                'count' => (string)$rowCount,
+            ],
+        ));
+    }
+
     private function actor(): string {
         return $this->userSession->getUser()?->getUID() ?? 'unknown';
     }

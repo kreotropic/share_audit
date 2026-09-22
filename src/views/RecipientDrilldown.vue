@@ -56,7 +56,7 @@
 					:options="pageSizeOptions"
 					:width="120"
 					:disabled="loading || revoking" />
-				<template v-if="total > 0">
+				<template v-if="canManage && total > 0">
 					<template v-if="!confirming">
 						<NcButton variant="error" :disabled="revoking" @click="confirming = true">
 							{{ t('share_audit_dashboard', 'Revoke all access') }}
@@ -152,6 +152,9 @@ export default {
 		NcTextField,
 		PageNavigation,
 		PageSizeSelect,
+	},
+	inject: {
+		canManage: { default: true },
 	},
 	data() {
 		return {

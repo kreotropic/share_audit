@@ -69,6 +69,23 @@
 			</section>
 
 			<section class="sad-settings__block">
+				<h3>{{ t('share_audit_dashboard', 'Auditor groups') }}</h3>
+				<p class="settings-hint">
+					{{ t('share_audit_dashboard',
+						'Members of these groups get a read-only view of every share on this instance — paths, file names, owners and recipients of every user — without becoming administrators. They can never change, revoke, restore or transfer a share, and public-link tokens are never shown to them.') }}
+				</p>
+				<NcSelect v-model="auditorGroups"
+					class="sad-settings__groups"
+					multiple
+					:options="groupOptions"
+					:loading="groupsLoading"
+					:filterable="false"
+					:placeholder="t('share_audit_dashboard', 'Search for a group…')"
+					:aria-label-combobox="t('share_audit_dashboard', 'Auditor groups')"
+					@search="searchGroups" />
+			</section>
+
+			<section class="sad-settings__block">
 				<h3>{{ t('share_audit_dashboard', 'Personal view') }}</h3>
 				<p class="settings-hint">
 					{{ t('share_audit_dashboard',
@@ -101,8 +118,15 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcSelect from '@nextcloud/vue/components/NcSelect'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
-import { fetchSettings, saveSettings } from '../services/api.js'
+import { fetchSettings, saveSettings, searchAuditorGroups } from '../services/api.js'
+
+// "Display name (id)", or just the id when the group has no other name —
+// mirrors OrphanShares.vue's ownerLabel() for the transfer-target picker.
+const groupLabel = (group) => (group.displayName && group.displayName !== group.id
+	? `${group.displayName} (${group.id})`
+	: group.id)
 
 export default {
 	name: 'Settings',
@@ -111,6 +135,7 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcSelect,
 		NcTextField,
 	},
 	emits: ['saved'],
@@ -132,6 +157,12 @@ export default {
 				public_upload: true,
 			},
 			personalViewEnabled: true,
+			// NcSelect's model: the currently picked auditor groups, each
+			// { id, displayName, label }.
+			auditorGroups: [],
+			groupOptions: [],
+			groupsLoading: false,
+			groupSearchTimer: null,
 		}
 	},
 	async mounted() {
@@ -142,6 +173,11 @@ export default {
 			this.retentionDays = data.retentionDays ?? this.retentionDays
 			this.rules = { ...this.rules, ...data.rules }
 			this.personalViewEnabled = data.personalViewEnabled
+			this.auditorGroups = (data.auditorGroups ?? []).map((g) => ({ ...g, label: groupLabel(g) }))
+			this.groupOptions = [...this.auditorGroups]
+			// Pre-populates the dropdown so it isn't empty before the admin
+			// types anything.
+			this.searchGroups('')
 		} catch (e) {
 			this.error = t('share_audit_dashboard', 'Could not load settings.')
 		} finally {
@@ -150,6 +186,22 @@ export default {
 	},
 	methods: {
 		t,
+		// Debounced, like OrphanShares.vue's searchOwners() — runs as the
+		// admin types rather than loading every group up front.
+		searchGroups(query) {
+			clearTimeout(this.groupSearchTimer)
+			this.groupSearchTimer = setTimeout(async () => {
+				this.groupsLoading = true
+				try {
+					const groups = await searchAuditorGroups(query)
+					this.groupOptions = groups.map((g) => ({ ...g, label: groupLabel(g) }))
+				} catch (e) {
+					this.groupOptions = []
+				} finally {
+					this.groupsLoading = false
+				}
+			}, query ? 250 : 0)
+		},
 		async save() {
 			this.saving = true
 			this.saved = false
@@ -165,6 +217,7 @@ export default {
 					personalViewEnabled: this.personalViewEnabled,
 					groupShareMinMembers: this.groupShareMinMembers,
 					retentionDays: this.retentionDays,
+					auditorGroups: this.auditorGroups.map((g) => g.id),
 				})
 				this.saved = true
 				this.$emit('saved')
@@ -194,6 +247,10 @@ export default {
 }
 
 .sad-settings__ext {
+	max-width: 480px;
+}
+
+.sad-settings__groups {
 	max-width: 480px;
 }
 

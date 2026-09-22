@@ -32,7 +32,7 @@
 			</NcNoteCard>
 
 			<div class="sad-deleted-bar">
-				<NcCheckboxRadioSwitch :model-value="allSelected" @update:model-value="toggleAll">
+				<NcCheckboxRadioSwitch v-if="canManage" :model-value="allSelected" @update:model-value="toggleAll">
 					{{ t('share_audit_dashboard', 'Select all') }}
 				</NcCheckboxRadioSwitch>
 				<span v-if="selectedIds.length" class="sad-deleted-bar__count">
@@ -74,19 +74,19 @@
 					</caption>
 					<thead>
 						<tr>
-							<th class="sad-table__check" />
+							<th v-if="canManage" class="sad-table__check" />
 							<th scope="col">{{ t('share_audit_dashboard', 'Type') }}</th>
 							<th scope="col">{{ t('share_audit_dashboard', 'Path') }}</th>
 							<th scope="col">{{ t('share_audit_dashboard', 'Owner') }}</th>
 							<th scope="col">{{ t('share_audit_dashboard', 'Recipient') }}</th>
 							<th scope="col">{{ t('share_audit_dashboard', 'Deleted') }}</th>
 							<th scope="col">{{ t('share_audit_dashboard', 'Purge in') }}</th>
-							<th scope="col" />
+							<th v-if="canManage" scope="col" />
 						</tr>
 					</thead>
 					<tbody>
 						<tr v-for="share in items" :key="share.id">
-							<td class="sad-table__check">
+							<td v-if="canManage" class="sad-table__check">
 								<NcCheckboxRadioSwitch :model-value="selectedIds.includes(share.id)"
 									@update:model-value="toggleSelect(share.id, $event)" />
 							</td>
@@ -109,7 +109,7 @@
 									{{ purgeLabel(share) }}
 								</span>
 							</td>
-							<td class="sad-table__row-actions">
+							<td v-if="canManage" class="sad-table__row-actions">
 								<NcButton :disabled="busy" @click="restoreOne(share)">
 									{{ t('share_audit_dashboard', 'Restore') }}
 								</NcButton>
@@ -161,6 +161,9 @@ export default {
 		PageSizeSelect,
 	},
 	emits: ['deleted-count'],
+	inject: {
+		canManage: { default: true },
+	},
 	data() {
 		return {
 			loading: true,

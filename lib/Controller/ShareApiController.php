@@ -9,24 +9,30 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\AccessService;
 use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\ReportService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
+use OCA\ShareAuditDashboard\Service\ShareAuditLogger;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
 use OCA\ShareAuditDashboard\Service\SoftDeleteService;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
- * Admin-only JSON API backing the Share Audit Dashboard frontend.
+ * JSON API backing the Share Audit Dashboard frontend.
  *
- * Every action is guarded by requireAdmin(): these endpoints expose share
- * metadata across all users and must never be reachable by a regular account.
+ * stats(), index(), export() and alerts() are read-only and open to admins
+ * and auditors (see AdminController::requireViewer()) — export() and
+ * alerts() additionally strip public-link tokens for a non-admin, since
+ * those are bare credentials. Every other action, including settings, stays
+ * behind requireAdmin(): these endpoints expose or change share metadata
+ * across all users and must never be reachable by a regular account.
  */
 class ShareApiController extends AdminController {
 
@@ -40,18 +46,20 @@ class ShareApiController extends AdminController {
         private OrphanShareService $orphanService,
         private SoftDeleteService $softDelete,
         private ExpiryDefaultsService $expiryDefaults,
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        private IGroupManager $groupManager,
+        private ShareAuditLogger $auditLogger,
+        AccessService $access,
     ) {
-        parent::__construct($appName, $request, $userSession, $groupManager);
+        parent::__construct($appName, $request, $access);
     }
 
     /**
      * GET /api/stats — dashboard counters, trends and top owners.
      */
+    #[NoAdminRequired]
     public function stats(): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
         $stats = $this->collector->getStats();
         $stats['orphanCount'] = $this->orphanService->countOrphanShares();
@@ -65,6 +73,7 @@ class ShareApiController extends AdminController {
      * $limit keeps Nextcloud's default 1..500 rule (no "all" page size here:
      * the collector clamps it to at least 1).
      */
+    #[NoAdminRequired]
     public function index(
         int $page = 1,
         int $limit = 50,
@@ -80,8 +89,8 @@ class ShareApiController extends AdminController {
         string $sort = 'created',
         string $sortDir = 'desc',
     ): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
 
         $filters = $this->buildFilters($types, $owner, $search, $hasPassword, $hasExpiration, $createdSince);
@@ -99,8 +108,10 @@ class ShareApiController extends AdminController {
      *
      * Tokens (bare credentials for public links) are omitted unless
      * $includeTokens is explicitly set — the frontend must warn the admin
-     * before turning this on.
+     * before turning this on. An auditor never gets them, regardless of
+     * $includeTokens: see AccessScope::canSeeTokens().
      */
+    #[NoAdminRequired]
     public function export(
         string $types = '',
         string $owner = '',
@@ -115,9 +126,10 @@ class ShareApiController extends AdminController {
         string $sortDir = 'desc',
         bool $includeTokens = false,
     ): DataDownloadResponse|JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
+        $includeTokens = $includeTokens && $scope->canSeeTokens();
 
         $filters = $this->buildFilters($types, $owner, $search, $hasPassword, $hasExpiration, $createdSince);
         $filters['pathSearch'] = $pathSearch !== '' ? $pathSearch : null;
@@ -127,6 +139,12 @@ class ShareApiController extends AdminController {
         $rows = $this->collector->getAllForExport($filters, $includeTokens, $sort, $sortDir);
         $csv = $this->report->buildCsv($rows, $includeTokens);
         $filename = 'share-audit-' . date('Y-m-d') . '.csv';
+
+        if (!$scope->canManage()) {
+            // An admin's own export exposes nothing new; a viewer's does —
+            // see ShareAuditLogger::logExport().
+            $this->auditLogger->logExport(count($rows), $scope->role);
+        }
 
         return new DataDownloadResponse($csv, $filename, 'text/csv; charset=UTF-8');
     }
@@ -194,9 +212,10 @@ class ShareApiController extends AdminController {
      *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
      *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
+    #[NoAdminRequired]
     public function alerts(int $page = 1, int $limit = 25, string $issue = '', string $sort = 'severity', string $sortDir = 'desc', bool $includeAcknowledged = false, string $search = ''): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
         $all = $this->security->getAlerts(null, $includeAcknowledged);
         $searched = $this->security->filterBySearch($all, $search);
@@ -212,8 +231,17 @@ class ShareApiController extends AdminController {
         }
         $total = count($filtered);
         $offset = max(0, ($page - 1) * $limit);
+        $items = $limit > 0 ? array_slice($filtered, $offset, $limit) : $filtered;
+        if (!$scope->canSeeTokens()) {
+            // Public-link tokens are bare credentials — never handed to an
+            // auditor, who can only read, not act on the alert anyway.
+            $items = array_map(static function (array $alert): array {
+                $alert['token'] = null;
+                return $alert;
+            }, $items);
+        }
         return new JSONResponse([
-            'items' => $limit > 0 ? array_slice($filtered, $offset, $limit) : $filtered,
+            'items' => $items,
             'total' => $total,
             // Unfiltered count, for the tab badge — must stay stable while
             // browsing a single category so it always reads as "all insecure
@@ -228,17 +256,25 @@ class ShareApiController extends AdminController {
     }
 
     /**
-     * GET /api/settings — current configurable alert rules.
+     * GET /api/settings — current configurable alert rules. Admin-only, like
+     * every other Settings endpoint: this is where the auditor groups
+     * themselves are picked, so an auditor must not reach it.
      */
     public function getSettings(): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
         }
-        return new JSONResponse($this->settings->getSettings());
+        return new JSONResponse($this->withAuditorGroupNames($this->settings->getSettings()));
     }
 
     /**
      * POST /api/settings — persist the configurable alert rules.
+     *
+     * $auditorGroups is nullable so an older cached frontend bundle that
+     * never sends it leaves the current list untouched — see
+     * SettingsService::saveSettings().
+     *
+     * @param string[]|null $auditorGroups
      */
     public function saveSettings(
         string $sensitiveExtensions = '',
@@ -250,6 +286,7 @@ class ShareApiController extends AdminController {
         bool $personalViewEnabled = true,
         int $groupShareMinMembers = 20,
         int $retentionDays = 30,
+        ?array $auditorGroups = null,
     ): JSONResponse {
         if (($guard = $this->requireAdmin()) !== null) {
             return $guard;
@@ -260,8 +297,44 @@ class ShareApiController extends AdminController {
             'sensitive_file' => $ruleSensitiveFile,
             'group_share_editable' => $ruleGroupShareEditable,
             'public_upload' => $rulePublicUpload,
-        ], $personalViewEnabled, $groupShareMinMembers, $retentionDays);
-        return new JSONResponse($this->settings->getSettings());
+        ], $personalViewEnabled, $groupShareMinMembers, $retentionDays, $auditorGroups);
+        return new JSONResponse($this->withAuditorGroupNames($this->settings->getSettings()));
+    }
+
+    /**
+     * GET /api/settings/groups — search instance groups, for the "Auditor
+     * groups" picker in Settings. Admin-only.
+     */
+    public function groups(string $search = ''): JSONResponse {
+        if (($guard = $this->requireAdmin()) !== null) {
+            return $guard;
+        }
+        $items = array_map(
+            static fn ($group) => ['id' => $group->getGID(), 'displayName' => $group->getDisplayName()],
+            $this->groupManager->search(trim($search)),
+        );
+        return new JSONResponse(['items' => array_values($items)]);
+    }
+
+    /**
+     * Replaces the bare group ids in $settings['auditorGroups'] with
+     * {id, displayName} pairs, so the Settings tab can show the picker's
+     * current selection without a second round trip. A group that no longer
+     * exists (deleted after being picked) is skipped — SettingsService keeps
+     * the id on the next save regardless, in case it is a transient LDAP hiccup.
+     *
+     * @param array<string, mixed> $settings
+     * @return array<string, mixed>
+     */
+    private function withAuditorGroupNames(array $settings): array {
+        $settings['auditorGroups'] = array_values(array_filter(array_map(
+            function (string $gid): ?array {
+                $group = $this->groupManager->get($gid);
+                return $group !== null ? ['id' => $gid, 'displayName' => $group->getDisplayName()] : null;
+            },
+            $settings['auditorGroups'] ?? [],
+        )));
+        return $settings;
     }
 
     /**

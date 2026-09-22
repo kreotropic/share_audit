@@ -166,6 +166,63 @@ promote here automatically.
 
 ---
 
+## Issue #16 — read-only auditor access (built, unreleased)
+
+First increment done, on branch `feature/readonly-viewer-access`: an admin
+names one or more groups (Settings → *Auditor groups*, `IAppConfig` value
+`auditor_groups`) whose members become read-only viewers of the whole
+instance's audit data — `AccessService::getScope()` centralizes the
+decision (admin / auditor / no access), and `AdminController::
+requireViewer()` is the single guard every read-only endpoint (`stats`,
+`index`/*All shares*, `alerts`, `export`, orphan listing, the exposure map,
+recipient search/lookup, deleted-share listing) calls; every endpoint that
+changes something — including Settings itself — keeps the existing
+`requireAdmin()` and carries no `#[NoAdminRequired]`, so Nextcloud's own
+`SecurityMiddleware` blocks a non-admin before the controller even runs. A
+new `PageController` (`GET /`) and `templates/viewer.php` give an auditor
+their own entry point, since Settings → Administration is closed to them; an
+admin who follows that link is redirected to their usual Settings page
+instead. Public-link tokens are stripped from `alerts()`'s payload and
+`export()`'s CSV for anyone but an admin (`AccessScope::canSeeTokens()`),
+regardless of the `includeTokens` the request asks for. `ControllerAccessTest`
+is a structural test (same reflection-based approach as
+`ControllerLimitRangeTest`) that fails if a new route is added without being
+consciously classified as admin-only or viewer-read, or if the matching guard
+call goes missing from its body. Closes the read-only-access half of GitHub
+issue [#16](https://github.com/kreotropic/share_audit/issues/16) — the
+account starts as a Nextcloud "auditor" who genuinely cannot revoke, restore
+or transfer anything, enforced server-side as the issue asked, not merely
+hidden in the interface. Thanks
+[@McKoy61](https://github.com/McKoy61).
+
+**Deliberately left for a second increment** — the issue's optional
+"manager sees their reports' shares" idea:
+- **No reverse lookup exists for "who manages me".** Nextcloud stores a
+  user's own managers (`IUser::getManagerUids()`, JSON in `oc_preferences`)
+  but has no built-in index the other way; the plan is
+  `IUserConfig::getValuesByUsers('settings', 'manager')` (NC 32+, with a
+  slower `callForAllUsers()` fallback kept for the still-supported NC 31) to
+  build a per-request "my direct reports" set, no transitivity.
+- **Every read-side query needs a real owner-scope parameter**, not the
+  existing `owners` filter key (`ShareMapper::applyFilters()`'s
+  `!empty($filters['owners'])` treats an *empty* array as "no filter", which
+  is exactly backwards for "this manager has zero reports" — it must stay a
+  separate `scopeOwners` key with `isset()` semantics and its own
+  always-false predicate on empty, so a manager with nobody under them sees
+  nothing rather than everything). Threads through `ShareCollectorService`,
+  `SecurityAnalyzerService`, `ExposureMapService`, `OrphanShareService`,
+  `RecipientLookupService` and `SoftDeleteService`/`DeletedShareMapper`.
+- **The manager view stays an explicit, separate Settings toggle**
+  (`manager_view_enabled`, off by default) — it exposes what is arguably HR
+  data (who reports to whom, inferred from having *any* access at all), a
+  decision the admin should make on purpose, unlike the auditor-group list
+  which is opt-in by construction (an empty list already means "nobody").
+- **DE/ES/FR translations for the 6 new UI strings** were done directly
+  (same caveat as G2's own translations above) — EN and PT-PT are the
+  maintainer's own and authoritative.
+
+---
+
 ## Post-launch — only if there's traction
 
 These features stay **on hold until the app gets traction on the App

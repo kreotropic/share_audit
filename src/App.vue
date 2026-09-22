@@ -12,6 +12,10 @@
 			</p>
 		</div>
 
+		<NcNoteCard v-if="!canManage" type="info" class="sad-viewer-note">
+			{{ t('share_audit_dashboard', 'Read-only access — you can see every share on this instance, but not change or revoke any of them.') }}
+		</NcNoteCard>
+
 		<nav class="sad-tabs">
 			<div v-for="tab in tabs"
 				:key="tab.id"
@@ -52,6 +56,7 @@
 <script>
 import { translate as t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import Dashboard from './views/Dashboard.vue'
 import ShareList from './views/ShareList.vue'
 import SecurityAlerts from './views/SecurityAlerts.vue'
@@ -69,12 +74,18 @@ export default {
 	name: 'App',
 	components: {
 		NcButton,
+		NcNoteCard,
 		Dashboard,
 		ShareList,
 		SecurityAlerts,
 		LookupAndOrphans,
 		DeletedShares,
 		Settings,
+	},
+	// Provided by src/main.js from the mount element's data-role. Defaults
+	// to true/'admin' so this component still works standalone in tests.
+	inject: {
+		canManage: { default: true },
 	},
 	data() {
 		return {
@@ -87,14 +98,20 @@ export default {
 	},
 	computed: {
 		tabs() {
-			return [
+			const tabs = [
 				{ id: 'dashboard', label: t('share_audit_dashboard', 'Dashboard') },
 				{ id: 'shares', label: t('share_audit_dashboard', 'All shares') },
 				{ id: 'alerts', label: t('share_audit_dashboard', 'Security alerts') },
 				{ id: 'lookup', label: t('share_audit_dashboard', 'Lookup & Orphans') },
 				{ id: 'deleted', label: t('share_audit_dashboard', 'Deleted shares') },
-				{ id: 'settings', label: t('share_audit_dashboard', 'Settings') },
 			]
+			// Only an admin picks the auditor groups and alert rules — an
+			// auditor has nothing to configure here, and the backend refuses
+			// the requests behind this tab anyway (see ShareApiController).
+			if (this.canManage) {
+				tabs.push({ id: 'settings', label: t('share_audit_dashboard', 'Settings') })
+			}
+			return tabs
 		},
 	},
 	methods: {

@@ -8,24 +8,32 @@ declare(strict_types=1);
  */
 
 /**
- * Routes for the Share Audit Dashboard admin API.
+ * Routes for the Share Audit Dashboard API and its standalone page.
  *
- * All endpoints are served from the app's own index.php route space and are
- * restricted to administrators inside the controller.
+ * All endpoints are served from the app's own index.php route space. Most
+ * are restricted to administrators inside the controller (AdminController::
+ * requireAdmin()); the read-only ones (marked below) are open to admins and
+ * auditors instead (AdminController::requireViewer()) — see AccessService.
  */
 return [
     'routes' => [
-        // Dashboard counters / stats (totals per type, trend, top users).
+        // Standalone page for a non-admin viewer (auditor/manager): the
+        // admin's own dashboard lives in Settings → Administration instead,
+        // which they cannot reach.
+        ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
+        // Dashboard counters / stats (totals per type, trend, top users). Read-only.
         ['name' => 'shareApi#stats', 'url' => '/api/stats', 'verb' => 'GET'],
-        // Paginated, filterable list of all shares on the instance.
+        // Paginated, filterable list of all shares on the instance. Read-only.
         ['name' => 'shareApi#index', 'url' => '/api/shares', 'verb' => 'GET'],
-        // Security alerts (links without password/expiration, oversharing, sensitive files).
+        // Security alerts (links without password/expiration, oversharing, sensitive files). Read-only.
         ['name' => 'shareApi#alerts', 'url' => '/api/alerts', 'verb' => 'GET'],
-        // CSV export of the filtered share list.
+        // CSV export of the filtered share list. Read-only.
         ['name' => 'shareApi#export', 'url' => '/api/export', 'verb' => 'GET'],
-        // Configurable security-alert rules.
+        // Configurable security-alert rules, incl. the auditor group list. Admin-only.
         ['name' => 'shareApi#getSettings', 'url' => '/api/settings', 'verb' => 'GET'],
         ['name' => 'shareApi#saveSettings', 'url' => '/api/settings', 'verb' => 'POST'],
+        // Group search for the "Auditor groups" picker in Settings. Admin-only.
+        ['name' => 'shareApi#groups', 'url' => '/api/settings/groups', 'verb' => 'GET'],
         // Acknowledge (accept as an exception) or undo one on a security alert.
         ['name' => 'ack#acknowledge', 'url' => '/api/alerts/{id}/ack', 'verb' => 'POST'],
         ['name' => 'ack#unacknowledge', 'url' => '/api/alerts/{id}/ack', 'verb' => 'DELETE'],
@@ -35,12 +43,12 @@ return [
         ['name' => 'shareAction#setExpiration', 'url' => '/api/shares/{id}/expiration', 'verb' => 'POST'],
         ['name' => 'shareAction#revoke', 'url' => '/api/shares/{id}', 'verb' => 'DELETE'],
         ['name' => 'shareAction#bulk', 'url' => '/api/shares/bulk', 'verb' => 'POST'],
-        // Orphan shares (owner disabled/deleted).
+        // Orphan shares (owner disabled/deleted). Listing is read-only; revoke/transfer are admin-only.
         ['name' => 'orphanShare#index', 'url' => '/api/orphans', 'verb' => 'GET'],
         ['name' => 'orphanShare#revoke', 'url' => '/api/orphans/revoke', 'verb' => 'POST'],
         ['name' => 'orphanShare#transfer', 'url' => '/api/orphans/transfer', 'verb' => 'POST'],
         ['name' => 'orphanShare#transferTargets', 'url' => '/api/orphans/transfer-targets', 'verb' => 'GET'],
-        // Exposure map (internal / external / public + score).
+        // Exposure map (internal / external / public + score). Read-only.
         ['name' => 'exposure#overview', 'url' => '/api/exposure', 'verb' => 'GET'],
         // Personal (per-user) view: audit and fix your own shares.
         ['name' => 'personal#summary', 'url' => '/api/my/summary', 'verb' => 'GET'],
@@ -49,11 +57,11 @@ return [
         ['name' => 'personal#setPassword', 'url' => '/api/my/shares/{id}/password', 'verb' => 'POST'],
         ['name' => 'personal#setExpiration', 'url' => '/api/my/shares/{id}/expiration', 'verb' => 'POST'],
         ['name' => 'personal#revoke', 'url' => '/api/my/shares/{id}', 'verb' => 'DELETE'],
-        // Reverse drill-down by recipient.
+        // Reverse drill-down by recipient. search()/shares() are read-only; revokeAll() is admin-only.
         ['name' => 'recipient#search', 'url' => '/api/recipients/search', 'verb' => 'GET'],
         ['name' => 'recipient#shares', 'url' => '/api/recipients/shares', 'verb' => 'GET'],
         ['name' => 'recipient#revokeAll', 'url' => '/api/recipients/revoke-all', 'verb' => 'POST'],
-        // Recycle bin of revoked shares (soft delete).
+        // Recycle bin of revoked shares (soft delete). Listing is read-only; restore/purge are admin-only.
         ['name' => 'softDelete#index', 'url' => '/api/deleted', 'verb' => 'GET'],
         ['name' => 'softDelete#restore', 'url' => '/api/deleted/{id}/restore', 'verb' => 'POST'],
         ['name' => 'softDelete#purge', 'url' => '/api/deleted/{id}', 'verb' => 'DELETE'],

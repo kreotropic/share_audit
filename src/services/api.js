@@ -278,9 +278,21 @@ export async function fetchSettings() {
  * Persist the configurable security-alert rules.
  *
  * @param {object} payload { sensitiveExtensions, ruleNoPassword, ruleNoExpiration, ruleSensitiveFile,
- *   ruleGroupShareEditable, rulePublicUpload, personalViewEnabled, groupShareMinMembers }
+ *   ruleGroupShareEditable, rulePublicUpload, personalViewEnabled, groupShareMinMembers, auditorGroups }
  */
 export async function saveSettings(payload) {
 	const { data } = await axios.post(base('/api/settings'), payload)
 	return data
+}
+
+/**
+ * Search instance groups, for the "Auditor groups" picker in Settings.
+ *
+ * @param {string} search matched against the group id and display name;
+ *   empty lists the first few groups
+ * @return {Promise<Array<{id: string, displayName: string}>>}
+ */
+export async function searchAuditorGroups(search = '') {
+	const { data } = await axios.get(base('/api/settings/groups'), { params: { search } })
+	return data.items
 }

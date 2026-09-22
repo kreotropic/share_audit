@@ -13,7 +13,8 @@
 			tabindex="0"
 			:aria-label="fileName"
 			@keydown.enter.self.prevent="$emit('toggle')">
-			<NcCheckboxRadioSwitch class="sad-alert__check"
+			<NcCheckboxRadioSwitch v-if="canManage"
+				class="sad-alert__check"
 				:model-value="selected"
 				:aria-label="t('share_audit_dashboard', 'Select {name}', { name: fileName })"
 				@update:model-value="$emit('update:selected', $event)" />
@@ -66,7 +67,7 @@
 				</NcButton>
 				<span v-else class="sad-alert__slot" aria-hidden="true" />
 
-				<NcButton v-if="hasIssue('no_password') || hasIssue('public_upload')"
+				<NcButton v-if="canManage && (hasIssue('no_password') || hasIssue('public_upload'))"
 					variant="tertiary"
 					:aria-label="t('share_audit_dashboard', 'Add password')"
 					:title="t('share_audit_dashboard', 'Add password')"
@@ -78,7 +79,7 @@
 				</NcButton>
 				<span v-else class="sad-alert__slot" aria-hidden="true" />
 
-				<NcButton v-if="hasIssue('no_expiration')"
+				<NcButton v-if="canManage && hasIssue('no_expiration')"
 					variant="tertiary"
 					:aria-label="t('share_audit_dashboard', 'Set expiry ({days}d)', { days: expiryDays })"
 					:title="t('share_audit_dashboard', 'Set expiry ({days}d)', { days: expiryDays })"
@@ -90,7 +91,7 @@
 				</NcButton>
 				<span v-else class="sad-alert__slot" aria-hidden="true" />
 
-				<template v-if="allowAcknowledge">
+				<template v-if="canManage && allowAcknowledge">
 					<NcButton v-if="alert.acknowledged"
 						class="sad-alert__btn"
 						variant="tertiary"
@@ -117,7 +118,8 @@
 					</NcButton>
 				</template>
 
-				<NcButton ref="revokeTrigger"
+				<NcButton v-if="canManage"
+					ref="revokeTrigger"
 					class="sad-alert__btn sad-alert__btn--revoke"
 					variant="tertiary"
 					:aria-label="t('share_audit_dashboard', 'Revoke')"
@@ -129,6 +131,7 @@
 						<NcIconSvgWrapper :path="mdiClose" />
 					</template>
 				</NcButton>
+				<span v-else class="sad-alert__slot" aria-hidden="true" />
 
 				<NcButton variant="tertiary"
 					:aria-label="expanded ? t('share_audit_dashboard', 'Hide details') : t('share_audit_dashboard', 'Details')"
@@ -267,6 +270,13 @@ export default {
 		},
 	},
 	emits: ['update:selected', 'action', 'toggle'],
+	// Provided by src/main.js (admin dashboard / viewer page) from the mount
+	// element's data-role; defaults to true so the personal view — a
+	// separate Vue app that never provides it, see PersonalApp.vue — and any
+	// standalone use of this component keep every action.
+	inject: {
+		canManage: { default: true },
+	},
 	data() {
 		return {
 			// Second step under the row: null | 'acknowledge' | 'revoke'

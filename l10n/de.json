@@ -358,7 +358,13 @@
         "Public conversation": "Öffentliche Unterhaltung",
         "Anyone with the link can join": "Jeder mit dem Link kann beitreten",
         "Open conversation": "Offene Unterhaltung",
-        "Any user of this instance can find and join it": "Jeder Benutzer dieser Instanz kann sie finden und beitreten"
+        "Any user of this instance can find and join it": "Jeder Benutzer dieser Instanz kann sie finden und beitreten",
+        "Auditor groups": "Prüfergruppen",
+        "Members of these groups get a read-only view of every share on this instance — paths, file names, owners and recipients of every user — without becoming administrators. They can never change, revoke, restore or transfer a share, and public-link tokens are never shown to them.": "Mitglieder dieser Gruppen erhalten eine schreibgeschützte Ansicht aller Freigaben dieser Instanz – Pfade, Dateinamen, Eigentümer und Empfänger aller Benutzer –, ohne Administratoren zu werden. Sie können eine Freigabe nie ändern, widerrufen, wiederherstellen oder übertragen, und öffentliche Link-Tokens werden ihnen nie angezeigt.",
+        "Search for a group…": "Nach einer Gruppe suchen…",
+        "Read-only access — you can see every share on this instance, but not change or revoke any of them.": "Schreibgeschützter Zugriff – Sie können alle Freigaben dieser Instanz sehen, aber keine davon ändern oder widerrufen.",
+        "You don't have access to the Share Audit Dashboard": "Sie haben keinen Zugriff auf das Freigabe-Audit-Dashboard",
+        "Ask an administrator to add you to one of its auditor groups.": "Bitten Sie einen Administrator, Sie zu einer der Prüfergruppen hinzuzufügen."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

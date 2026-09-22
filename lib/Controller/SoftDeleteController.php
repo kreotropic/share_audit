@@ -9,16 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\AccessService;
 use OCA\ShareAuditDashboard\Service\SoftDeleteService;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
- * Admin-only API for the recycle bin of revoked shares — see
- * SoftDeleteService / ROADMAP.md #1.
+ * API for the recycle bin of revoked shares — see SoftDeleteService /
+ * ROADMAP.md #1. Listing is read-only and open to admins and auditors;
+ * restore/purge stay admin-only.
  */
 class SoftDeleteController extends AdminController {
 
@@ -29,10 +30,9 @@ class SoftDeleteController extends AdminController {
         string $appName,
         IRequest $request,
         private SoftDeleteService $softDelete,
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        AccessService $access,
     ) {
-        parent::__construct($appName, $request, $userSession, $groupManager);
+        parent::__construct($appName, $request, $access);
     }
 
     /**
@@ -44,9 +44,10 @@ class SoftDeleteController extends AdminController {
      *        so Nextcloud 34+ accepts 0: without an explicit range its dispatcher
      *        rejects any `limit` outside 1..500 with a 400 ("All" would fail).
      */
+    #[NoAdminRequired]
     public function index(int $page = 1, int $limit = 25): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
         return new JSONResponse($this->softDelete->list($page, $limit));
     }

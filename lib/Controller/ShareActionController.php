@@ -9,12 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\AccessService;
 use OCA\ShareAuditDashboard\Service\ShareRemediationService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -41,11 +40,10 @@ class ShareActionController extends AdminController {
         string $appName,
         IRequest $request,
         private ShareRemediationService $remediation,
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        AccessService $access,
         private LoggerInterface $logger,
     ) {
-        parent::__construct($appName, $request, $userSession, $groupManager);
+        parent::__construct($appName, $request, $access);
     }
 
     /**

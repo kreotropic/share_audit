@@ -9,7 +9,8 @@
 			     bulk actions, so it can't change height when rows are selected
 			     (those float in BulkActionBar below). -->
 			<div class="sad-alertlist__toolbar">
-				<NcCheckboxRadioSwitch class="sad-alertlist__select-all"
+				<NcCheckboxRadioSwitch v-if="canManage"
+					class="sad-alertlist__select-all"
 					:model-value="allSelected"
 					@update:model-value="$emit('toggle-all', $event)">
 					{{ t('share_audit_dashboard', 'Select all') }}
@@ -88,6 +89,9 @@ export default {
 		},
 	},
 	emits: ['bulk', 'clear', 'toggle-all'],
+	inject: {
+		canManage: { default: true },
+	},
 	methods: {
 		t,
 	},

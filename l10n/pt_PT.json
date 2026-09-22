@@ -358,7 +358,13 @@
         "Public conversation": "Conversa pública",
         "Anyone with the link can join": "Qualquer pessoa com a hiperligação pode entrar",
         "Open conversation": "Conversa aberta",
-        "Any user of this instance can find and join it": "Qualquer utilizador desta instância pode encontrá-la e entrar"
+        "Any user of this instance can find and join it": "Qualquer utilizador desta instância pode encontrá-la e entrar",
+        "Auditor groups": "Grupos de auditores",
+        "Members of these groups get a read-only view of every share on this instance — paths, file names, owners and recipients of every user — without becoming administrators. They can never change, revoke, restore or transfer a share, and public-link tokens are never shown to them.": "Os membros destes grupos obtêm uma vista só de leitura de todas as partilhas desta instância — caminhos, nomes de ficheiros, donos e destinatários de todos os utilizadores — sem se tornarem administradores. Nunca podem alterar, revogar, restaurar ou transferir uma partilha, e os tokens dos links públicos nunca lhes são mostrados.",
+        "Search for a group…": "Procurar um grupo…",
+        "Read-only access — you can see every share on this instance, but not change or revoke any of them.": "Acesso só de leitura — podes ver todas as partilhas desta instância, mas não alterar nem revogar nenhuma delas.",
+        "You don't have access to the Share Audit Dashboard": "Não tens acesso ao Painel de Auditoria de Partilhas",
+        "Ask an administrator to add you to one of its auditor groups.": "Pede a um administrador para te adicionar a um dos seus grupos de auditores."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

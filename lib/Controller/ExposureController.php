@@ -9,14 +9,15 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Controller;
 
+use OCA\ShareAuditDashboard\Service\AccessService;
 use OCA\ShareAuditDashboard\Service\ExposureMapService;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
- * Admin-only API for the exposure map.
+ * API for the exposure map. Read-only, open to admins and auditors — see
+ * AdminController::requireViewer().
  */
 class ExposureController extends AdminController {
 
@@ -24,18 +25,18 @@ class ExposureController extends AdminController {
         string $appName,
         IRequest $request,
         private ExposureMapService $exposure,
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        AccessService $access,
     ) {
-        parent::__construct($appName, $request, $userSession, $groupManager);
+        parent::__construct($appName, $request, $access);
     }
 
     /**
      * GET /api/exposure — counts per category, score and top exposed users.
      */
+    #[NoAdminRequired]
     public function overview(): JSONResponse {
-        if (($guard = $this->requireAdmin()) !== null) {
-            return $guard;
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
         }
         return new JSONResponse($this->exposure->getOverview());
     }
