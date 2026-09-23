@@ -61,7 +61,13 @@ export default {
 					parts.push(n('share_audit_dashboard', '%n group', '%n groups', info.groups))
 				}
 			}
-			parts.push(this.share.recipient)
+			// The backend redacts `recipient` down to the same resolved name
+			// as info.label for a viewer not allowed to see bare tokens (see
+			// ShareCollectorService::redactRoomTokens()) — only append it
+			// when it actually adds something (the real token, for an admin).
+			if (this.share.recipient && this.share.recipient !== this.info.label) {
+				parts.push(this.share.recipient)
+			}
 			return parts.join(' · ')
 		},
 		// A conversation that strangers can walk into is the one thing here that

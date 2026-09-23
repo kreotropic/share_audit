@@ -169,6 +169,39 @@ class RecipientDetailsResolver {
     }
 
     /**
+     * Exposure category for each of $tokens' conversation: 'public' when
+     * anyone holding the link can join (Room::TYPE_PUBLIC — same reach as a
+     * public file link), 'internal' for every other kind (one-to-one, a
+     * defined group of participants, or a room that could not be resolved
+     * at all). Used by ExposureMapService, which otherwise has no way to
+     * tell a public conversation's shares apart from a private one's: both
+     * are just a TYPE_ROOM row whose share_with is an opaque token.
+     *
+     * A room this app can't resolve (Talk uninstalled, or its schema
+     * doesn't match) keeps the pre-existing "assume internal" behaviour
+     * rather than being counted as unknown/other: unlike a share_type this
+     * app has simply never seen before, a TYPE_ROOM share can only exist at
+     * all because Talk created it, so an unresolvable one is stale data
+     * (the room itself is gone), not evidence of anything actually public.
+     *
+     * @param string[] $tokens
+     * @return array<string, string> token => 'public' | 'internal'
+     */
+    public function describeRoomOpenness(array $tokens): array {
+        try {
+            $rooms = $this->fetchRooms($tokens);
+        } catch (\Throwable $e) {
+            $this->logUnavailable('Talk', $e);
+            return [];
+        }
+        $result = [];
+        foreach ($rooms as $token => $room) {
+            $result[(string)$token] = (int)$room['type'] === self::ROOM_PUBLIC ? 'public' : 'internal';
+        }
+        return $result;
+    }
+
+    /**
      * @param string[] $tokens
      * @return array<string, array<string, mixed>> token => recipientInfo
      */

@@ -36,6 +36,7 @@ class SettingsService {
 
     public function __construct(
         private IAppConfig $config,
+        private ShareAuditLogger $auditLogger,
     ) {
     }
 
@@ -145,6 +146,7 @@ class SettingsService {
         int $retentionDays = self::DEFAULT_RETENTION_DAYS,
         ?array $auditorGroups = null,
     ): void {
+        $before = $this->getSettings();
         $this->config->setValueString(
             Application::APP_ID,
             'sensitive_extensions',
@@ -168,6 +170,7 @@ class SettingsService {
             )));
             $this->config->setValueArray(Application::APP_ID, 'auditor_groups', $groups);
         }
+        $this->auditLogger->logSettingsChanged($before, $this->getSettings());
     }
 
     /**

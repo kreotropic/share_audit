@@ -111,7 +111,7 @@ class SecurityAnalyzerService {
      * @return array<int, array<string, mixed>>
      */
     public function getAlerts(?string $owner = null, bool $includeAcknowledged = false): array {
-        $cacheKey = $owner ?? '__admin__';
+        $cacheKey = self::cacheKeyFor($owner);
         $cached = $this->cache->get($cacheKey);
         if (!is_array($cached)) {
             $cached = $this->computeAlerts($owner);
@@ -199,12 +199,22 @@ class SecurityAnalyzerService {
      * CACHE_TTL seconds after the user acted on it.
      */
     public function invalidate(?string ...$uids): void {
-        $this->cache->remove('__admin__');
+        $this->cache->remove(self::cacheKeyFor(null));
         foreach ($uids as $uid) {
             if ($uid !== null && $uid !== '') {
-                $this->cache->remove($uid);
+                $this->cache->remove(self::cacheKeyFor($uid));
             }
         }
+    }
+
+    /**
+     * The admin/global cache entry (owner === null) and a per-user entry
+     * share one ICache instance, so each needs its own namespace — a prefix
+     * no uid can ever produce, on both branches, so no real account (e.g.
+     * one literally named "admin") can collide with the global entry.
+     */
+    private static function cacheKeyFor(?string $owner): string {
+        return $owner !== null ? 'user:' . $owner : 'admin:__global__';
     }
 
     /**
@@ -213,8 +223,15 @@ class SecurityAnalyzerService {
     private function computeAlerts(?string $owner): array {
         $acked = $this->loadAcknowledgedPairs();
 
+        // Only widen the SQL candidate pool with the sensitive-extension
+        // check when the rule is actually on — see
+        // ShareMapper::insecureLinkConditions().
+        $sensitiveExtensions = $this->settings->isRuleEnabled('sensitive_file')
+            ? $this->settings->getSensitiveExtensions()
+            : [];
+
         $alerts = [];
-        foreach ($this->mapper->findInsecureLinks($owner, $this->expiringSoonCutoff()) as $row) {
+        foreach ($this->mapper->findInsecureLinks($owner, $this->expiringSoonCutoff(), $sensitiveExtensions) as $row) {
             $issues = $this->issuesFor($row);
             if ($issues === []) {
                 continue;

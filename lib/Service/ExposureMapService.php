@@ -19,11 +19,15 @@ use OCP\Share\IShare;
  */
 class ExposureMapService {
 
-    /** Raw share_type => exposure category. */
+    /**
+     * Raw share_type => exposure category. TYPE_ROOM is deliberately absent:
+     * a Talk conversation's reach depends on the room itself (private vs.
+     * anyone-with-the-link public), not on the share_type alone, so it is
+     * classified per-room in classifyRoomShares() instead of by this table.
+     */
     private const CATEGORY = [
         IShare::TYPE_USER => 'internal',
         IShare::TYPE_GROUP => 'internal',
-        IShare::TYPE_ROOM => 'internal',
         IShare::TYPE_CIRCLE => 'internal',
         IShare::TYPE_EMAIL => 'external',
         IShare::TYPE_REMOTE => 'external',
@@ -44,6 +48,7 @@ class ExposureMapService {
     public function __construct(
         private ShareMapper $mapper,
         private DisplayNameResolver $displayNames,
+        private RecipientDetailsResolver $recipientDetails,
     ) {
     }
 
@@ -53,7 +58,13 @@ class ExposureMapService {
     public function getOverview(): array {
         $counts = ['internal' => 0, 'external' => 0, 'public' => 0, 'other' => 0];
         foreach ($this->mapper->countByType() as $type => $count) {
+            if ($type === IShare::TYPE_ROOM) {
+                continue;
+            }
             $category = self::CATEGORY[$type] ?? 'other';
+            $counts[$category] += $count;
+        }
+        foreach ($this->classifyRoomShares() as $category => $count) {
             $counts[$category] += $count;
         }
         $total = array_sum($counts);
@@ -81,6 +92,29 @@ class ExposureMapService {
         }
         unset($o);
         return $owners;
+    }
+
+    /**
+     * TYPE_ROOM shares, bucketed by whether their conversation is actually
+     * public (Room::TYPE_PUBLIC — the same reach as a public file link) or
+     * not, instead of the flat 'internal' every Talk share used to get
+     * regardless of the room's own openness.
+     *
+     * @return array<string, int> category => count
+     */
+    private function classifyRoomShares(): array {
+        $byToken = $this->mapper->countRoomSharesByToken();
+        if ($byToken === []) {
+            return [];
+        }
+        $openness = $this->recipientDetails->describeRoomOpenness(array_keys($byToken));
+
+        $counts = [];
+        foreach ($byToken as $token => $count) {
+            $category = $openness[$token] ?? 'internal';
+            $counts[$category] = ($counts[$category] ?? 0) + $count;
+        }
+        return $counts;
     }
 
     /**

@@ -126,9 +126,14 @@ class OrphanShareService {
      * A $limit of 0 (or less) returns every orphan on a single page, so the
      * "select all" bulk revoke can span the whole set rather than one page.
      *
+     * $canSeeTokens follows AccessScope::canSeeTokens() — see
+     * ShareCollectorService::redactRoomTokens() for why a Talk conversation's
+     * bare token gets the same treatment as a public link's, even though
+     * neither is $includeToken (that flag only ever covers the latter).
+     *
      * @return array{items: array<int, array<string, mixed>>, total: int, page: int, limit: int}
      */
-    public function getOrphanShares(int $page, int $limit): array {
+    public function getOrphanShares(int $page, int $limit, bool $canSeeTokens = true): array {
         $page = max(1, $page);
         $all = $limit <= 0;
         $limit = $all ? 0 : max(1, min(500, $limit));
@@ -159,7 +164,7 @@ class OrphanShareService {
         }, $rows));
 
         return [
-            'items' => $items,
+            'items' => $canSeeTokens ? $items : $this->collector->redactRoomTokens($items),
             'total' => $total,
             'page' => $page,
             'limit' => $limit,

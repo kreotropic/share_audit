@@ -56,7 +56,7 @@ class OrphanShareController extends AdminController {
         if (($scope = $this->requireViewer()) instanceof JSONResponse) {
             return $scope;
         }
-        return new JSONResponse($this->orphanService->getOrphanShares($page, $limit));
+        return new JSONResponse($this->orphanService->getOrphanShares($page, $limit, $scope->canSeeTokens()));
     }
 
     /**

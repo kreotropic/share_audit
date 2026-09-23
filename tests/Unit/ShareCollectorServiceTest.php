@@ -256,6 +256,65 @@ class ShareCollectorServiceTest extends TestCase {
         $this->assertSame('iitqa25e', $result['items'][0]['recipient'], 'the stored key is still there for whoever needs it');
     }
 
+    /**
+     * A Talk conversation's bare token is functionally a credential (anyone
+     * holding it can join a public room), unlike a uid/gid — so a caller
+     * without token visibility (see AccessScope::canSeeTokens()) must get
+     * the resolved name instead, not the raw key.
+     */
+    public function testGetSharesRedactsRoomTokenWhenCallerCannotSeeTokens(): void {
+        $this->mapper->method('findShares')->willReturn([
+            ['id' => 9, 'share_type' => IShare::TYPE_ROOM, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e'],
+        ]);
+        $this->mapper->method('countShares')->willReturn(1);
+        $details = $this->createMock(RecipientDetailsResolver::class);
+        $details->method('decorate')->willReturnCallback(static function (array $items) {
+            $items[0]['recipientDisplayName'] = 'Equipa de Marketing';
+            return $items;
+        });
+
+        $result = $this->collector($details)->getShares([], 1, 25, 'created', 'desc', false);
+
+        $this->assertSame('Equipa de Marketing', $result['items'][0]['recipient']);
+    }
+
+    /**
+     * $canSeeTokens defaults to true, matching every caller that existed
+     * before this parameter was added — the raw token stays for them.
+     */
+    public function testGetSharesKeepsRawRoomTokenByDefault(): void {
+        $this->mapper->method('findShares')->willReturn([
+            ['id' => 9, 'share_type' => IShare::TYPE_ROOM, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e'],
+        ]);
+        $this->mapper->method('countShares')->willReturn(1);
+        $details = $this->createMock(RecipientDetailsResolver::class);
+        $details->method('decorate')->willReturnCallback(static function (array $items) {
+            $items[0]['recipientDisplayName'] = 'Equipa de Marketing';
+            return $items;
+        });
+
+        $result = $this->collector($details)->getShares([], 1, 25);
+
+        $this->assertSame('iitqa25e', $result['items'][0]['recipient']);
+    }
+
+    public function testGetAllForExportRedactsRoomTokenUnlessTokensAreIncluded(): void {
+        $this->mapper->method('findShares')->willReturn([
+            ['id' => 9, 'share_type' => IShare::TYPE_ROOM, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e'],
+        ]);
+        $details = $this->createMock(RecipientDetailsResolver::class);
+        $details->method('decorate')->willReturnCallback(static function (array $items) {
+            $items[0]['recipientDisplayName'] = 'Equipa de Marketing';
+            return $items;
+        });
+
+        $redacted = $this->collector($details)->getAllForExport([]);
+        $this->assertSame('Equipa de Marketing', $redacted[0]['recipient']);
+
+        $withTokens = $this->collector($details)->getAllForExport([], true);
+        $this->assertSame('iitqa25e', $withTokens[0]['recipient']);
+    }
+
     public function testTheRecipientSearchAlsoLooksUpConversationsAndCardsByName(): void {
         $details = $this->createMock(RecipientDetailsResolver::class);
         $details->method('decorate')->willReturnArgument(0);

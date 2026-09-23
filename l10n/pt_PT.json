@@ -364,7 +364,12 @@
         "Search for a group…": "Procurar um grupo…",
         "Read-only access — you can see every share on this instance, but not change or revoke any of them.": "Acesso só de leitura — podes ver todas as partilhas desta instância, mas não alterar nem revogar nenhuma delas.",
         "You don't have access to the Share Audit Dashboard": "Não tens acesso ao Painel de Auditoria de Partilhas",
-        "Ask an administrator to add you to one of its auditor groups.": "Pede a um administrador para te adicionar a um dos seus grupos de auditores."
+        "Ask an administrator to add you to one of its auditor groups.": "Pede a um administrador para te adicionar a um dos seus grupos de auditores.",
+        "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone.": "Não foi possível restaurar a password desta partilha — nada foi alterado. O token do link original está provavelmente ainda a ser utilizado por outra partilha; tente novamente depois de essa deixar de existir.",
+        "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._": [
+            "%n partilha ainda concede acesso a este destinatário e não foi possível revogá-la.",
+            "%n partilhas ainda concedem acesso a este destinatário e não foi possível revogá-las."
+        ]
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

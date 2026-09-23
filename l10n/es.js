@@ -293,6 +293,8 @@ OC.L10N.register(
     "Search for a group…" : "Buscar un grupo…",
     "Read-only access — you can see every share on this instance, but not change or revoke any of them." : "Acceso de solo lectura: puedes ver todos los recursos compartidos de esta instancia, pero no cambiar ni revocar ninguno de ellos.",
     "You don't have access to the Share Audit Dashboard" : "No tienes acceso al panel de auditoría de recursos compartidos",
-    "Ask an administrator to add you to one of its auditor groups." : "Pide a un administrador que te añada a uno de sus grupos de auditores."
+    "Ask an administrator to add you to one of its auditor groups." : "Pide a un administrador que te añada a uno de sus grupos de auditores.",
+    "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone." : "No se pudo restaurar la contraseña de este recurso compartido — no se realizó ningún cambio. Es probable que su token de enlace original todavía esté en uso por otro recurso compartido; vuelva a intentarlo cuando ese haya desaparecido.",
+    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n recurso compartido todavía concede acceso a este destinatario y no se pudo revocar.", "%n recursos compartidos todavía conceden acceso a este destinatario y no se pudieron revocar."]
 },
 "nplurals=2; plural=(n != 1);");

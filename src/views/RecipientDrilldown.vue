@@ -288,20 +288,35 @@ export default {
 				let deleted = 0
 				let remaining = Infinity
 				let batches = 0
+				let everFailed = 0
 				while (remaining > 0 && batches < MAX_BATCHES) {
 					const res = await revokeRecipientAll(this.selected.shareWith, this.selected.shareType)
 					deleted += res.deleted
 					remaining = res.remaining
+					everFailed += (res.failed ?? []).length
 					batches += 1
 				}
+				this.confirming = false
+				if (remaining > 0) {
+					const parts = [n('share_audit_dashboard', 'Revoked %n share.', 'Revoked %n shares.', deleted)]
+					parts.push(n(
+						'share_audit_dashboard',
+						'%n share still grants this recipient access and could not be revoked.',
+						'%n shares still grant this recipient access and could not be revoked.',
+						remaining,
+					))
+					this.notice = { type: 'warning', message: parts.join(' ') }
+					this.page = 1
+					await this.loadShares()
+					return
+				}
 				this.notice = {
-					type: 'success',
+					type: everFailed > 0 ? 'warning' : 'success',
 					message: n('share_audit_dashboard', 'Revoked %n share.', 'Revoked %n shares.', deleted),
 				}
 				this.items = []
 				this.total = 0
 				this.page = 1
-				this.confirming = false
 				// Refresh the autocomplete so the recipient disappears if empty.
 				if (this.query.trim().length >= 2) {
 					this.runSearch()

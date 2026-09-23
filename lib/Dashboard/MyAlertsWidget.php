@@ -105,6 +105,15 @@ class MyAlertsWidget implements IAPIWidget, IAPIWidgetV2, IIconWidget {
             'no_password' => $this->l10n->t('No password'),
             'no_expiration' => $this->l10n->t('No expiration'),
             'sensitive_file' => $this->l10n->t('Sensitive file'),
+            // Same English text as SecurityAnalyzerService::ISSUE_CODES'
+            // other three codes below and src/utils/format.js's
+            // issueLabel() — reusing the exact string means the existing
+            // l10n/*.json translations already cover these, no new
+            // translation work needed.
+            'group_share_editable' => $this->l10n->t('Large group can edit'),
+            'public_upload' => $this->l10n->t('Public upload'),
+            'expiring_soon' => $this->l10n->t('Expiring soon'),
+            'already_expired' => $this->l10n->t('Already expired'),
         ];
         $parts = array_map(fn (array $i) => $labels[$i['code']] ?? $i['code'], $issues);
         return implode(' · ', $parts);

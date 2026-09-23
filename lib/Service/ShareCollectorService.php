@@ -173,10 +173,18 @@ class ShareCollectorService {
     /**
      * Paginated, filtered list of shares.
      *
+     * $canSeeTokens defaults to true (every existing caller before this
+     * parameter was added showed the real recipient): the personal view is
+     * always the caller's own shares, so there is nothing to redact from
+     * them. Pass false for a multi-user viewer (see AccessScope::
+     * canSeeTokens()) so a Talk conversation's bare token — functionally a
+     * credential, unlike a uid/gid — is replaced by its resolved name; see
+     * redactRoomTokens().
+     *
      * @param array $filters normalized filters (see ShareMapper::applyFilters)
      * @return array{items: array<int, array<string, mixed>>, total: int, page: int, limit: int}
      */
-    public function getShares(array $filters, int $page, int $limit, string $sort = 'created', string $dir = 'desc'): array {
+    public function getShares(array $filters, int $page, int $limit, string $sort = 'created', string $dir = 'desc', bool $canSeeTokens = true): array {
         $page = max(1, $page);
         $limit = max(1, min(500, $limit));
         $offset = ($page - 1) * $limit;
@@ -184,11 +192,12 @@ class ShareCollectorService {
         $filters = $this->withRecipientSearchIds($filters);
 
         $rows = $this->mapper->findShares($filters, $limit, $offset, $sort, $dir);
+        $items = $this->recipientDetails->decorate(
+            $this->withDisplayNames(array_map([$this, 'normalizeRow'], $rows)),
+        );
 
         return [
-            'items' => $this->recipientDetails->decorate(
-                $this->withDisplayNames(array_map([$this, 'normalizeRow'], $rows)),
-            ),
+            'items' => $canSeeTokens ? $items : $this->redactRoomTokens($items),
             'total' => $this->mapper->countShares($filters),
             'page' => $page,
             'limit' => $limit,
@@ -218,7 +227,32 @@ class ShareCollectorService {
         $filters = $this->withOwnerSearchUids($filters);
         $filters = $this->withRecipientSearchIds($filters);
         $rows = $this->mapper->findShares($filters, $max, 0, $sort, $dir);
-        return array_map(fn (array $row) => $this->normalizeRow($row, $includeTokens), $rows);
+        $items = $this->recipientDetails->decorate(
+            array_map(fn (array $row) => $this->normalizeRow($row, $includeTokens), $rows),
+        );
+        return $includeTokens ? $items : $this->redactRoomTokens($items);
+    }
+
+    /**
+     * Replace a Talk conversation's bare token in `recipient` with its
+     * resolved name (see RecipientDetailsResolver::decorate(), which must
+     * run first) for a caller not allowed to see bare credentials. Unlike a
+     * username or group id — already the exact thing a display name
+     * resolves from — the token itself is what lets anyone holding it join
+     * a public conversation, so it gets the same treatment as a public
+     * link's token (see AccessScope::canSeeTokens()).
+     *
+     * @param array<int, array<string, mixed>> $items decorate() output
+     * @return array<int, array<string, mixed>>
+     */
+    public function redactRoomTokens(array $items): array {
+        foreach ($items as &$item) {
+            if (($item['type'] ?? null) === IShare::TYPE_ROOM) {
+                $item['recipient'] = $item['recipientDisplayName'] ?? '';
+            }
+        }
+        unset($item);
+        return $items;
     }
 
     /**

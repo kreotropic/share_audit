@@ -175,6 +175,33 @@ class ShareMapper {
     }
 
     /**
+     * Room-share counts grouped by token (share_with) — the raw material
+     * for ExposureMapService's Talk classification. countByType() alone
+     * cannot tell a public conversation's shares apart from a private one's:
+     * both are just TYPE_ROOM rows whose share_with is an opaque token: only
+     * looking up each token in Talk's own tables (see
+     * RecipientDetailsResolver::describeRoomOpenness()) can.
+     *
+     * @return array<string, int> token => number of shares into that room
+     */
+    public function countRoomSharesByToken(): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('share_with')
+            ->selectAlias($qb->func()->count('*'), 'cnt')
+            ->from('share')
+            ->where($qb->expr()->eq('share_type', $qb->createNamedParameter(IShare::TYPE_ROOM, IQueryBuilder::PARAM_INT)))
+            ->groupBy('share_with');
+
+        $result = $qb->executeQuery();
+        $counts = [];
+        while ($row = $result->fetch()) {
+            $counts[(string)$row['share_with']] = (int)$row['cnt'];
+        }
+        $result->closeCursor();
+        return $counts;
+    }
+
+    /**
      * Top owners for a given raw share_type (e.g. public links), by count.
      *
      * @return array<int, array{owner: string, count: int}>
@@ -373,9 +400,17 @@ class ShareMapper {
      * either uid_owner or uid_initiator, since a user who creates a link on
      * a folder someone else owns is still the one who needs to fix it.
      *
+     * $sensitiveExtensions (pass [] when the sensitive_file rule is
+     * disabled) widens the candidate pool to also include a link that DOES
+     * have a password and a comfortably-future expiration but points at one
+     * of these file extensions — without this, such a link never reaches
+     * issuesFor(), so its sensitive_file issue can never be raised even
+     * though the rule is on. See insecureLinkConditions().
+     *
+     * @param string[] $sensitiveExtensions
      * @return array<int, array<string, mixed>>
      */
-    public function findInsecureLinks(?string $ownerOrInitiator = null, ?\DateTimeImmutable $expiringSoonCutoff = null): array {
+    public function findInsecureLinks(?string $ownerOrInitiator = null, ?\DateTimeImmutable $expiringSoonCutoff = null, array $sensitiveExtensions = []): array {
         $qb = $this->db->getQueryBuilder();
         $qb->select(
             's.id', 's.share_type', 's.uid_owner', 's.uid_initiator',
@@ -386,7 +421,7 @@ class ShareMapper {
             ->from('share', 's')
             ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
             ->where($qb->expr()->eq('s.share_type', $qb->createNamedParameter(3, IQueryBuilder::PARAM_INT)))
-            ->andWhere($qb->expr()->orX(...$this->insecureLinkConditions($qb, $expiringSoonCutoff)))
+            ->andWhere($qb->expr()->orX(...$this->insecureLinkConditions($qb, $expiringSoonCutoff, $sensitiveExtensions)))
             ->orderBy('s.stime', 'DESC');
 
         if ($ownerOrInitiator !== null) {
@@ -455,9 +490,16 @@ class ShareMapper {
      * pre-G2/acknowledge-feature approach that couldn't know which rows an
      * admin had already accepted; see that method's docblock).
      *
+     * public_upload's own precondition (no password) is already covered by
+     * the first two conditions below, and group_share_editable is evaluated
+     * over a wholly different query (findGroupShares()) — sensitive_file is
+     * the only enabled rule whose match can fall entirely outside "missing
+     * password/expiration", hence $sensitiveExtensions.
+     *
+     * @param string[] $sensitiveExtensions
      * @return array<int, mixed>
      */
-    private function insecureLinkConditions(IQueryBuilder $qb, ?\DateTimeImmutable $expiringSoonCutoff): array {
+    private function insecureLinkConditions(IQueryBuilder $qb, ?\DateTimeImmutable $expiringSoonCutoff, array $sensitiveExtensions = []): array {
         $conditions = [
             $qb->expr()->isNull('s.password'),
             $qb->expr()->eq('s.password', $qb->createNamedParameter('')),
@@ -466,6 +508,16 @@ class ShareMapper {
         if ($expiringSoonCutoff !== null) {
             $conditions[] = $qb->expr()->lte('s.expiration',
                 $qb->createNamedParameter($expiringSoonCutoff->format('Y-m-d H:i:s')));
+        }
+        foreach ($sensitiveExtensions as $ext) {
+            $ext = strtolower((string)$ext);
+            if ($ext === '') {
+                continue;
+            }
+            // Same case-insensitive suffix match as
+            // SecurityAnalyzerService::isSensitiveFile()'s pathinfo()+strtolower.
+            $conditions[] = $qb->expr()->iLike('f.path',
+                $qb->createNamedParameter('%.' . $this->db->escapeLikeParameter($ext)));
         }
         return $conditions;
     }
@@ -480,6 +532,12 @@ class ShareMapper {
      *  - ownerOrInitiator: string uid, matches uid_owner OR uid_initiator —
      *                  a user who created a share on a folder owned by
      *                  someone else is still responsible for it
+     *  - owners:       string[] uid_owner IN (...) — an explicitly empty
+     *                  array matches nothing (never "every owner"), for a
+     *                  scope whose owner set can legitimately be empty
+     *                  (e.g. no orphaned owners right now)
+     *  - shareWith:    string share_with exact match
+     *  - shareType:    int share_type exact match
      *  - search:       string LIKE match on file path, recipient or the
      *                  share's own name (`label`)
      *  - pathSearch:   string LIKE match on file path or the share's own
@@ -513,12 +571,18 @@ class ShareMapper {
                 $qb->createNamedParameter($filters['types'], IQueryBuilder::PARAM_INT_ARRAY)));
         }
 
-        if (!empty($filters['owner'])) {
+        // Scalar uid filters below use a strict "present and not an empty
+        // string" check rather than empty() — PHP's empty('0') is true, so a
+        // literal uid of "0" (a valid, assignable Nextcloud username) would
+        // otherwise silently drop the whole condition and match every row
+        // instead of that one user's. See findInsecureLinks()/
+        // findGroupShares(), which already use this stricter pattern.
+        if (isset($filters['owner']) && $filters['owner'] !== '') {
             $qb->andWhere($qb->expr()->eq('s.uid_owner',
                 $qb->createNamedParameter($filters['owner'])));
         }
 
-        if (!empty($filters['ownerOrInitiator'])) {
+        if (isset($filters['ownerOrInitiator']) && $filters['ownerOrInitiator'] !== '') {
             $uid = $qb->createNamedParameter($filters['ownerOrInitiator']);
             $qb->andWhere($qb->expr()->orX(
                 $qb->expr()->eq('s.uid_owner', $uid),
@@ -526,12 +590,20 @@ class ShareMapper {
             ));
         }
 
-        if (!empty($filters['owners'])) {
-            $qb->andWhere($qb->expr()->in('s.uid_owner',
-                $qb->createNamedParameter($filters['owners'], IQueryBuilder::PARAM_STR_ARRAY)));
+        // An explicitly empty owners list (e.g. a manager with zero direct
+        // reports) must match nothing, not "every owner" — see AccessScope's
+        // docblock. array_key_exists (rather than isset) also catches an
+        // explicit null, which would otherwise fall through unfiltered.
+        if (array_key_exists('owners', $filters)) {
+            if ($filters['owners'] === []) {
+                $qb->andWhere('1 = 0');
+            } else {
+                $qb->andWhere($qb->expr()->in('s.uid_owner',
+                    $qb->createNamedParameter($filters['owners'], IQueryBuilder::PARAM_STR_ARRAY)));
+            }
         }
 
-        if (!empty($filters['shareWith'])) {
+        if (isset($filters['shareWith']) && $filters['shareWith'] !== '') {
             $qb->andWhere($qb->expr()->eq('s.share_with',
                 $qb->createNamedParameter($filters['shareWith'])));
         }

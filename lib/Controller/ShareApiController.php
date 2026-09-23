@@ -29,8 +29,10 @@ use OCP\IRequest;
  *
  * stats(), index(), export() and alerts() are read-only and open to admins
  * and auditors (see AdminController::requireViewer()) — export() and
- * alerts() additionally strip public-link tokens for a non-admin, since
- * those are bare credentials. Every other action, including settings, stays
+ * alerts() additionally strip public-link tokens for a non-admin, and
+ * index()/export() likewise redact a Talk conversation's bare token from
+ * `recipient` (see ShareCollectorService::redactRoomTokens()), since those
+ * are bare credentials too. Every other action, including settings, stays
  * behind requireAdmin(): these endpoints expose or change share metadata
  * across all users and must never be reachable by a regular account.
  */
@@ -98,7 +100,7 @@ class ShareApiController extends AdminController {
         $filters['ownerSearch'] = $ownerSearch !== '' ? $ownerSearch : null;
         $filters['recipientSearch'] = $recipientSearch !== '' ? $recipientSearch : null;
 
-        return new JSONResponse($this->collector->getShares($filters, $page, $limit, $sort, $sortDir));
+        return new JSONResponse($this->collector->getShares($filters, $page, $limit, $sort, $sortDir, $scope->canSeeTokens()));
     }
 
     /**

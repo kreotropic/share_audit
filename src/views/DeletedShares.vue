@@ -302,6 +302,7 @@ export default {
 				not_found: t('share_audit_dashboard', 'This entry is no longer in the recycle bin — it may have already been restored or purged.'),
 				file_missing: t('share_audit_dashboard', 'Could not restore this share — the original file may no longer exist.'),
 				create_failed: t('share_audit_dashboard', 'Could not restore this share — the recipient or permissions may no longer be valid.'),
+				password_lost: t('share_audit_dashboard', 'Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone.'),
 			}
 			return messages[e.response?.data?.reason] ?? t('share_audit_dashboard', 'Could not restore this share.')
 		},

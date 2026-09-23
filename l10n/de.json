@@ -364,7 +364,12 @@
         "Search for a group…": "Nach einer Gruppe suchen…",
         "Read-only access — you can see every share on this instance, but not change or revoke any of them.": "Schreibgeschützter Zugriff – Sie können alle Freigaben dieser Instanz sehen, aber keine davon ändern oder widerrufen.",
         "You don't have access to the Share Audit Dashboard": "Sie haben keinen Zugriff auf das Freigabe-Audit-Dashboard",
-        "Ask an administrator to add you to one of its auditor groups.": "Bitten Sie einen Administrator, Sie zu einer der Prüfergruppen hinzuzufügen."
+        "Ask an administrator to add you to one of its auditor groups.": "Bitten Sie einen Administrator, Sie zu einer der Prüfergruppen hinzuzufügen.",
+        "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone.": "Das Passwort für diese Freigabe konnte nicht wiederhergestellt werden — es wurde nichts geändert. Das ursprüngliche Link-Token wird wahrscheinlich noch von einer anderen Freigabe verwendet; versuchen Sie es erneut, sobald diese nicht mehr existiert.",
+        "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._": [
+            "%n Freigabe gewährt diesem Empfänger weiterhin Zugriff und konnte nicht widerrufen werden.",
+            "%n Freigaben gewähren diesem Empfänger weiterhin Zugriff und konnten nicht widerrufen werden."
+        ]
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

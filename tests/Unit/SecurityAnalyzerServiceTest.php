@@ -332,8 +332,30 @@ class SecurityAnalyzerServiceTest extends TestCase {
         $this->mapper->expects($this->exactly(2))->method('findInsecureLinks')->willReturn([$this->row()]);
 
         $analyzer = $this->analyzer();
-        $analyzer->getAlerts(); // admin view, cache key '__admin__'
-        $analyzer->getAlerts('alice'); // personal view, cache key 'alice'
+        $analyzer->getAlerts(); // admin/global view
+        $analyzer->getAlerts('alice'); // personal view
+    }
+
+    /**
+     * A real account whose uid happens to equal the sentinel the global
+     * cache entry used to use verbatim ('__admin__', before the 'user:'/
+     * 'admin:' prefixing) must not read back the whole instance's alerts
+     * through its own personal view, nor have its personal alerts served
+     * back to every admin.
+     */
+    public function testUidEqualToTheOldAdminSentinelDoesNotCollideWithTheGlobalCache(): void {
+        $this->stubRules();
+        $this->mapper->expects($this->exactly(2))->method('findInsecureLinks')->willReturnOnConsecutiveCalls(
+            [$this->row(['id' => 1, 'uid_owner' => 'someone-else'])],
+            [$this->row(['id' => 2, 'uid_owner' => '__admin__', 'uid_initiator' => '__admin__'])],
+        );
+
+        $analyzer = $this->analyzer();
+        $adminAlerts = $analyzer->getAlerts();
+        $personalAlerts = $analyzer->getAlerts('__admin__');
+
+        $this->assertSame(1, $adminAlerts[0]['id']);
+        $this->assertSame(2, $personalAlerts[0]['id']);
     }
 
     // -------------------------------------------------------------------

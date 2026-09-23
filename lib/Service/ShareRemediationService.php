@@ -91,10 +91,12 @@ class ShareRemediationService {
     }
 
     /**
-     * Load a share by its numeric oc_share id. Alerts only cover public links,
-     * always served by the default ("ocinternal") provider.
+     * Load a share by its numeric oc_share id. Alerts only cover public
+     * links and native group shares, both always served by the default
+     * provider — see ShareProviderResolver::OCINTERNAL, the shared source
+     * of truth this assumption is pinned against.
      */
     public function loadShare(int $id): IShare {
-        return $this->shareManager->getShareById('ocinternal:' . $id);
+        return $this->shareManager->getShareById(ShareProviderResolver::OCINTERNAL . ':' . $id);
     }
 }

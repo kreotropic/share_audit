@@ -12,6 +12,7 @@ namespace OCA\ShareAuditDashboard\Controller;
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
+use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
 use OCA\ShareAuditDashboard\Service\ShareRemediationService;
 use OCP\AppFramework\Controller;
@@ -41,6 +42,7 @@ class PersonalController extends Controller {
         private ShareRemediationService $remediation,
         private ExpiryDefaultsService $expiryDefaults,
         private ShareMapper $mapper,
+        private SettingsService $settings,
         private IUserSession $userSession,
         private LoggerInterface $logger,
     ) {
@@ -57,6 +59,9 @@ class PersonalController extends Controller {
     #[NoAdminRequired]
     #[UserRateLimit(limit: 30, period: 60)]
     public function summary(): JSONResponse {
+        if (($guard = $this->requireEnabled()) !== null) {
+            return $guard;
+        }
         $uid = $this->uid();
         if ($uid === null) {
             return $this->unauthenticated();
@@ -73,6 +78,9 @@ class PersonalController extends Controller {
     #[NoAdminRequired]
     #[UserRateLimit(limit: 30, period: 60)]
     public function shares(int $page = 1, int $limit = 50): JSONResponse {
+        if (($guard = $this->requireEnabled()) !== null) {
+            return $guard;
+        }
         $uid = $this->uid();
         if ($uid === null) {
             return $this->unauthenticated();
@@ -86,6 +94,9 @@ class PersonalController extends Controller {
     #[NoAdminRequired]
     #[UserRateLimit(limit: 30, period: 60)]
     public function alerts(): JSONResponse {
+        if (($guard = $this->requireEnabled()) !== null) {
+            return $guard;
+        }
         $uid = $this->uid();
         if ($uid === null) {
             return $this->unauthenticated();
@@ -127,6 +138,9 @@ class PersonalController extends Controller {
      * Run $action only if the current user owns share $id.
      */
     private function owned(int $id, callable $action): JSONResponse {
+        if (($guard = $this->requireEnabled()) !== null) {
+            return $guard;
+        }
         $uid = $this->uid();
         if ($uid === null) {
             return $this->unauthenticated();
@@ -151,5 +165,22 @@ class PersonalController extends Controller {
 
     private function unauthenticated(): JSONResponse {
         return new JSONResponse(['message' => 'Login required'], Http::STATUS_UNAUTHORIZED);
+    }
+
+    /**
+     * The admin can turn the personal view off instance-wide (see
+     * PersonalSettings) — that must also close the API, not just hide the
+     * settings page and Personal app's own nav entry: without this guard,
+     * a direct request to any /api/my/* endpoint still worked regardless of
+     * the toggle.
+     */
+    private function requireEnabled(): ?JSONResponse {
+        if (!$this->settings->isPersonalViewEnabled()) {
+            return new JSONResponse(
+                ['message' => 'The personal shares audit is disabled on this instance.'],
+                Http::STATUS_FORBIDDEN,
+            );
+        }
+        return null;
     }
 }

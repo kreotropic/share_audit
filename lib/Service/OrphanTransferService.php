@@ -218,7 +218,10 @@ class OrphanTransferService {
         try {
             // onlyValid=false, as in ShareDeletionService: the manager would
             // otherwise refuse a share whose file it cannot resolve yet.
-            $share = $this->shareManager->getShareById('ocinternal:' . $id, null, false);
+            // Transfer only ever supports user/group/link shares (see
+            // transfer()), all served by the default provider — see
+            // ShareProviderResolver::OCINTERNAL.
+            $share = $this->shareManager->getShareById(ShareProviderResolver::OCINTERNAL . ':' . $id, null, false);
             $this->eventDispatcher->dispatchTyped(new ShareTransferredEvent($share));
         } catch (\Throwable $e) {
             $this->logger->warning(

@@ -12,6 +12,7 @@ use OCA\ShareAuditDashboard\Db\Ack;
 use OCA\ShareAuditDashboard\Db\AckMapper;
 use OCA\ShareAuditDashboard\Service\AckService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
+use OCA\ShareAuditDashboard\Service\ShareAuditLogger;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Share\Exceptions\ShareNotFound;
@@ -35,6 +36,7 @@ class AckServiceTest extends TestCase {
     private SecurityAnalyzerService&MockObject $analyzer;
     private IManager&MockObject $shareManager;
     private IUserSession&MockObject $userSession;
+    private ShareAuditLogger&MockObject $auditLogger;
     private AckService $service;
 
     protected function setUp(): void {
@@ -42,12 +44,14 @@ class AckServiceTest extends TestCase {
         $this->analyzer = $this->createMock(SecurityAnalyzerService::class);
         $this->shareManager = $this->createMock(IManager::class);
         $this->userSession = $this->createMock(IUserSession::class);
+        $this->auditLogger = $this->createMock(ShareAuditLogger::class);
 
         $this->service = new AckService(
             $this->mapper,
             $this->analyzer,
             $this->shareManager,
             $this->userSession,
+            $this->auditLogger,
         );
     }
 
@@ -122,6 +126,17 @@ class AckServiceTest extends TestCase {
         $this->service->acknowledge(42, ['no_password']);
     }
 
+    public function testAcknowledgeRecordsAnAuditLogEntry(): void {
+        $this->stubCurrentUser('admin1');
+        $this->shareManager->method('getShareById')->willReturn($this->share('alice', 'bob'));
+        $this->mapper->method('findOneByShareAndRule')->willReturn(null);
+
+        $this->auditLogger->expects($this->once())->method('logAcknowledge')
+            ->with(42, ['no_password'], false, 'seen it, fine');
+
+        $this->service->acknowledge(42, ['no_password'], 'seen it, fine');
+    }
+
     public function testAcknowledgeRejectsAnEmptyRuleCodeList(): void {
         $this->expectException(\InvalidArgumentException::class);
         $this->service->acknowledge(42, []);
@@ -165,6 +180,15 @@ class AckServiceTest extends TestCase {
         $this->service->unacknowledge(42, ['no_password', 'sensitive_file']);
 
         $this->assertSame([[42, 'no_password'], [42, 'sensitive_file']], $deleted);
+    }
+
+    public function testUnacknowledgeRecordsAnAuditLogEntry(): void {
+        $this->shareManager->method('getShareById')->willReturn($this->share());
+
+        $this->auditLogger->expects($this->once())->method('logAcknowledge')
+            ->with(42, ['no_password'], true);
+
+        $this->service->unacknowledge(42, ['no_password']);
     }
 
     public function testUnacknowledgeInvalidatesTheAnalyzerCache(): void {

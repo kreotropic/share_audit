@@ -87,6 +87,108 @@ class ShareAuditLogger {
      * of it and how many rows belongs on the record. Not called for an
      * admin's own export — nothing new is being exposed there.
      */
+    /**
+     * Records a settings change — in particular the auditor-groups list,
+     * since that decides who gets read-only access to every user's shares
+     * on the instance; a change to it belongs on the record as much as a
+     * revoke or transfer does. A no-op save (nothing actually differs from
+     * $before) is not logged.
+     *
+     * @param array<string, mixed> $before SettingsService::getSettings() before the save
+     * @param array<string, mixed> $after SettingsService::getSettings() after the save
+     */
+    public function logSettingsChanged(array $before, array $after): void {
+        $changed = array_values(array_filter(
+            array_keys($after),
+            static fn (string $key) => ($before[$key] ?? null) !== $after[$key],
+        ));
+        if ($changed === []) {
+            return;
+        }
+
+        $auditorGroups = $after['auditorGroups'] ?? [];
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: "%s" changed settings (%s); auditor groups are now: %s',
+            [
+                'actor' => $this->actor(),
+                'changed' => implode(', ', $changed),
+                'auditorGroups' => $auditorGroups === [] ? '(none)' : implode(', ', $auditorGroups),
+            ],
+        ));
+    }
+
+    /**
+     * Records restoring a share from the recycle bin — the flip side of
+     * logRevoke(): a revoke that turns out to be a mistake is undone by
+     * this, and "who brought back what, for whom" belongs on the record
+     * just as much as who removed it.
+     */
+    public function logRestore(int $newId, int $originalShareId, int $shareType, string $owner): void {
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: "%s" restored share %s (new id: %s; type: %s; owner: %s) from the recycle bin',
+            [
+                'actor' => $this->actor(),
+                'originalId' => (string)$originalShareId,
+                'newId' => (string)$newId,
+                'type' => (string)$shareType,
+                'owner' => $owner,
+            ],
+        ));
+    }
+
+    /**
+     * Records permanently purging one or more recycle-bin entries: once
+     * this runs there is no copy of the share left anywhere in the app, so
+     * unlike a revoke (still recoverable from the bin) this is the actual
+     * point of no return and belongs on the record.
+     *
+     * @param int[] $originalShareIds the purged entries' original oc_share ids
+     */
+    public function logPurge(array $originalShareIds): void {
+        if ($originalShareIds === []) {
+            return;
+        }
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: "%s" permanently purged %s recycle-bin entry(ies) (original share ids: %s)',
+            [
+                'actor' => $this->actor(),
+                'count' => (string)count($originalShareIds),
+                'ids' => implode(',', $originalShareIds),
+            ],
+        ));
+    }
+
+    /**
+     * Records accepting or undoing a security-alert exception: from then on
+     * (or, for unacknowledge, from here on again) the alert stops surfacing
+     * for that share/rule pair without the underlying risk having changed,
+     * so who decided that and when belongs on the record.
+     *
+     * @param string[] $ruleCodes
+     */
+    public function logAcknowledge(int $shareId, array $ruleCodes, bool $undone, ?string $note = null): void {
+        if ($ruleCodes === []) {
+            return;
+        }
+        $params = [
+            'actor' => $this->actor(),
+            'shareId' => (string)$shareId,
+            'ruleCodes' => implode(', ', $ruleCodes),
+        ];
+        if ($undone) {
+            $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+                'Share Audit Dashboard: "%s" undid the exception on share %s for: %s',
+                $params,
+            ));
+            return;
+        }
+        $params['note'] = $note ?? '(none)';
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: "%s" accepted an exception on share %s for: %s (note: %s)',
+            $params,
+        ));
+    }
+
     public function logExport(int $rowCount, string $role): void {
         $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
             'Share Audit Dashboard: "%s" (%s) exported %s share(s) to CSV',

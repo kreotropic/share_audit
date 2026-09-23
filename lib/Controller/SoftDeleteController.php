@@ -49,7 +49,7 @@ class SoftDeleteController extends AdminController {
         if (($scope = $this->requireViewer()) instanceof JSONResponse) {
             return $scope;
         }
-        return new JSONResponse($this->softDelete->list($page, $limit));
+        return new JSONResponse($this->softDelete->list($page, $limit, $scope->canSeeTokens()));
     }
 
     /**

@@ -12,8 +12,10 @@ use OCA\ShareAuditDashboard\Db\DeletedShare;
 use OCA\ShareAuditDashboard\Db\DeletedShareMapper;
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
 use OCA\ShareAuditDashboard\Service\FileNodeResolver;
+use OCA\ShareAuditDashboard\Service\RecipientDetailsResolver;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
+use OCA\ShareAuditDashboard\Service\ShareAuditLogger;
 use OCA\ShareAuditDashboard\Service\SoftDeleteService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -48,6 +50,8 @@ class SoftDeleteServiceTest extends TestCase {
     private IUserSession&MockObject $userSession;
     private DisplayNameResolver&MockObject $displayNames;
     private SecurityAnalyzerService&MockObject $analyzer;
+    private RecipientDetailsResolver&MockObject $recipientDetails;
+    private ShareAuditLogger&MockObject $auditLogger;
     private SoftDeleteService $service;
 
     protected function setUp(): void {
@@ -60,6 +64,8 @@ class SoftDeleteServiceTest extends TestCase {
         $this->userSession = $this->createMock(IUserSession::class);
         $this->displayNames = $this->createMock(DisplayNameResolver::class);
         $this->analyzer = $this->createMock(SecurityAnalyzerService::class);
+        $this->recipientDetails = $this->createMock(RecipientDetailsResolver::class);
+        $this->auditLogger = $this->createMock(ShareAuditLogger::class);
 
         $this->service = new SoftDeleteService(
             $this->mapper,
@@ -71,6 +77,8 @@ class SoftDeleteServiceTest extends TestCase {
             $this->userSession,
             $this->displayNames,
             $this->analyzer,
+            $this->recipientDetails,
+            $this->auditLogger,
             $this->createMock(LoggerInterface::class),
         );
     }
@@ -279,6 +287,9 @@ class SoftDeleteServiceTest extends TestCase {
         // and its tab badge stay stale for up to CACHE_TTL seconds.
         $this->analyzer->expects($this->once())->method('invalidate')->with('bob', 'bob');
 
+        $this->auditLogger->expects($this->once())->method('logRestore')
+            ->with(777, 42, IShare::TYPE_LINK, 'bob');
+
         $result = $this->service->restore(1);
 
         $this->assertTrue($result['success']);
@@ -339,6 +350,71 @@ class SoftDeleteServiceTest extends TestCase {
     }
 
     /**
+     * The one case restore() must never allow: the new share ends up live
+     * and public with no password, because the raw UPDATE that was supposed
+     * to reapply it failed (most likely cause: the original token got
+     * reused by another share while this one sat in the bin — token is
+     * UNIQUE). It must undo the share it just created and keep the
+     * retention entry so the admin can retry, not report success.
+     */
+    public function testRestoreUndoesShareAndKeepsRetentionEntryWhenPasswordCannotBeRestored(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setPassword('hashed-secret');
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+
+        $node = $this->createMock(Node::class);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($node);
+
+        $this->shareManager->method('newShare')->willReturn($this->createMock(IShare::class));
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $qb = $this->stubTokenPasswordUpdateQueryThatFails();
+        $qb->expects($this->once())->method('delete')->with('share')->willReturnSelf();
+
+        // The backup must survive so a retry is possible — and losing it
+        // here would mean losing the password hash for good.
+        $this->mapper->expects($this->never())->method('delete');
+        $this->analyzer->expects($this->never())->method('invalidate');
+
+        $result = $this->service->restore(1);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('password_lost', $result['reason']);
+    }
+
+    /**
+     * Contrast with the test above: when there was never a password to lose
+     * (only the link's token could not be kept), the pre-existing, lower-
+     * severity behaviour must still hold — the share stays, just with a new
+     * URL, reported via tokenChanged.
+     */
+    public function testRestoreKeepsShareWithNewTokenWhenOnlyTokenCouldNotBeRestored(): void {
+        $entity = $this->retainedLinkEntity();
+        $this->assertNull($entity->getPassword());
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+
+        $node = $this->createMock(Node::class);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($node);
+
+        $this->shareManager->method('newShare')->willReturn($this->createMock(IShare::class));
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $this->stubTokenPasswordUpdateQueryThatFails();
+
+        $this->mapper->expects($this->once())->method('delete')->with($entity);
+        $this->analyzer->expects($this->once())->method('invalidate')->with('bob', 'bob');
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['tokenChanged']);
+    }
+
+    /**
      * Raw token/password restore UPDATE — permissive query builder mock,
      * same pattern as ShareMapperTest: these tests care that the retention
      * row is deleted and the new id is reported, not the exact SQL shape.
@@ -356,6 +432,34 @@ class SoftDeleteServiceTest extends TestCase {
         $this->db->method('getQueryBuilder')->willReturn($qb);
     }
 
+    /**
+     * Same shape as stubTokenPasswordUpdateQuery(), but the raw UPDATE's
+     * executeStatement() throws on its first call (modelling the token
+     * UNIQUE conflict) and succeeds on every call after — modelling
+     * deleteRawShare()'s later DELETE succeeding once restore() compensates.
+     */
+    private function stubTokenPasswordUpdateQueryThatFails(): IQueryBuilder&MockObject {
+        $expr = $this->createMock(IExpressionBuilder::class);
+        $expr->method('eq')->willReturn('expr');
+        $qb = $this->createMock(IQueryBuilder::class);
+        $qb->method('update')->willReturnSelf();
+        $qb->method('delete')->willReturnSelf();
+        $qb->method('set')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('expr')->willReturn($expr);
+        $qb->method('createNamedParameter')->willReturnArgument(0);
+        $calls = 0;
+        $qb->method('executeStatement')->willReturnCallback(function () use (&$calls) {
+            $calls++;
+            if ($calls === 1) {
+                throw new \RuntimeException('token unique constraint');
+            }
+            return 1;
+        });
+        $this->db->method('getQueryBuilder')->willReturn($qb);
+        return $qb;
+    }
+
     // -------------------------------------------------------------------
     // purge() / purgeExpired() / count()
     // -------------------------------------------------------------------
@@ -371,8 +475,18 @@ class SoftDeleteServiceTest extends TestCase {
         $entity = $this->retainedLinkEntity();
         $this->mapper->method('find')->with(1)->willReturn($entity);
         $this->mapper->expects($this->once())->method('delete')->with($entity);
+        // Once this runs, no copy of the share is left anywhere in the app —
+        // the actual point of no return, unlike a revoke.
+        $this->auditLogger->expects($this->once())->method('logPurge')->with([42]);
 
         $this->assertTrue($this->service->purge(1));
+    }
+
+    public function testPurgeDoesNotLogWhenTheEntryWasAlreadyGone(): void {
+        $this->mapper->method('find')->willThrowException(new DoesNotExistException('gone'));
+        $this->auditLogger->expects($this->never())->method('logPurge');
+
+        $this->assertFalse($this->service->purge(1));
     }
 
     public function testPurgeExpiredDeletesEveryExpiredEntry(): void {

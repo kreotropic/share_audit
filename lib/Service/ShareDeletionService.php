@@ -15,7 +15,6 @@ use OCP\IDBConnection;
 use OCP\Lock\LockedException;
 use OCP\Share\Exceptions\ShareNotFound;
 use OCP\Share\IManager;
-use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -39,18 +38,6 @@ use Psr\Log\LoggerInterface;
  */
 class ShareDeletionService {
 
-    /** Provider id per raw share_type, matching OC\Share20\ProviderFactory. */
-    private const PROVIDER_BY_TYPE = [
-        IShare::TYPE_USER => 'ocinternal',
-        IShare::TYPE_GROUP => 'ocinternal',
-        IShare::TYPE_LINK => 'ocinternal',
-        IShare::TYPE_EMAIL => 'ocMailShare',
-        IShare::TYPE_REMOTE => 'ocFederatedSharing',
-        IShare::TYPE_REMOTE_GROUP => 'ocFederatedSharing',
-        IShare::TYPE_ROOM => 'ocRoomShare',
-        IShare::TYPE_CIRCLE => 'ocCircleShare',
-    ];
-
     public function __construct(
         private IDBConnection $db,
         private IManager $shareManager,
@@ -58,6 +45,7 @@ class ShareDeletionService {
         private ShareAuditLogger $auditLogger,
         private SecurityAnalyzerService $analyzer,
         private SoftDeleteService $softDelete,
+        private ShareProviderResolver $providers,
     ) {
     }
 
@@ -75,12 +63,15 @@ class ShareDeletionService {
 
         foreach ($rows as $row) {
             $id = (int)$row['id'];
-            $provider = self::PROVIDER_BY_TYPE[(int)$row['share_type']] ?? 'ocinternal';
             try {
                 // onlyValid=false: orphan/disabled-owner shares are exactly what
                 // we delete here, and the manager would otherwise reject them
                 // as "not found" (see Share20\Manager::checkShare()).
-                $share = $this->shareManager->getShareById($provider . ':' . $id, null, false);
+                $share = $this->shareManager->getShareById(
+                    $this->providers->shareId((int)$row['share_type'], $id),
+                    null,
+                    false,
+                );
                 $this->shareManager->deleteShare($share);
                 $deleted++;
                 $auditRows[] = $row;

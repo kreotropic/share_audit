@@ -28,6 +28,7 @@ class AckService {
         private SecurityAnalyzerService $analyzer,
         private IManager $shareManager,
         private IUserSession $userSession,
+        private ShareAuditLogger $auditLogger,
     ) {
     }
 
@@ -64,6 +65,7 @@ class AckService {
             $existing !== null ? $this->mapper->update($ack) : $this->mapper->insert($ack);
         }
 
+        $this->auditLogger->logAcknowledge($shareId, $ruleCodes, false, $note);
         $this->analyzer->invalidate($share->getShareOwner(), $share->getSharedBy());
     }
 
@@ -83,6 +85,7 @@ class AckService {
             $this->mapper->deleteByShareAndRule($shareId, $ruleCode);
         }
 
+        $this->auditLogger->logAcknowledge($shareId, $ruleCodes, true);
         $this->analyzer->invalidate($share->getShareOwner(), $share->getSharedBy());
     }
 
@@ -104,9 +107,10 @@ class AckService {
 
     /**
      * @see ShareRemediationService::loadShare() — same convention (alerts
-     * only cover shares served by the default "ocinternal" provider).
+     * only cover shares served by the default provider; see
+     * ShareProviderResolver::OCINTERNAL).
      */
     private function loadShare(int $shareId): IShare {
-        return $this->shareManager->getShareById('ocinternal:' . $shareId);
+        return $this->shareManager->getShareById(ShareProviderResolver::OCINTERNAL . ':' . $shareId);
     }
 }
