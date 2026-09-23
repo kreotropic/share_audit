@@ -295,6 +295,13 @@ OC.L10N.register(
     "You don't have access to the Share Audit Dashboard" : "Não tens acesso ao Painel de Auditoria de Partilhas",
     "Ask an administrator to add you to one of its auditor groups." : "Pede a um administrador para te adicionar a um dos seus grupos de auditores.",
     "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone." : "Não foi possível restaurar a password desta partilha — nada foi alterado. O token do link original está provavelmente ainda a ser utilizado por outra partilha; tente novamente depois de essa deixar de existir.",
-    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n partilha ainda concede acesso a este destinatário e não foi possível revogá-la.", "%n partilhas ainda concedem acesso a este destinatário e não foi possível revogá-las."]
+    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n partilha ainda concede acesso a este destinatário e não foi possível revogá-la.", "%n partilhas ainda concedem acesso a este destinatário e não foi possível revogá-las."],
+    "File no longer exists" : "O ficheiro já não existe",
+    "The shared file or folder no longer exists." : "O ficheiro ou pasta partilhada já não existe.",
+    "The shared file or folder no longer existed when this share was revoked." : "O ficheiro ou pasta partilhada já não existia quando esta partilha foi revogada.",
+    "The shared file or folder no longer exists" : "O ficheiro ou pasta partilhada já não existe",
+    "Cannot restore: the file no longer exists." : "Não é possível restaurar: o ficheiro já não existe.",
+    "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n partilha selecionada não pode ser restaurada (o seu ficheiro já não existe) e será ignorada.", "%n partilhas selecionadas não podem ser restauradas (o seu ficheiro já não existe) e serão ignoradas."],
+    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n partilha selecionada não pode ser transferida (o seu ficheiro já não existe) e será ignorada.", "%n partilhas selecionadas não podem ser transferidas (o seu ficheiro já não existe) e serão ignoradas."]
 },
 "nplurals=2; plural=(n != 1);");

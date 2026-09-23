@@ -295,6 +295,13 @@ OC.L10N.register(
     "You don't have access to the Share Audit Dashboard" : "You don't have access to the Share Audit Dashboard",
     "Ask an administrator to add you to one of its auditor groups." : "Ask an administrator to add you to one of its auditor groups.",
     "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone." : "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone.",
-    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n share still grants this recipient access and could not be revoked.", "%n shares still grant this recipient access and could not be revoked."]
+    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n share still grants this recipient access and could not be revoked.", "%n shares still grant this recipient access and could not be revoked."],
+    "File no longer exists" : "File no longer exists",
+    "The shared file or folder no longer exists." : "The shared file or folder no longer exists.",
+    "The shared file or folder no longer existed when this share was revoked." : "The shared file or folder no longer existed when this share was revoked.",
+    "The shared file or folder no longer exists" : "The shared file or folder no longer exists",
+    "Cannot restore: the file no longer exists." : "Cannot restore: the file no longer exists.",
+    "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n selected share cannot be restored (its file no longer exists) and will be skipped.", "%n selected shares cannot be restored (their file no longer exists) and will be skipped."],
+    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n selected share cannot be transferred (its file no longer exists) and will be skipped.", "%n selected shares cannot be transferred (their file no longer exists) and will be skipped."]
 },
 "nplurals=2; plural=(n != 1);");

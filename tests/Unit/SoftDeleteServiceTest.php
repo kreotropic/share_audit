@@ -129,12 +129,52 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertSame('alice', $captured->getDeletedBy());
         $this->assertSame(1000, $captured->getDeletedAt());
         $this->assertSame(1000 + 30 * 86400, $captured->getPurgeAfter());
+        $this->assertTrue($captured->getSourceExistsAtDeletion());
+    }
+
+    /**
+     * The owner being gone (why the app captured this at all elsewhere) is
+     * a different problem from the file itself being gone — see issue #21.
+     * Only a definite NotFoundException from getNode() counts as "gone".
+     */
+    public function testCaptureShareRecordsWhenTheFileNoLongerExists(): void {
+        $this->time->method('getTime')->willReturn(1000);
+        $this->settings->method('getRetentionDays')->willReturn(30);
+        $this->userSession->method('getUser')->willReturn(null);
+
+        $share = $this->createMock(IShare::class);
+        $share->method('getId')->willReturn('42');
+        $share->method('getShareType')->willReturn(IShare::TYPE_LINK);
+        $share->method('getSharedWith')->willReturn('');
+        $share->method('getShareOwner')->willReturn('bob');
+        $share->method('getSharedBy')->willReturn('bob');
+        $share->method('getNodeType')->willReturn('file');
+        $share->method('getNodeId')->willReturn(99);
+        $share->method('getTarget')->willReturn('/photo.png');
+        $share->method('getPermissions')->willReturn(1);
+        $share->method('getToken')->willReturn(null);
+        $share->method('getPassword')->willReturn(null);
+        $share->method('getLabel')->willReturn(null);
+        $share->method('getExpirationDate')->willReturn(null);
+        $share->method('getShareTime')->willReturn(null);
+        $share->method('getNode')->willThrowException(new \OCP\Files\NotFoundException());
+
+        $captured = null;
+        $this->mapper->method('insert')->with($this->callback(function (DeletedShare $e) use (&$captured) {
+            $captured = $e;
+            return true;
+        }));
+
+        $this->service->captureShare($share);
+
+        $this->assertFalse($captured->getSourceExistsAtDeletion());
     }
 
     public function testCaptureRowBuildsEntityFromRawArray(): void {
         $this->time->method('getTime')->willReturn(500);
         $this->settings->method('getRetentionDays')->willReturn(7);
         $this->userSession->method('getUser')->willReturn(null);
+        $this->stubFileExistsQuery(true);
 
         $captured = null;
         $this->mapper->expects($this->once())->method('insert')
@@ -167,12 +207,14 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertSame('Contract draft', $captured->getShareName());
         $this->assertNull($captured->getDeletedBy());
         $this->assertSame(500 + 7 * 86400, $captured->getPurgeAfter());
+        $this->assertTrue($captured->getSourceExistsAtDeletion());
     }
 
     public function testCaptureRowTreatsEmptyLabelAsNoName(): void {
         $this->time->method('getTime')->willReturn(500);
         $this->settings->method('getRetentionDays')->willReturn(7);
         $this->userSession->method('getUser')->willReturn(null);
+        $this->stubFileExistsQuery(true);
 
         $captured = null;
         $this->mapper->expects($this->once())->method('insert')
@@ -193,6 +235,30 @@ class SoftDeleteServiceTest extends TestCase {
         ]);
 
         $this->assertNull($captured->getShareName());
+    }
+
+    public function testCaptureRowRecordsWhenTheFileNoLongerExistsInFilecache(): void {
+        $this->time->method('getTime')->willReturn(500);
+        $this->settings->method('getRetentionDays')->willReturn(7);
+        $this->userSession->method('getUser')->willReturn(null);
+        $this->stubFileExistsQuery(false);
+
+        $captured = null;
+        $this->mapper->method('insert')->with($this->callback(function (DeletedShare $e) use (&$captured) {
+            $captured = $e;
+            return true;
+        }));
+
+        $this->service->captureRow([
+            'id' => 9,
+            'share_type' => IShare::TYPE_LINK,
+            'uid_owner' => 'dave',
+            'item_type' => 'file',
+            'file_source' => 55,
+            'permissions' => 1,
+        ]);
+
+        $this->assertFalse($captured->getSourceExistsAtDeletion());
     }
 
     // -------------------------------------------------------------------
@@ -415,6 +481,26 @@ class SoftDeleteServiceTest extends TestCase {
     }
 
     /**
+     * captureRow()'s own oc_filecache existence check (fileExistsInCache()).
+     */
+    private function stubFileExistsQuery(bool $exists): void {
+        $expr = $this->createMock(IExpressionBuilder::class);
+        $expr->method('eq')->willReturn('expr');
+        $qb = $this->createMock(IQueryBuilder::class);
+        $qb->method('select')->willReturnSelf();
+        $qb->method('from')->willReturnSelf();
+        $qb->method('where')->willReturnSelf();
+        $qb->method('setMaxResults')->willReturnSelf();
+        $qb->method('expr')->willReturn($expr);
+        $qb->method('createNamedParameter')->willReturnArgument(0);
+        $result = $this->createMock(\OCP\DB\IResult::class);
+        $result->method('fetchOne')->willReturn($exists ? 55 : false);
+        $result->method('closeCursor')->willReturn(true);
+        $qb->method('executeQuery')->willReturn($result);
+        $this->db->method('getQueryBuilder')->willReturn($qb);
+    }
+
+    /**
      * Raw token/password restore UPDATE — permissive query builder mock,
      * same pattern as ShareMapperTest: these tests care that the retention
      * row is deleted and the new id is reported, not the exact SQL shape.
@@ -497,6 +583,19 @@ class SoftDeleteServiceTest extends TestCase {
         $this->mapper->expects($this->exactly(2))->method('delete');
 
         $this->assertSame(2, $this->service->purgeExpired());
+    }
+
+    public function testListExposesSourceExistsAtDeletion(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setSourceExistsAtDeletion(false);
+        $this->mapper->method('findPage')->willReturn([$entity]);
+        $this->mapper->method('count')->willReturn(1);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+        $this->recipientDetails->method('decorate')->willReturnArgument(0);
+
+        $result = $this->service->list(1, 25);
+
+        $this->assertFalse($result['items'][0]['sourceExistsAtDeletion']);
     }
 
     public function testCountDelegatesToMapper(): void {

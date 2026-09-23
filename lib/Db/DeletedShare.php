@@ -45,6 +45,12 @@ class DeletedShare extends Entity {
     protected ?int $deletedAt = null;
     protected ?string $deletedBy = null;
     protected ?int $purgeAfter = null;
+    // Whether the shared file/folder still resolved when this row was
+    // captured — see issue #21 (the owner's account can be gone AND the
+    // file separately deleted; restoring the DB row never brings a file
+    // back). Nullable only for the same dirty-tracking reason as every
+    // other field above, even though it is a real bool, not "unknown".
+    protected ?bool $sourceExistsAtDeletion = null;
 
     public function __construct() {
         $this->addType('originalShareId', 'integer');
@@ -64,5 +70,6 @@ class DeletedShare extends Entity {
         $this->addType('deletedAt', 'integer');
         $this->addType('deletedBy', 'string');
         $this->addType('purgeAfter', 'integer');
+        $this->addType('sourceExistsAtDeletion', 'boolean');
     }
 }

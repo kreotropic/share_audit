@@ -369,6 +369,19 @@
         "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._": [
             "%n partilha ainda concede acesso a este destinatário e não foi possível revogá-la.",
             "%n partilhas ainda concedem acesso a este destinatário e não foi possível revogá-las."
+        ],
+        "File no longer exists": "O ficheiro já não existe",
+        "The shared file or folder no longer exists.": "O ficheiro ou pasta partilhada já não existe.",
+        "The shared file or folder no longer existed when this share was revoked.": "O ficheiro ou pasta partilhada já não existia quando esta partilha foi revogada.",
+        "The shared file or folder no longer exists": "O ficheiro ou pasta partilhada já não existe",
+        "Cannot restore: the file no longer exists.": "Não é possível restaurar: o ficheiro já não existe.",
+        "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._": [
+            "%n partilha selecionada não pode ser restaurada (o seu ficheiro já não existe) e será ignorada.",
+            "%n partilhas selecionadas não podem ser restauradas (o seu ficheiro já não existe) e serão ignoradas."
+        ],
+        "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._": [
+            "%n partilha selecionada não pode ser transferida (o seu ficheiro já não existe) e será ignorada.",
+            "%n partilhas selecionadas não podem ser transferidas (o seu ficheiro já não existe) e serão ignoradas."
         ]
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"

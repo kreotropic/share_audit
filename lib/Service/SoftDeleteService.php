@@ -15,6 +15,7 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Files\Node;
+use OCP\Files\NotFoundException;
 use OCP\IDBConnection;
 use OCP\IUserSession;
 use OCP\Share\IManager;
@@ -82,7 +83,28 @@ class SoftDeleteService {
         $entity->setShareName($share->getLabel() ?: null);
         $entity->setExpiration($share->getExpirationDate()?->format('Y-m-d H:i:s'));
         $entity->setStime($share->getShareTime()?->getTimestamp());
+        $entity->setSourceExistsAtDeletion($this->nodeStillExists($share));
         $this->finishCapture($entity);
+    }
+
+    /**
+     * Whether $share's file/folder still resolves right now — see issue
+     * #21: the owner being gone (which is why this share exists in the
+     * recycle bin at all here) is a different problem from the file itself
+     * also being gone, and restoring a DB row can only ever fix the first.
+     * Only a definite NotFoundException counts as "gone" — anything else
+     * (storage momentarily unreachable, ...) is not evidence of that and
+     * defaults to "assume it still exists" rather than mislabel it.
+     */
+    private function nodeStillExists(IShare $share): bool {
+        try {
+            $share->getNode();
+            return true;
+        } catch (NotFoundException) {
+            return false;
+        } catch (\Throwable) {
+            return true;
+        }
     }
 
     /**
@@ -111,7 +133,30 @@ class SoftDeleteService {
         $entity->setShareName(($row['label'] ?? '') !== '' ? (string)$row['label'] : null);
         $entity->setExpiration($row['expiration'] ?? null);
         $entity->setStime(isset($row['stime']) ? (int)$row['stime'] : null);
+        $entity->setSourceExistsAtDeletion(
+            $this->fileExistsInCache(isset($row['file_source']) ? (int)$row['file_source'] : null),
+        );
         $this->finishCapture($entity);
+    }
+
+    /**
+     * captureRow()'s raw-row path has no live IShare/Node to ask (see its
+     * own docblock) — a direct, cheap oc_filecache lookup, same signal as
+     * ShareMapper::findShares()'s source_exists column.
+     */
+    private function fileExistsInCache(?int $fileId): bool {
+        if ($fileId === null || $fileId <= 0) {
+            return false;
+        }
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('fileid')
+            ->from('filecache')
+            ->where($qb->expr()->eq('fileid', $qb->createNamedParameter($fileId, IQueryBuilder::PARAM_INT)))
+            ->setMaxResults(1);
+        $result = $qb->executeQuery();
+        $exists = $result->fetchOne() !== false;
+        $result->closeCursor();
+        return $exists;
     }
 
     private function finishCapture(DeletedShare $entity): void {
@@ -421,6 +466,11 @@ class SoftDeleteService {
             'deletedAt' => $e->getDeletedAt(),
             'deletedBy' => $e->getDeletedBy(),
             'purgeAfter' => $e->getPurgeAfter(),
+            // null for an entry captured before this field existed — the
+            // frontend treats that the same as true (see issue #21):
+            // "unknown" is not evidence the file is gone, and restore()
+            // still re-checks for real regardless.
+            'sourceExistsAtDeletion' => $e->getSourceExistsAtDeletion(),
         ];
     }
 }

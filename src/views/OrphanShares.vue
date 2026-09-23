@@ -62,7 +62,15 @@
 					<template v-else-if="pickingOwner">
 						<div class="sad-orphan-bar__pick">
 							<span class="sad-orphan-bar__confirm">
-								{{ n('share_audit_dashboard', 'Transfer %n share to', 'Transfer %n shares to', selectedIds.length) }}
+								{{ n('share_audit_dashboard', 'Transfer %n share to', 'Transfer %n shares to', transferableSelectedIds.length) }}
+							</span>
+							<span v-if="nonTransferableSelectedCount > 0" class="sad-orphan-bar__hint">
+								{{ n(
+									'share_audit_dashboard',
+									'%n selected share cannot be transferred (its file no longer exists) and will be skipped.',
+									'%n selected shares cannot be transferred (their file no longer exists) and will be skipped.',
+									nonTransferableSelectedCount,
+								) }}
 							</span>
 							<NcSelect v-model="newOwner"
 								class="sad-orphan-bar__select"
@@ -129,7 +137,14 @@
 								<span v-if="share.ownerDisplayName && share.ownerDisplayName !== share.owner"
 									class="sad-owner__uid">{{ share.owner }}</span>
 							</td>
-							<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
+							<td class="sad-table__path">
+								<span v-if="share.sourceExists === false"
+									class="sad-source-missing"
+									:title="t('share_audit_dashboard', 'The shared file or folder no longer exists.')">
+									{{ t('share_audit_dashboard', 'File no longer exists') }}
+								</span>
+								<span v-else :title="share.path">{{ share.path || '—' }}</span>
+							</td>
 							<td>
 								<RecipientCell v-if="share.recipientInfo" :share="share" />
 								<template v-else>
@@ -248,7 +263,16 @@ export default {
 			}
 			return Math.max(1, Math.ceil(this.total / this.apiLimit))
 		},
-		allSelected() {
+		transferableSelectedIds() {
+				return this.selectedIds.filter((id) => {
+					const share = this.items.find((s) => s.id === id)
+					return share ? share.canTransfer !== false : true
+				})
+			},
+			nonTransferableSelectedCount() {
+				return this.selectedIds.length - this.transferableSelectedIds.length
+			},
+			allSelected() {
 			return this.items.length > 0 && this.selectedIds.length === this.items.length
 		},
 		rangeLabel() {
@@ -354,6 +378,7 @@ export default {
 		skipReasonLabel(reason) {
 			const labels = {
 				not_orphan: t('share_audit_dashboard', 'The owner is no longer disabled or deleted'),
+				source_missing: t('share_audit_dashboard', 'The shared file or folder no longer exists'),
 				unsupported_type: t('share_audit_dashboard', 'This type of share cannot be transferred'),
 				recipient_is_new_owner: t('share_audit_dashboard', 'The new owner is who the share is for'),
 				no_access: t('share_audit_dashboard', 'The new owner cannot access the file'),
@@ -402,8 +427,9 @@ export default {
 			try {
 				const owner = this.newOwner
 				const total = { transferred: 0, skipped: [], failed: [] }
-				for (let i = 0; i < this.selectedIds.length; i += BULK_CHUNK_SIZE) {
-					const chunk = this.selectedIds.slice(i, i + BULK_CHUNK_SIZE)
+				const ids = this.transferableSelectedIds
+				for (let i = 0; i < ids.length; i += BULK_CHUNK_SIZE) {
+					const chunk = ids.slice(i, i + BULK_CHUNK_SIZE)
 					const res = await transferOrphans(chunk, owner.uid)
 					total.transferred += res.transferred
 					total.skipped.push(...res.skipped)
@@ -614,6 +640,22 @@ export default {
 
 .sad-owner__status--deleted {
 	background-color: var(--sad-critical);
+}
+
+.sad-source-missing {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: var(--border-radius, 6px);
+	background-color: var(--sad-critical);
+	color: var(--sad-ink-on-solid);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.sad-orphan-bar__hint {
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
 }
 
 .sad-pagination {

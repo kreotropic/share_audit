@@ -47,6 +47,8 @@ class OrphanTransferService {
 
     /** The share is gone, or its owner is an active account again. */
     public const SKIP_NOT_ORPHAN = 'not_orphan';
+    /** The shared file or folder no longer exists — see issue #21. */
+    public const SKIP_SOURCE_MISSING = 'source_missing';
     /** Federated, Talk, mail, ... shares. */
     public const SKIP_UNSUPPORTED_TYPE = 'unsupported_type';
     /** The new owner is the person the share is for. */
@@ -179,9 +181,23 @@ class OrphanTransferService {
     /**
      * Why $row cannot go to $newOwner, or null when it can.
      *
+     * The UI is expected to already hide "Transfer" for a row whose
+     * `sourceExists` is false (see OrphanShareService::getOrphanShares()),
+     * but that is a hint, not a gate: this re-checks the same fact — via the
+     * cheap `source_exists` join (see ShareMapper::findTransferCandidates()),
+     * not by trying to resolve the file against $newOwner's tree first — so
+     * a direct API call, or a stale client, can never end up transferring a
+     * share whose file is simply gone. Checked before SKIP_NO_ACCESS, which
+     * is specifically about the *new* owner's reach and would otherwise be a
+     * misleading reason for a file nobody can reach any more.
+     *
      * @param array<string, mixed> $row
      */
     private function blockedReason(array $row, string $newOwner): ?string {
+        if (isset($row['source_exists']) && (int)$row['source_exists'] === 0) {
+            return self::SKIP_SOURCE_MISSING;
+        }
+
         $type = (int)$row['share_type'];
         if (!in_array($type, self::SUPPORTED_TYPES, true)) {
             return self::SKIP_UNSUPPORTED_TYPE;

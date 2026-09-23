@@ -295,6 +295,13 @@ OC.L10N.register(
     "You don't have access to the Share Audit Dashboard" : "No tienes acceso al panel de auditoría de recursos compartidos",
     "Ask an administrator to add you to one of its auditor groups." : "Pide a un administrador que te añada a uno de sus grupos de auditores.",
     "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone." : "No se pudo restaurar la contraseña de este recurso compartido — no se realizó ningún cambio. Es probable que su token de enlace original todavía esté en uso por otro recurso compartido; vuelva a intentarlo cuando ese haya desaparecido.",
-    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n recurso compartido todavía concede acceso a este destinatario y no se pudo revocar.", "%n recursos compartidos todavía conceden acceso a este destinatario y no se pudieron revocar."]
+    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n recurso compartido todavía concede acceso a este destinatario y no se pudo revocar.", "%n recursos compartidos todavía conceden acceso a este destinatario y no se pudieron revocar."],
+    "File no longer exists" : "El archivo ya no existe",
+    "The shared file or folder no longer exists." : "El archivo o carpeta compartido ya no existe.",
+    "The shared file or folder no longer existed when this share was revoked." : "El archivo o carpeta compartido ya no existía cuando se revocó este recurso compartido.",
+    "The shared file or folder no longer exists" : "El archivo o carpeta compartido ya no existe",
+    "Cannot restore: the file no longer exists." : "No se puede restaurar: el archivo ya no existe.",
+    "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n recurso compartido seleccionado no se puede restaurar (su archivo ya no existe) y se omitirá.", "%n recursos compartidos seleccionados no se pueden restaurar (su archivo ya no existe) y se omitirán."],
+    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n recurso compartido seleccionado no se puede transferir (su archivo ya no existe) y se omitirá.", "%n recursos compartidos seleccionados no se pueden transferir (su archivo ya no existe) y se omitirán."]
 },
 "nplurals=2; plural=(n != 1);");

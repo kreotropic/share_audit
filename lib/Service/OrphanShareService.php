@@ -160,6 +160,16 @@ class OrphanShareService {
             $share = $this->collector->normalizeRow($row);
             $share['ownerStatus'] = $statuses[$share['owner']] ?? 'unknown';
             $share['ownerDisplayName'] = $names[$share['owner']] ?? $share['owner'];
+            // Owner-deleted/disabled is the baseline reason every row here is
+            // "orphan" at all — but when the file itself is also gone (see
+            // issue #21: the owner's account went away AND the file was
+            // deleted separately, e.g. by someone else before it happened),
+            // transferring makes no sense (there's nothing to hand over) and
+            // that becomes the more actionable reason to surface. Revoking
+            // (deleting the share) is unaffected either way — Nextcloud's own
+            // share deletion already tolerates a missing source file.
+            $share['canTransfer'] = $share['sourceExists'];
+            $share['orphanReason'] = $share['sourceExists'] ? 'owner_deleted' : 'source_missing';
             return $share;
         }, $rows));
 

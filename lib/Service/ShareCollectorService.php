@@ -325,6 +325,11 @@ class ShareCollectorService {
             'created' => isset($row['stime']) ? (int)$row['stime'] : null,
             'expiration' => $this->normalizeExpiration($row['expiration'] ?? null),
             'hasPassword' => !empty($row['password']),
+            // Whether file_source still resolves against oc_filecache at all
+            // (see ShareMapper::findShares()) — independent of whatever
+            // `path` ends up being, since that can be blank for reasons that
+            // have nothing to do with the file's existence.
+            'sourceExists' => isset($row['source_exists']) ? (bool)(int)$row['source_exists'] : true,
             // Matches the ShareMapper::applyFilters() "hasExpiration" filter:
             // an expiration in the past is, for this purpose, the same as no
             // expiration at all.

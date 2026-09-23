@@ -260,6 +260,12 @@ class ShareMapper {
             's.stime', 's.expiration', 's.token', 's.password', 's.label',
         )
             ->selectAlias('f.path', 'file_path')
+            // Cheap, decoupled-from-display existence signal (see issue #21):
+            // whether file_source still has a matching filecache row at all,
+            // never inferred from whether `file_path` happens to be blank —
+            // PathFormatter can legitimately return '' for reasons unrelated
+            // to the file's existence, and that must not read as "missing".
+            ->selectAlias($qb->createFunction('CASE WHEN f.fileid IS NULL THEN 0 ELSE 1 END'), 'source_exists')
             ->from('share', 's')
             ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'));
 
@@ -318,19 +324,25 @@ class ShareMapper {
     /**
      * What a transfer needs to decide whether a share can be handed to another
      * owner: who owns and who created it, who it goes to, what it grants and
-     * which file it points at. No other filtering, like findByIds().
+     * which file it points at — plus source_exists (see findShares()), so
+     * OrphanTransferService::blockedReason() can refuse a share whose file is
+     * simply gone before it ever asks whether the *new* owner can reach it
+     * (a different, misleading failure mode). No other filtering, like
+     * findByIds().
      *
      * @param int[] $ids
-     * @return array<int, array{id: int|string, share_type: int|string, uid_owner: string, uid_initiator: ?string, share_with: ?string, permissions: int|string, file_source: int|string|null}>
+     * @return array<int, array{id: int|string, share_type: int|string, uid_owner: string, uid_initiator: ?string, share_with: ?string, permissions: int|string, file_source: int|string|null, source_exists: int|string}>
      */
     public function findTransferCandidates(array $ids): array {
         if ($ids === []) {
             return [];
         }
         $qb = $this->db->getQueryBuilder();
-        $qb->select('id', 'share_type', 'uid_owner', 'uid_initiator', 'share_with', 'permissions', 'file_source')
-            ->from('share')
-            ->where($qb->expr()->in('id',
+        $qb->select('s.id', 's.share_type', 's.uid_owner', 's.uid_initiator', 's.share_with', 's.permissions', 's.file_source')
+            ->selectAlias($qb->createFunction('CASE WHEN f.fileid IS NULL THEN 0 ELSE 1 END'), 'source_exists')
+            ->from('share', 's')
+            ->leftJoin('s', 'filecache', 'f', $qb->expr()->eq('s.file_source', 'f.fileid'))
+            ->where($qb->expr()->in('s.id',
                 $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
         $result = $qb->executeQuery();
         $rows = $result->fetchAll();

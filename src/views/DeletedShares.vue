@@ -43,6 +43,14 @@
 					<NcButton :disabled="busy" @click="restoreSelected">
 						{{ t('share_audit_dashboard', 'Restore selected') }}
 					</NcButton>
+					<span v-if="nonRestorableSelectedCount > 0" class="sad-deleted-bar__hint">
+						{{ n(
+							'share_audit_dashboard',
+							'%n selected share cannot be restored (its file no longer exists) and will be skipped.',
+							'%n selected shares cannot be restored (their file no longer exists) and will be skipped.',
+							nonRestorableSelectedCount,
+						) }}
+					</span>
 					<template v-if="!confirmingPurge">
 						<NcButton variant="error" :disabled="busy" @click="confirmingPurge = true">
 							{{ t('share_audit_dashboard', 'Delete permanently') }}
@@ -91,7 +99,14 @@
 									@update:model-value="toggleSelect(share.id, $event)" />
 							</td>
 							<td><NcChip :text="categoryLabel(share.category)" :no-close="true" /></td>
-							<td class="sad-table__path" :title="share.path">{{ share.path || '—' }}</td>
+							<td class="sad-table__path">
+								<span v-if="share.sourceExistsAtDeletion === false"
+									class="sad-source-missing"
+									:title="t('share_audit_dashboard', 'The shared file or folder no longer existed when this share was revoked.')">
+									{{ t('share_audit_dashboard', 'File no longer exists') }}
+								</span>
+								<span v-else :title="share.path">{{ share.path || '—' }}</span>
+							</td>
 							<td>
 								{{ share.ownerDisplayName || share.owner }}
 								<span v-if="share.ownerDisplayName && share.ownerDisplayName !== share.owner"
@@ -110,7 +125,9 @@
 								</span>
 							</td>
 							<td v-if="canManage" class="sad-table__row-actions">
-								<NcButton :disabled="busy" @click="restoreOne(share)">
+								<NcButton :disabled="busy || share.sourceExistsAtDeletion === false"
+									:title="share.sourceExistsAtDeletion === false ? t('share_audit_dashboard', 'Cannot restore: the file no longer exists.') : null"
+									@click="restoreOne(share)">
 									{{ t('share_audit_dashboard', 'Restore') }}
 								</NcButton>
 							</td>
@@ -201,6 +218,15 @@ export default {
 		},
 		allSelected() {
 			return this.items.length > 0 && this.selectedIds.length === this.items.length
+		},
+		restorableSelectedIds() {
+			return this.selectedIds.filter((id) => {
+				const share = this.items.find((s) => s.id === id)
+				return share ? share.sourceExistsAtDeletion !== false : true
+			})
+		},
+		nonRestorableSelectedCount() {
+			return this.selectedIds.length - this.restorableSelectedIds.length
 		},
 		rangeLabel() {
 			if (this.total === 0) {
@@ -327,8 +353,8 @@ export default {
 				let restored = 0
 				let changed = 0
 				let expirationCleared = 0
-				let failed = 0
-				for (const id of [...this.selectedIds]) {
+				let failed = this.selectedIds.length - this.restorableSelectedIds.length
+				for (const id of [...this.restorableSelectedIds]) {
 					try {
 						const res = await restoreDeletedShare(id)
 						restored++
@@ -434,6 +460,11 @@ export default {
 	font-weight: 600;
 }
 
+.sad-deleted-bar__hint {
+	color: var(--color-text-maxcontrast);
+	font-size: 12px;
+}
+
 .sad-deleted-notice {
 	margin-bottom: 12px;
 }
@@ -483,6 +514,17 @@ export default {
 	display: block;
 	color: var(--color-text-maxcontrast);
 	font-size: 12px;
+}
+
+.sad-source-missing {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: var(--border-radius, 6px);
+	background-color: var(--sad-critical);
+	color: var(--sad-ink-on-solid);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
 }
 
 .sad-table__row-actions {

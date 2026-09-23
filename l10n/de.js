@@ -295,6 +295,13 @@ OC.L10N.register(
     "You don't have access to the Share Audit Dashboard" : "Sie haben keinen Zugriff auf das Freigabe-Audit-Dashboard",
     "Ask an administrator to add you to one of its auditor groups." : "Bitten Sie einen Administrator, Sie zu einer der Prüfergruppen hinzuzufügen.",
     "Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone." : "Das Passwort für diese Freigabe konnte nicht wiederhergestellt werden — es wurde nichts geändert. Das ursprüngliche Link-Token wird wahrscheinlich noch von einer anderen Freigabe verwendet; versuchen Sie es erneut, sobald diese nicht mehr existiert.",
-    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n Freigabe gewährt diesem Empfänger weiterhin Zugriff und konnte nicht widerrufen werden.", "%n Freigaben gewähren diesem Empfänger weiterhin Zugriff und konnten nicht widerrufen werden."]
+    "_%n share still grants this recipient access and could not be revoked._::_%n shares still grant this recipient access and could not be revoked._" : ["%n Freigabe gewährt diesem Empfänger weiterhin Zugriff und konnte nicht widerrufen werden.", "%n Freigaben gewähren diesem Empfänger weiterhin Zugriff und konnten nicht widerrufen werden."],
+    "File no longer exists" : "Datei existiert nicht mehr",
+    "The shared file or folder no longer exists." : "Die geteilte Datei oder der geteilte Ordner existiert nicht mehr.",
+    "The shared file or folder no longer existed when this share was revoked." : "Die geteilte Datei oder der geteilte Ordner existierte nicht mehr, als diese Freigabe aufgehoben wurde.",
+    "The shared file or folder no longer exists" : "Die geteilte Datei oder der geteilte Ordner existiert nicht mehr",
+    "Cannot restore: the file no longer exists." : "Wiederherstellung nicht möglich: Die Datei existiert nicht mehr.",
+    "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n ausgewählte Freigabe kann nicht wiederhergestellt werden (ihre Datei existiert nicht mehr) und wird übersprungen.", "%n ausgewählte Freigaben können nicht wiederhergestellt werden (ihre Datei existiert nicht mehr) und werden übersprungen."],
+    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n ausgewählte Freigabe kann nicht übertragen werden (ihre Datei existiert nicht mehr) und wird übersprungen.", "%n ausgewählte Freigaben können nicht übertragen werden (ihre Datei existiert nicht mehr) und werden übersprungen."]
 },
 "nplurals=2; plural=(n != 1);");

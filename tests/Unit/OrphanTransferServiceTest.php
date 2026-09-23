@@ -243,6 +243,37 @@ class OrphanTransferServiceTest extends TestCase {
         $this->assertSame([['id' => 7, 'reason' => OrphanTransferService::SKIP_NOT_ORPHAN]], $result['skipped']);
     }
 
+    /**
+     * The UI is expected to already hide "Transfer" for a row whose
+     * sourceExists is false (see OrphanShareService), but the endpoint must
+     * refuse it too — a stale client or a direct API call must never end up
+     * transferring a share whose file is simply gone.
+     */
+    public function testAShareWhoseSourceIsGoneCannotBeTransferred(): void {
+        $this->newOwnerIsDana();
+        $this->candidates([$this->row(7, ['source_exists' => 0])]);
+        $this->nodes->expects($this->never())->method('resolve');
+        $this->mapper->expects($this->never())->method('reassignOwner');
+
+        $result = $this->service->transfer([7], 'dana');
+
+        $this->assertSame(OrphanTransferService::SKIP_SOURCE_MISSING, $result['skipped'][0]['reason']);
+    }
+
+    /**
+     * A missing source is checked first: it would otherwise fall through to
+     * SKIP_UNSUPPORTED_TYPE or SKIP_NO_ACCESS, both misleading for a file
+     * that doesn't exist for anyone, not just the new owner.
+     */
+    public function testSourceMissingIsReportedBeforeUnsupportedType(): void {
+        $this->newOwnerIsDana();
+        $this->candidates([$this->row(7, ['source_exists' => 0, 'share_type' => IShare::TYPE_REMOTE])]);
+
+        $result = $this->service->transfer([7], 'dana');
+
+        $this->assertSame(OrphanTransferService::SKIP_SOURCE_MISSING, $result['skipped'][0]['reason']);
+    }
+
     public function testATypeWhoseStateLivesElsewhereIsNotMoved(): void {
         $this->newOwnerIsDana();
         $this->candidates([
