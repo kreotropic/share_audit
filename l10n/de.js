@@ -302,6 +302,7 @@ OC.L10N.register(
     "The shared file or folder no longer exists" : "Die geteilte Datei oder der geteilte Ordner existiert nicht mehr",
     "Cannot restore: the file no longer exists." : "Wiederherstellung nicht möglich: Die Datei existiert nicht mehr.",
     "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n ausgewählte Freigabe kann nicht wiederhergestellt werden (ihre Datei existiert nicht mehr) und wird übersprungen.", "%n ausgewählte Freigaben können nicht wiederhergestellt werden (ihre Datei existiert nicht mehr) und werden übersprungen."],
-    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n ausgewählte Freigabe kann nicht übertragen werden (ihre Datei existiert nicht mehr) und wird übersprungen.", "%n ausgewählte Freigaben können nicht übertragen werden (ihre Datei existiert nicht mehr) und werden übersprungen."]
+    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n ausgewählte Freigabe kann nicht übertragen werden (ihre Datei existiert nicht mehr) und wird übersprungen.", "%n ausgewählte Freigaben können nicht übertragen werden (ihre Datei existiert nicht mehr) und werden übersprungen."],
+    "Clear filter" : "Filter zurücksetzen"
 },
 "nplurals=2; plural=(n != 1);");

@@ -302,6 +302,7 @@ OC.L10N.register(
     "The shared file or folder no longer exists" : "The shared file or folder no longer exists",
     "Cannot restore: the file no longer exists." : "Cannot restore: the file no longer exists.",
     "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n selected share cannot be restored (its file no longer exists) and will be skipped.", "%n selected shares cannot be restored (their file no longer exists) and will be skipped."],
-    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n selected share cannot be transferred (its file no longer exists) and will be skipped.", "%n selected shares cannot be transferred (their file no longer exists) and will be skipped."]
+    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n selected share cannot be transferred (its file no longer exists) and will be skipped.", "%n selected shares cannot be transferred (their file no longer exists) and will be skipped."],
+    "Clear filter" : "Clear filter"
 },
 "nplurals=2; plural=(n != 1);");

@@ -44,14 +44,25 @@
 									</NcActionButton>
 								</template>
 
-								<!-- Text search -->
-								<NcActionInput v-else-if="col.filter === 'search'"
-									:model-value="f[col.field]"
-									:label="col.filterLabel || col.label"
-									@update:model-value="onSearch(col.field, $event)"
-									@submit="emitFilter">
-									{{ col.filterLabel || col.label }}
-								</NcActionInput>
+								<!-- Text search. NcActionInput's trailing icon is hardcoded to
+								"arrowRight", which NcTextField (its inner control) doesn't
+								recognize and renders as an X instead — but that button is
+								wired to submit the (unchanged) value, not clear it. Hiding it
+								and offering an explicit "Clear filter" action avoids an X that
+								looks like it clears the field but actually does nothing. -->
+								<template v-else-if="col.filter === 'search'">
+									<NcActionInput
+										:model-value="f[col.field]"
+										:label="col.filterLabel || col.label"
+										:show-trailing-button="false"
+										@update:model-value="onSearch(col.field, $event)"
+										@submit="emitFilter">
+										{{ col.filterLabel || col.label }}
+									</NcActionInput>
+									<NcActionButton v-if="f[col.field] !== ''" @click="clearSearch(col.field)">
+										{{ t('share_audit_dashboard', 'Clear filter') }}
+									</NcActionButton>
+								</template>
 
 								<!-- Tri-state (password / expiration) -->
 								<template v-else>
@@ -258,6 +269,11 @@ export default {
 			this.f[field] = value
 			clearTimeout(this.searchTimer)
 			this.searchTimer = setTimeout(this.emitFilter, 400)
+		},
+		clearSearch(field) {
+			clearTimeout(this.searchTimer)
+			this.f[field] = ''
+			this.emitFilter()
 		},
 		setTristate(field, value) {
 			this.f[field] = value

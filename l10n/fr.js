@@ -302,6 +302,7 @@ OC.L10N.register(
     "The shared file or folder no longer exists" : "Le fichier ou dossier partagé n'existe plus",
     "Cannot restore: the file no longer exists." : "Impossible de restaurer : le fichier n'existe plus.",
     "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n partage sélectionné ne peut pas être restauré (son fichier n'existe plus) et sera ignoré.", "%n partages sélectionnés ne peuvent pas être restaurés (leur fichier n'existe plus) et seront ignorés."],
-    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n partage sélectionné ne peut pas être transféré (son fichier n'existe plus) et sera ignoré.", "%n partages sélectionnés ne peuvent pas être transférés (leur fichier n'existe plus) et seront ignorés."]
+    "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n partage sélectionné ne peut pas être transféré (son fichier n'existe plus) et sera ignoré.", "%n partages sélectionnés ne peuvent pas être transférés (leur fichier n'existe plus) et seront ignorés."],
+    "Clear filter" : "Effacer le filtre"
 },
 "nplurals=2; plural=(n > 1);");

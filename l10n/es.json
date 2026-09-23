@@ -382,7 +382,8 @@
         "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._": [
             "%n recurso compartido seleccionado no se puede transferir (su archivo ya no existe) y se omitirá.",
             "%n recursos compartidos seleccionados no se pueden transferir (su archivo ya no existe) y se omitirán."
-        ]
+        ],
+        "Clear filter": "Borrar filtro"
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }
