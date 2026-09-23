@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.7.0]
+
 ### Added
 - **Read-only access for non-admin auditors.** An admin can now name one or
   more groups, in Settings → *Auditor groups*, whose members get their own
@@ -25,6 +27,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   handed to an auditor either. Thanks
   [@McKoy61](https://github.com/McKoy61)
   ([#16](https://github.com/kreotropic/share_audit/issues/16)).
+
+### Security
+A self-initiated review of 0.6.0 found the following, all fixed here:
+- The instance-wide and personal alerts views shared one cache with no
+  namespace between them — an account whose uid happened to collide with the
+  cache's own internal key for the global view could, for up to a minute,
+  have been served the wrong scope's alerts. Cache keys are now
+  unambiguously separated.
+- A share listing or count scoped to one user (an owner filter, or "my
+  shares") silently dropped that scope for an account whose uid is the
+  literal string `"0"`, returning every share on the instance instead of
+  just that user's own. Every such filter now treats `"0"` (and every other
+  uid) correctly.
+- A Talk conversation's bare token — which lets anyone holding it join a
+  public room — reached the share list, CSV export, the orphan and
+  recycle-bin listings and the personal view's recipient column regardless
+  of role, the same way a public link's token used to before it was gated to
+  administrators. It's now redacted the same way for anyone without that
+  access, shown as the conversation's resolved name instead.
+- Restoring a share from the recycle bin could, if reapplying its original
+  password/link token failed (most likely because that token had since been
+  reused by another share), leave a brand-new, unprotected public link live
+  while discarding the only backup that had the password — instead of
+  reporting failure. It now undoes the share it just created and keeps the
+  backup so the restore can be retried once the conflict clears.
+- Turning off the personal "My shares audit" page (Settings → Personal) now
+  also closes its API; it previously only hid the page and its dashboard
+  widget.
+- The *sensitive file type* alert rule could miss a link that also had a
+  password set and a comfortably-future expiration date — it's now checked
+  regardless of those.
+- "Revoke all" for a recipient no longer reports success and clears the list
+  when some of that recipient's shares could not actually be revoked; it now
+  shows how many remain and reloads the real list instead.
+- A Talk conversation open to anyone with the link now counts toward the
+  exposure score's *public* share of reach instead of always being treated
+  as internal.
+- Restoring a share, permanently purging a recycle-bin entry, changing
+  settings (in particular the auditor-groups list) and accepting or undoing
+  an alert exception are now recorded to Nextcloud's admin audit log,
+  alongside the revoke/transfer/export actions that already were.
+
+### Fixed
+- Distinguished an orphan share (owner account disabled or deleted) whose
+  file has *also* been deleted separately from one whose file is still
+  there: only the latter can be transferred to a new owner — attempting to
+  transfer the other is now refused server-side too, not just hidden in the
+  interface — and the recycle bin now marks such an entry the same way and
+  disables *Restore* for it, instead of a restore that can only ever fail.
+  Thanks [@michel-thomas](https://github.com/michel-thomas)
+  ([#21](https://github.com/kreotropic/share_audit/issues/21)).
+- *All shares*' per-column search filters had a button that looked like it
+  cleared the search but actually resubmitted it unchanged; it now has a
+  working *Clear filter* action instead. Thanks
+  [@michel-thomas](https://github.com/michel-thomas)
+  ([#14](https://github.com/kreotropic/share_audit/issues/14)).
 
 ## [0.6.0]
 

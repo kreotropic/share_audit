@@ -5,7 +5,7 @@
 
 # Share Audit Dashboard — Roadmap
 
-## Current state (v0.6.0)
+## Current state (v0.7.0)
 
 The app is **published on the App Store** (`min-version` 31, `max-version`
 35) and functionally complete: three review rounds (security, pre-submission
@@ -15,8 +15,12 @@ delete (recycle bin) for shares and Nextcloud 34 support; 0.5.0 added German
 and Spanish translations and a Nextcloud Playground preview; 0.6.0 added
 accepting alerts as exceptions, transferring orphan shares to another account,
 Talk conversations and Deck cards shown by name, search and sort by name, and
-Nextcloud 35 support. The app has a test suite (`phpunit`, `tests/Unit/`, 219
-tests) and CI
+Nextcloud 35 support; 0.7.0 added read-only auditor access (issue #16), closed
+a self-initiated security review of 0.6.0 (cache/UID isolation, Talk-token
+redaction, restore atomicity, audit-log completeness — see CHANGELOG.md's
+0.7.0 *Security* section), and distinguished an orphan share whose file is
+also gone from one that can still be transferred (issue #21). The app has a
+test suite (`phpunit`, `tests/Unit/`, 309 tests) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -166,7 +170,7 @@ promote here automatically.
 
 ---
 
-## Issue #16 — read-only auditor access (built, unreleased)
+## Issue #16 — read-only auditor access (delivered in 0.7.0)
 
 First increment done, on branch `feature/readonly-viewer-access`: an admin
 names one or more groups (Settings → *Auditor groups*, `IAppConfig` value
@@ -203,13 +207,15 @@ hidden in the interface. Thanks
   `IUserConfig::getValuesByUsers('settings', 'manager')` (NC 32+, with a
   slower `callForAllUsers()` fallback kept for the still-supported NC 31) to
   build a per-request "my direct reports" set, no transitivity.
-- **Every read-side query needs a real owner-scope parameter**, not the
-  existing `owners` filter key (`ShareMapper::applyFilters()`'s
-  `!empty($filters['owners'])` treats an *empty* array as "no filter", which
-  is exactly backwards for "this manager has zero reports" — it must stay a
-  separate `scopeOwners` key with `isset()` semantics and its own
-  always-false predicate on empty, so a manager with nobody under them sees
-  nothing rather than everything). Threads through `ShareCollectorService`,
+- **Every read-side query needs a real owner-scope parameter.** The existing
+  `owners` filter key's `!empty()` collapse (an *empty* array silently
+  meaning "no filter" instead of "match nothing" — exactly backwards for
+  "this manager has zero reports") was fixed in 0.7.0's security pass
+  (`ShareMapper::applyFilters()` now short-circuits an empty `owners` array
+  to a never-true condition) — but a manager's scope should still be a
+  distinct `scopeOwners` key rather than reusing `owners`, so a manager
+  scope and an orphan-owner scope can never be confused for each other.
+  Threads through `ShareCollectorService`,
   `SecurityAnalyzerService`, `ExposureMapService`, `OrphanShareService`,
   `RecipientLookupService` and `SoftDeleteService`/`DeletedShareMapper`.
 - **The manager view stays an explicit, separate Settings toggle**
@@ -358,25 +364,71 @@ upfront). Like the CSV, the report must not include access tokens.
 
 ## Minor backlog
 
-- **Exposure score: Talk and Deck are classified too coarsely.**
-  `ExposureMapService` files every Talk conversation under *internal*, so a file
-  shared into a **public** conversation (anyone with the link joins as a guest) or
-  an **open** one (any user can join) counts as internal, and a Deck share falls
-  under *other*, which weighs like *external*. `RecipientDetailsResolver` already
-  reads how open a conversation is (`openTo`), so a public conversation could count
-  as public and a Deck share as internal. It moves the dashboard's score, so it is
-  a decision, not a fix — and Deck still has no dashboard bucket, colour or
-  internal/external call of its own (its counters keep counting it under *other*).
+- **List Talk conversations open to guest/free join, directly — not only
+  when a file happens to be shared into them.** Clarified via issue
+  [#18](https://github.com/kreotropic/share_audit/issues/18) (2026-09-23,
+  [@michel-thomas](https://github.com/michel-thomas)): the app only ever
+  learns about a Talk conversation through an `oc_share` row, which only
+  exists when a *file* was shared into it — a room used purely for
+  chat/calls, with no file ever shared into it, has no such row and so
+  never appears, "public and open to anyone" or not. Their actual use case
+  ("share audit could prevent visio-squatting") wants every open/public
+  conversation listed regardless of whether a file was ever shared into it
+  — that needs a new read straight from `talk_rooms`
+  (`RecipientDetailsResolver::describeRoomOpenness()`, added in 0.7.0 for
+  the exposure score above, already resolves a token's openness and is most
+  of the hard part) rather than another `oc_share` filter. Same gap exists
+  for Deck (a board's membership lives in `oc_deck_board_acl`, not
+  `oc_share` at all) — michel-thomas checked and found no equivalent
+  "open/guest" concept on the Deck side to audit.
+- **`RecipientLookupService`/`RecipientController` (the reverse "who has
+  access to X" drill-down) still hands a Talk conversation's bare token
+  back to an auditor.** Deliberately not fixed alongside the other
+  Talk-token redactions in 0.7.0's security pass: `search()` returns the
+  token as the recipient's own identifier and `shares()`/`revokeAll()` take
+  it back as the lookup key, so redacting it here needs an opaque-identifier
+  redesign, not a field swap like the other three spots got.
+- **`SoftDeleteService::restore()` has no protection against two concurrent
+  restores of the same recycle-bin entry.** Noted while fixing 0.7.0's
+  restore-loses-password bug: the correct fix (atomically claim the
+  retention row before creating the new share, re-insert a fresh entity on
+  any failure) needs care around `Entity`/`QBMapper`'s dirty-tracking on
+  `insert()` that felt safer to leave alone without a live instance to
+  verify against. Worst case today: a double-click creates two live shares
+  instead of one — not a security regression, just a duplicate.
+- **No CI matrix across Nextcloud 31–35 × MySQL/PostgreSQL.** Investigated
+  in 0.7.0: the entire `tests/Unit/` suite mocks `IDBConnection`/
+  `IQueryBuilder` and never touches a real database, so a DB-engine matrix
+  over it would pass identically on every engine regardless of real
+  dialect differences (e.g. the NULL-sort-order divergence
+  `ShareMapper::NULLABLE_SORT_COLUMNS` exists to work around) — added
+  deliberately as a note instead of a matrix that would look like coverage
+  it doesn't provide. A real version needs a DBAL-backed integration layer,
+  a separate, bigger effort.
+- ~~Exposure score: Talk conversations are classified too coarsely~~ — done
+  (0.7.0, part of the security pass): a Talk conversation open to anyone
+  with the link (`Room::TYPE_PUBLIC`) now counts toward *public* instead of
+  always *internal* (`ExposureMapService::classifyRoomShares()`, backed by
+  `ShareMapper::countRoomSharesByToken()` +
+  `RecipientDetailsResolver::describeRoomOpenness()`). A conversation open
+  to any *logged-in* user (`openTo === 'users'`, not a public link) still
+  counts as internal, matching a group share's own reach.
+- **Deck still has no dashboard bucket, colour or internal/external call of
+  its own** — its counters keep counting under *other*, which weighs like
+  *external*. Not addressed in 0.7.0.
 - **Access lookup does not see access through a conversation, a circle or a Deck
   board.** `RecipientLookupService` matches `share_with`, so a person who reads a
   file because they are in a Talk conversation, a circle or a board's ACL is not
   listed as reaching it, and a conversation is found by its token, not its name.
   The lists show the names now; this is the audit view that would need to expand
   them.
-- **Recycle bin and CSV still show the raw key of a Talk or Deck recipient.** The
-  bin builds its rows from its own table (`SoftDeleteService`), and the CSV keeps
-  raw ids on purpose (see `ShareCollectorService::getAllForExport()`); neither
-  goes through `RecipientDetailsResolver` yet.
+- ~~Recycle bin and CSV still show the raw key of a Talk or Deck recipient~~ —
+  done (0.7.0), as a side effect of redacting a Talk conversation's bare
+  token (a real credential) from the same two places: both now call
+  `RecipientDetailsResolver::decorate()` and show the resolved name by
+  default. An admin (or an admin's CSV export with *Include link tokens*
+  ticked) still sees the raw token in the recycle bin / CSV, same as they
+  already could for a public link's — that part is by design, not a gap.
 - **Talk participants list.** The recipient shows a headcount and, for a
   one-to-one, the two people; the names of a group conversation's participants (and
   the members of a group or circle inside it) are one query away in
