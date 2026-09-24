@@ -209,6 +209,70 @@ final class OrphanFileMoveTest extends TestCase {
         $this->assertLinkServes($b->getToken(), 'from B');
     }
 
+    /**
+     * Nextcloud runs background jobs in as many processes as the admin starts, so
+     * "one after the other" cannot be assumed. Here two real, separate workers
+     * are made to start the moves at the same instant: the second must find the
+     * account busy and back off — not run alongside, which would put both files in
+     * one destination folder and let the second erase the first — and still get
+     * its turn later.
+     */
+    public function testTwoWorkersMovingIntoTheSameAccountAtTheSameTimeDoNotEraseEachOther(): void {
+        $a = $this->link($this->leaverFile('A/report.txt', 'from A'));
+        $b = $this->link($this->leaverFile('B/report.txt', 'from B'));
+        $this->leaves();
+        $moves = array_column(
+            $this->service->enqueue([(int)$a->getId(), (int)$b->getId()], self::TAKER, OrphanFileMoveService::SCOPE_PATH)['queued'],
+            'id',
+        );
+        $this->assertCount(2, $moves);
+
+        // Long enough for both processes to boot; the same instant for both.
+        $startAt = ceil(microtime(true)) + 5.4;
+        $workers = [];
+        foreach ($moves as $id) {
+            $process = proc_open(
+                [PHP_BINARY, __DIR__ . '/move-worker.php', (string)$id, sprintf('%.3f', $startAt)],
+                [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes,
+            );
+            $this->assertIsResource($process);
+            $workers[] = [$process, $pipes];
+        }
+        $output = [];
+        foreach ($workers as [$process, $pipes]) {
+            $output[] = trim((string)stream_get_contents($pipes[1])) . ' ' . trim((string)stream_get_contents($pipes[2]));
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($process);
+        }
+
+        $statuses = array_map(fn (int $id) => $this->moves->find($id)->getStatus(), $moves);
+        sort($statuses);
+        $this->assertSame(
+            [FileMoveMapper::STATUS_DONE, FileMoveMapper::STATUS_QUEUED],
+            $statuses,
+            'one worker moved, the other found the account busy and stayed queued. Workers said: ' . implode(' | ', $output),
+        );
+
+        // The one that backed off asked to be run again, a little later.
+        $jobs = Server::get(IJobList::class);
+        $waiting = array_values(array_filter($moves, fn (int $id) => $this->moves->find($id)->getStatus() === FileMoveMapper::STATUS_QUEUED))[0];
+        $this->assertTrue($jobs->has(OrphanFileMoveJob::class, ['id' => $waiting]), 'the busy move put itself back in the job list');
+        $jobs->remove(OrphanFileMoveJob::class, ['id' => $waiting]);
+
+        // That later run: the account is free again.
+        $this->service->run($waiting);
+
+        foreach ($moves as $id) {
+            $move = $this->moves->find($id);
+            $this->assertSame(FileMoveMapper::STATUS_DONE, $move->getStatus(), (string)$move->getError());
+        }
+        $this->assertSame(['from A', 'from B'], $this->takerCopiesOf('report.txt'), 'both files survived');
+        $this->assertLinkServes($a->getToken(), 'from A');
+        $this->assertLinkServes($b->getToken(), 'from B');
+    }
+
     public function testAWholeAccountMovesWithAllItsSharesEvenTheUnselectedOnes(): void {
         $one = $this->link($this->leaverFile('one.txt', 'one'));
         $two = $this->link($this->leaverFile('Folder/two.txt', 'two'));

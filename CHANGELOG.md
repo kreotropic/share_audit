@@ -21,13 +21,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   keeping their id and — for a link — the same URL. It runs in a background job
   and a *File moves* list under the table shows each one as queued, running,
   done or failed (with the reason), visible to auditors too. Moving a whole
-  account asks for confirmation first, and every move is written to the audit
-  log. A deleted account has nothing to move (its files went with it), and the
-  conditions are checked again when the job runs: an account that has been
-  re-enabled in the meantime keeps its files. Two moves to the same account
-  never share a destination folder, since the Files app would otherwise
-  overwrite a file with the same name in it. Needs the database migration that
-  comes with 0.8.0.
+  account asks for confirmation first — naming exactly the accounts that will
+  be moved — and every move is written to the audit log. A deleted account has
+  nothing to move (its files went with it), and the conditions are checked
+  again when the job runs: an account that has been re-enabled in the meantime
+  keeps its files. Talk, mail and federated shares go along with their file
+  too, not only link, user and group shares. Only one move into a given account
+  runs at a time, however many background workers Nextcloud has started (the
+  database enforces it); a move that finds the account busy tries again a
+  minute later. That matters because the Files app puts what it moves into a
+  folder named after the second and *deletes* what it finds at a name that
+  already exists, so two simultaneous moves would erase each other's files of
+  the same name. Needs the two database migrations that come with 0.8.0.
 
 ### Security
 Follow-up to the 0.7.0 review, which found the fixes above incomplete:

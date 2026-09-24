@@ -126,7 +126,7 @@
 									type="radio"
 									name="sad-orphan-move-scope"
 									value="account"
-									:disabled="!canMoveFiles">
+									:disabled="!canMoveAccount">
 									{{ t('share_audit_dashboard', 'Everything the account owns') }}
 								</NcCheckboxRadioSwitch>
 							</fieldset>
@@ -237,6 +237,7 @@ import PageSizeSelect from '../components/PageSizeSelect.vue'
 import RecipientCell from '../components/RecipientCell.vue'
 import { categoryLabel, permissionLabel, formatDate, emptyRecipientLabel } from '../utils/format.js'
 import { fetchOrphans, moveOrphanFiles, revokeOrphans, searchTransferTargets, transferOrphans } from '../services/api.js'
+import { accountsToMove, idsForFileMove, leftOutOfAccountMove, skippedAfterFileMove } from '../utils/orphanMoves.mjs'
 
 // Must match OrphanShareController::MAX_IDS — larger selections are split
 // into sequential requests instead of one huge revoke call.
@@ -327,9 +328,9 @@ export default {
 			nonTransferableSelectedCount() {
 				return this.selectedIds.length - this.transferableSelectedIds.length
 			},
-			// Only a disabled account still has files to move (a deleted one's went
-			// with it), and only if the file is still there. Whether it is in the
-			// account's home is for the server to say.
+			// Files can only be moved out of a disabled account (a deleted one's went
+			// with it), and a file move needs the file to still be there. Whether it
+			// is in the account's home is for the server to say.
 			movableSelected() {
 				return this.selectedIds
 					.map((id) => this.items.find((s) => s.id === id))
@@ -338,13 +339,18 @@ export default {
 			canMoveFiles() {
 				return this.movableSelected.length > 0
 			},
+			// The accounts "everything the account owns" would take. The confirmation
+			// names them and the request is built from this same list, so the two can
+			// never differ — see utils/orphanMoves.mjs.
+			accountMoves() {
+				return accountsToMove(this.items, this.selectedIds)
+			},
+			canMoveAccount() {
+				return this.accountMoves.length > 0
+			},
 			// "Ana Silva, Rui Costa" — who the whole-account confirmation is about.
 			movableOwnerNames() {
-				const names = new Map()
-				for (const share of this.movableSelected) {
-					names.set(share.owner, share.ownerDisplayName || share.owner)
-				}
-				return [...names.values()].join(', ')
+				return this.accountMoves.map((account) => account.name).join(', ')
 			},
 			transferLabel() {
 				if (this.moveScope === 'files') {
@@ -362,7 +368,7 @@ export default {
 				if (this.moveScope === 'account') {
 					return t('share_audit_dashboard', 'Moves everything the account owns, and all of its shares, to the new owner.')
 				}
-				if (!this.canMoveFiles) {
+				if (!this.canMoveAccount) {
 					return t('share_audit_dashboard', 'Files can only be moved from a disabled account: the files of a deleted one went with it.')
 				}
 				return ''
@@ -386,10 +392,18 @@ export default {
 				this.confirming = false
 				this.cancelTransfer()
 			}
+			// What was agreed to named the accounts of the selection as it was: a
+			// different selection has to be confirmed again.
+			this.confirmingAccount = false
 		},
 		// A selection with nothing to move cannot keep a "move the files" choice.
 		canMoveFiles(can) {
-			if (!can) {
+			if (!can && this.moveScope === 'files') {
+				this.moveScope = 'shares'
+			}
+		},
+		canMoveAccount(can) {
+			if (!can && this.moveScope === 'account') {
 				this.moveScope = 'shares'
 				this.confirmingAccount = false
 			}
@@ -507,7 +521,7 @@ export default {
 		},
 		// What happened to a batch: a success, or a warning that names each reason
 		// a share stayed put — an admin needs to know which ones and why.
-		transferNotice({ transferred, queuedMoves, skipped, failed }, owner) {
+		transferNotice({ transferred, queuedMoves, skipped, failed, scope }, owner) {
 			const name = owner.displayName || owner.uid
 			const parts = []
 			if (transferred > 0) {
@@ -537,7 +551,8 @@ export default {
 			if (failed.length > 0) {
 				details.push(`${t('share_audit_dashboard', 'Unexpected error, try again')} (${failed.length})`)
 			}
-			if (counts.no_access) {
+			// Pointless advice to somebody who has just chosen to move the files.
+			if (counts.no_access && scope === 'shares') {
 				details.push(t('share_audit_dashboard', 'To move the files along with the shares, choose "The shares and the files they point to". Or move them first with occ files:transfer-ownership.'))
 			}
 			return {
@@ -566,26 +581,14 @@ export default {
 			try {
 				const owner = this.newOwner
 				const scope = this.moveScope
-				const total = { transferred: 0, queuedMoves: 0, skipped: [], failed: [] }
+				const total = { transferred: 0, queuedMoves: 0, skipped: [], failed: [], scope }
 
 				if (scope === 'account') {
-					// One share of each disabled account is enough for the server to find
-					// it — sending them all would only have the later requests of a big
-					// selection told that the account is already queued. The shares of a
-					// deleted account are sent as they are and come back as skipped.
-					const movable = new Set(this.movableSelected.map((share) => share.id))
-					const seenOwners = new Set()
-					const ids = this.selectedIds.filter((id) => {
-						if (!movable.has(id)) {
-							return true
-						}
-						const { owner: uid } = this.items.find((share) => share.id === id)
-						if (seenOwners.has(uid)) {
-							return false
-						}
-						seenOwners.add(uid)
-						return true
-					})
+					// Exactly the accounts the confirmation named, one share of each; a
+					// share of any other account is not sent at all. The ones left out
+					// (a deleted account has no files) are reported, not dropped.
+					const ids = this.accountMoves.map((account) => account.shareId)
+					total.skipped.push(...leftOutOfAccountMove(this.items, this.selectedIds))
 					const moves = await this.queueMoves(ids, owner.uid, 'account')
 					total.queuedMoves = moves.queued.length
 					total.skipped.push(...moves.skipped)
@@ -604,13 +607,15 @@ export default {
 					total.skipped = direct.skipped
 
 					if (scope === 'files') {
-						// What the new owner cannot reach is what a file move is for; the
-						// server decides which of those it can actually move.
-						const unreachable = direct.skipped.filter(({ reason }) => reason === 'no_access').map(({ id }) => id)
-						if (unreachable.length > 0) {
-							const moves = await this.queueMoves(unreachable, owner.uid, 'path')
+						// Whatever the plain transfer could not do goes to the file move,
+						// which decides for itself what it can move. Not only the shares
+						// refused for lack of access: Talk, mail and federated shares are
+						// refused as an unsupported type before their file is even looked at.
+						const forward = idsForFileMove(direct.skipped)
+						if (forward.length > 0) {
+							const moves = await this.queueMoves(forward, owner.uid, 'path')
 							total.queuedMoves = moves.queued.length
-							total.skipped = direct.skipped.filter(({ reason }) => reason !== 'no_access').concat(moves.skipped)
+							total.skipped = skippedAfterFileMove(direct.skipped, moves.skipped)
 						}
 					}
 				}

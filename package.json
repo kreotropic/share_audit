@@ -7,7 +7,8 @@
 	"scripts": {
 		"build": "webpack --node-env production --progress",
 		"dev": "webpack --node-env development --progress",
-		"watch": "webpack --node-env development --progress --watch"
+		"watch": "webpack --node-env development --progress --watch",
+		"test:js": "node --test tests/js/orphanMoves.test.mjs"
 	},
 	"dependencies": {
 		"@nextcloud/axios": "^2.5.0",

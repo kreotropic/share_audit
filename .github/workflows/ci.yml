@@ -45,4 +45,6 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
+      - name: Frontend logic tests
+        run: npm run test:js
       - run: npm run build

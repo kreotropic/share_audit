@@ -33,6 +33,9 @@ class FileMove extends Entity {
     protected ?int $createdAt = null;
     protected ?int $startedAt = null;
     protected ?int $finishedAt = null;
+    // The receiving account while the move is running, NULL otherwise — see
+    // Migration\Version0010Date... for what the unique index on it is for.
+    protected ?string $runningTarget = null;
 
     public function __construct() {
         $this->addType('sourceUid', 'string');
@@ -46,5 +49,6 @@ class FileMove extends Entity {
         $this->addType('createdAt', 'integer');
         $this->addType('startedAt', 'integer');
         $this->addType('finishedAt', 'integer');
+        $this->addType('runningTarget', 'string');
     }
 }

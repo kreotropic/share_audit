@@ -488,8 +488,14 @@ upfront). Like the CSV, the report must not include access tokens.
   selected or not — the UI says so. Files in a Team Folder or on an external
   storage are not in the account's home and are left to the plain transfer
   (`not_in_home`). A move that dies mid-way leaves its row `running` until it
-  is given up on after six hours; a move that fails leaves the files where they
-  were, but a partial copy of a huge folder is the Files app's to clean up.
+  is given up on after a day (deliberately long: freeing the account of a move
+  that is only slow would let a second one in); a move that fails leaves the
+  files where they were, but a partial copy of a huge folder is the Files app's
+  to clean up. Only one move to a given account runs at a time, enforced by a
+  unique `running_target` column rather than a lock, so it holds across worker
+  processes and databases; a move that finds its account busy reschedules itself
+  a minute later. What no code here can prevent is somebody running
+  `occ files:transfer-ownership` to the same account in the same second.
 - **Orphans on LDAP/AD.** An account disabled in the directory can still show as
   *enabled* in Nextcloud when the sync doesn't map that state, so its shares
   aren't flagged as orphans (and can't be transferred or revoked from here).

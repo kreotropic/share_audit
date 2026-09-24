@@ -58,6 +58,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     private OwnershipTransferGateway&MockObject $gateway;
     private DisplayNameResolver&MockObject $displayNames;
     private IJobList&MockObject $jobList;
+    private ITimeFactory&MockObject $time;
     private ShareAuditLogger&MockObject $auditLogger;
     private SecurityAnalyzerService&MockObject $analyzer;
     private OrphanFileMoveService $service;
@@ -78,8 +79,8 @@ class OrphanFileMoveServiceTest extends TestCase {
         $this->auditLogger = $this->createMock(ShareAuditLogger::class);
         $this->analyzer = $this->createMock(SecurityAnalyzerService::class);
 
-        $time = $this->createMock(ITimeFactory::class);
-        $time->method('getTime')->willReturn(self::NOW);
+        $this->time = $this->createMock(ITimeFactory::class);
+        $this->time->method('getTime')->willReturn(self::NOW);
 
         $admin = $this->user('root');
         $this->userSession->method('getUser')->willReturn($admin);
@@ -100,7 +101,7 @@ class OrphanFileMoveServiceTest extends TestCase {
             $this->gateway,
             $this->displayNames,
             $this->jobList,
-            $time,
+            $this->time,
             $this->auditLogger,
             $this->analyzer,
             $this->createMock(LoggerInterface::class),
@@ -291,6 +292,32 @@ class OrphanFileMoveServiceTest extends TestCase {
         $this->assertSame(self::NOW, $move->getCreatedAt());
     }
 
+    /**
+     * The plain transfer only handles user, group and link shares and refuses the
+     * rest as an unsupported type, but moving the file carries every share of it
+     * along — Talk, mail, federated, circle, Deck — so the file move must not
+     * turn a share down for its type.
+     */
+    public function testSharesOfEveryTypeAreMovedWithTheirFile(): void {
+        $this->danaCanTakeOver();
+        // room, email, remote, circle, deck
+        $types = [10, 4, 6, 7, 12];
+        $rows = [];
+        $paths = [];
+        foreach ($types as $i => $type) {
+            $id = $i + 1;
+            $rows[] = $this->row($id, ['share_type' => $type]);
+            $paths[100 + $id] = "Docs/file$id.txt";
+        }
+        $this->candidates($rows);
+        $this->homePaths($paths);
+
+        $result = $this->service->enqueue([1, 2, 3, 4, 5], 'dana', OrphanFileMoveService::SCOPE_PATH);
+
+        $this->assertSame([], $result['skipped'], 'no share is refused for its type');
+        $this->assertCount(5, $result['queued']);
+    }
+
     public function testSeveralSharesOfOneFileAreOneMove(): void {
         $this->danaCanTakeOver();
         $this->candidates([$this->row(1, ['file_source' => 500]), $this->row(2, ['file_source' => 500])]);
@@ -438,9 +465,47 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testAMoveAnotherWorkerTookIsNotRunTwice(): void {
         $this->queued();
         $this->accounts(['leaver' => false, 'dana' => true]);
-        $this->moves->method('claim')->willReturn(false);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_TAKEN);
         $this->gateway->expects($this->never())->method('move');
         $this->moves->expects($this->never())->method('finish');
+
+        $this->service->run(7);
+    }
+
+    /**
+     * Another worker is already moving files into the same account: this one
+     * must not touch the files, must leave the move queued, and must put itself
+     * back in the job list for later instead of being lost.
+     */
+    public function testAMoveWhoseAccountIsBusyBacksOffAndTriesLater(): void {
+        $this->queued();
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->with(7, 'dana', self::NOW)->willReturn(FileMoveMapper::CLAIM_BUSY);
+        $this->moves->method('failStale')->willReturn(0);
+
+        $this->gateway->expects($this->never())->method('move');
+        $this->moves->expects($this->never())->method('finish');
+        $this->jobList->expects($this->once())->method('scheduleAfter')
+            ->with(\OCA\ShareAuditDashboard\BackgroundJob\OrphanFileMoveJob::class, self::NOW + 60, ['id' => 7]);
+
+        $this->service->run(7);
+    }
+
+    /**
+     * The move in the way may belong to a worker that died: it is given up on,
+     * and the account then goes to this one.
+     */
+    public function testABusyAccountWhoseMoveWasAbandonedIsTakenOver(): void {
+        $this->queued();
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturnOnConsecutiveCalls(FileMoveMapper::CLAIM_BUSY, FileMoveMapper::CLAIM_OK);
+        $this->moves->expects($this->once())->method('failStale')
+            ->with(self::NOW - 24 * 3600, OrphanFileMoveService::ERROR_INTERRUPTED, self::NOW)
+            ->willReturn(1);
+
+        $this->gateway->expects($this->once())->method('move');
+        $this->jobList->expects($this->never())->method('scheduleAfter');
+        $this->moves->expects($this->once())->method('finish')->with(7, 'done', null, self::NOW);
 
         $this->service->run(7);
     }
@@ -448,7 +513,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testTheFilesMoveAndTheMoveIsRecordedAsDone(): void {
         $this->queued('Docs');
         $this->accounts(['leaver' => false, 'dana' => true]);
-        $this->moves->method('claim')->willReturn(true);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
 
         $this->gateway->expects($this->once())->method('move')
             ->with($this->callback(fn (IUser $u) => $u->getUID() === 'leaver'), $this->callback(fn (IUser $u) => $u->getUID() === 'dana'), 'Docs');
@@ -462,7 +527,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testAnAccountMoveHandsTheGatewayAnEmptyPath(): void {
         $this->queued(null);
         $this->accounts(['leaver' => false, 'dana' => true]);
-        $this->moves->method('claim')->willReturn(true);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
 
         $this->gateway->expects($this->once())->method('move')->with($this->anything(), $this->anything(), '');
 
@@ -472,7 +537,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testNothingMovesForAnOwnerWhoIsActiveAgain(): void {
         $this->queued();
         $this->accounts(['leaver' => true, 'dana' => true]);
-        $this->moves->method('claim')->willReturn(true);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
 
         $this->gateway->expects($this->never())->method('move');
         $this->moves->expects($this->once())->method('finish')->with(7, 'failed', OrphanFileMoveService::ERROR_OWNER_ACTIVE, self::NOW);
@@ -484,7 +549,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testNothingMovesForAnOwnerWhoWasDeletedMeanwhile(): void {
         $this->queued();
         $this->accounts(['dana' => true]);
-        $this->moves->method('claim')->willReturn(true);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
 
         $this->gateway->expects($this->never())->method('move');
         $this->moves->expects($this->once())->method('finish')->with(7, 'failed', OrphanFileMoveService::ERROR_OWNER_MISSING, self::NOW);
@@ -495,7 +560,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testNothingMovesToANewOwnerWhoIsNoLongerEnabled(): void {
         $this->queued();
         $this->accounts(['leaver' => false, 'dana' => false]);
-        $this->moves->method('claim')->willReturn(true);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
 
         $this->gateway->expects($this->never())->method('move');
         $this->moves->expects($this->once())->method('finish')->with(7, 'failed', OrphanFileMoveService::ERROR_TARGET_UNAVAILABLE, self::NOW);
@@ -506,7 +571,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testTheFilesAppsOwnRefusalIsKeptSoTheAdminCanActOnIt(): void {
         $this->queued();
         $this->accounts(['leaver' => false, 'dana' => true]);
-        $this->moves->method('claim')->willReturn(true);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
         $this->gateway->method('move')->willThrowException(
             new \OCA\Files\Exception\TransferOwnershipException('Target user does not have enough free space available.'),
         );
@@ -521,7 +586,7 @@ class OrphanFileMoveServiceTest extends TestCase {
     public function testAnyOtherFailureIsNotShownButIsRecordedAsFailed(): void {
         $this->queued();
         $this->accounts(['leaver' => false, 'dana' => true]);
-        $this->moves->method('claim')->willReturn(true);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
         $this->gateway->method('move')->willThrowException(new \RuntimeException('SQLSTATE[HY000]: secret internals'));
 
         $this->moves->expects($this->once())->method('finish')
@@ -540,7 +605,7 @@ class OrphanFileMoveServiceTest extends TestCase {
         $fresh = $this->move(2, 'leaver', 'Docs', 'path', 'running');
         $fresh->setStartedAt(self::NOW - 60);
         $overdue = $this->move(1, 'leaver2', null, 'account', 'running');
-        $overdue->setStartedAt(self::NOW - 7 * 3600);
+        $overdue->setStartedAt(self::NOW - 25 * 3600);
         $this->moves->method('findRecent')->willReturn([$fresh, $overdue]);
         $this->displayNames->method('resolveMany')->willReturn(['leaver' => 'The Leaver', 'dana' => 'Dana']);
 

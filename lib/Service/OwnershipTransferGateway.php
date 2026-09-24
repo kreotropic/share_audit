@@ -27,6 +27,10 @@ use OCP\Server;
  * same call the Files app's own TransferOwnership background job makes — so
  * the defaults of the running version apply.
  *
+ * Two moves to the same account must never overlap — see the note on
+ * waitForNextSecond() for why, and FileMoveMapper::claim() for what enforces it
+ * across worker processes. This class only keeps consecutive ones apart.
+ *
  * What the transfer does: the file or folder goes to the new owner under a
  * folder named "Transferred from <name> on <date and time>", and every share
  * of it (link, user, group, remote, Talk, mail, ...) is handed over with it,
@@ -59,8 +63,14 @@ class OwnershipTransferGateway {
      * of this transfer (which is after its folder was named) means the next
      * one always gets a folder of its own.
      *
-     * Moves in different processes are not covered, but the background job
-     * runs them one after another.
+     * Only consecutive moves are kept apart by this. Moves that would run at
+     * the same time, in different worker processes, are prevented from doing so
+     * by FileMoveMapper::claim() (one running move per receiving account); the
+     * wait here happens while that claim is still held, so the next move to the
+     * account can only start after it. Nothing here or there can know about
+     * somebody running `occ files:transfer-ownership` to the same account at
+     * the same moment — and, across servers, it relies on their clocks agreeing
+     * to the second.
      */
     private function waitForNextSecond(): void {
         $now = (int)floor(microtime(true));

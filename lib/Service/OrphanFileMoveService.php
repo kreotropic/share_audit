@@ -66,8 +66,16 @@ class OrphanFileMoveService {
     public const ERROR_INTERRUPTED = 'interrupted';
     public const ERROR_UNEXPECTED = 'unexpected_error';
 
-    /** A move that has been "running" this long lost its worker. */
-    private const STALE_AFTER = 6 * 3600;
+    /**
+     * A move that has been "running" this long lost its worker. Generous on
+     * purpose: giving up on one that is only slow would free its account for a
+     * second worker while the first is still moving files into it, which is
+     * exactly what the lock exists to prevent. A dead worker costs the account
+     * a delay; a live one mistaken for dead costs files.
+     */
+    private const STALE_AFTER = 24 * 3600;
+    /** How long a move that found its account busy waits before trying again. */
+    private const RETRY_AFTER = 60;
     private const ERROR_MAX_LENGTH = 1000;
 
     public function __construct(
@@ -209,6 +217,11 @@ class OrphanFileMoveService {
      * The conditions are checked again here, not trusted from when the move
      * was queued: the account may have been re-enabled since, and moving the
      * files of somebody who is active again would be exactly the wrong thing.
+     *
+     * Only one move to a given account runs at a time, whatever the number of
+     * background workers: see FileMoveMapper::claim(). A move that finds its
+     * account busy puts itself back in the queue for a little later instead of
+     * waiting here, and the worker goes on to other jobs.
      */
     public function run(int $id): void {
         try {
@@ -216,13 +229,23 @@ class OrphanFileMoveService {
         } catch (DoesNotExistException) {
             return;
         }
-        if (!$this->moves->claim($id, $this->time->getTime())) {
-            return;
-        }
 
         $from = (string)$move->getSourceUid();
         $to = (string)$move->getTargetUid();
         $path = $move->getPath();
+
+        $claim = $this->claim($id, $to);
+        if ($claim === FileMoveMapper::CLAIM_BUSY) {
+            $this->jobList->scheduleAfter(
+                OrphanFileMoveJob::class,
+                $this->time->getTime() + self::RETRY_AFTER,
+                ['id' => $id],
+            );
+            return;
+        }
+        if ($claim !== FileMoveMapper::CLAIM_OK) {
+            return;
+        }
 
         $source = $this->userManager->get($from);
         $target = $this->userManager->get($to);
@@ -309,6 +332,22 @@ class OrphanFileMoveService {
                 'finishedAt' => $move->getFinishedAt(),
             ];
         }, $moves);
+    }
+
+    /**
+     * Claim move $id for the account $to, first freeing the account of a move
+     * whose worker died if that is what is in the way.
+     */
+    private function claim(int $id, string $to): string {
+        $claim = $this->moves->claim($id, $to, $this->time->getTime());
+        if ($claim !== FileMoveMapper::CLAIM_BUSY) {
+            return $claim;
+        }
+        $now = $this->time->getTime();
+        if ($this->moves->failStale($now - self::STALE_AFTER, self::ERROR_INTERRUPTED, $now) === 0) {
+            return $claim;
+        }
+        return $this->moves->claim($id, $to, $this->time->getTime());
     }
 
     private function queue(string $owner, string $newOwner, string $scope, ?string $path, int $shares): FileMove {
