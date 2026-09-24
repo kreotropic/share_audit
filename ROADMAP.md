@@ -20,7 +20,7 @@ a self-initiated security review of 0.6.0 (cache/UID isolation, Talk-token
 redaction, restore atomicity, audit-log completeness — see CHANGELOG.md's
 0.7.0 *Security* section), and distinguished an orphan share whose file is
 also gone from one that can still be transferred (issue #21). The app has a
-test suite (`phpunit`, `tests/Unit/`, 380 tests) and CI
+test suite (`phpunit`, `tests/Unit/`, 393 tests, plus 180 integration tests in `tests/Integration/`) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -390,23 +390,26 @@ upfront). Like the CSV, the report must not include access tokens.
   name; the text search, the recipient filter and the sort in *All shares*
   no longer reach a conversation's token either (`ShareMapper`'s
   `hideRoomTokens`).
-- **`SoftDeleteService::restore()` has no protection against two concurrent
-  restores of the same recycle-bin entry.** Noted while fixing 0.7.0's
-  restore-loses-password bug: the correct fix (atomically claim the
-  retention row before creating the new share, re-insert a fresh entity on
-  any failure) needs care around `Entity`/`QBMapper`'s dirty-tracking on
-  `insert()` that felt safer to leave alone without a live instance to
-  verify against. Worst case today: a double-click creates two live shares
-  instead of one — not a security regression, just a duplicate.
-- **No CI matrix across Nextcloud 31–35 × MySQL/PostgreSQL.** Investigated
-  in 0.7.0: the entire `tests/Unit/` suite mocks `IDBConnection`/
-  `IQueryBuilder` and never touches a real database, so a DB-engine matrix
-  over it would pass identically on every engine regardless of real
-  dialect differences (e.g. the NULL-sort-order divergence
-  `ShareMapper::NULLABLE_SORT_COLUMNS` exists to work around) — added
-  deliberately as a note instead of a matrix that would look like coverage
-  it doesn't provide. A real version needs a DBAL-backed integration layer,
-  a separate, bigger effort.
+- ~~`SoftDeleteService::restore()` has no protection against two concurrent
+  restores of the same recycle-bin entry~~ — done (after 0.7.0, see
+  CHANGELOG.md's *Unreleased* section). The impact had been understated as "a
+  duplicate": both requests write the original token onto their link, and
+  `oc_share.token` has no unique index, so the result is two or more live links
+  on one URL, and revoking one leaves the file reachable through the rest.
+  A restore now claims the entry (`DeletedShareMapper::claim()`) inside one
+  transaction that rolls everything back on failure.
+- **The integration suite is not in CI yet, and there is no matrix across
+  Nextcloud 31–35.** `tests/Unit/` mocks `IDBConnection`/`IQueryBuilder` and
+  never touches a real database, so a DB-engine matrix over it would pass
+  identically on every engine regardless of real dialect differences (e.g. the
+  NULL-sort-order divergence `ShareMapper::NULLABLE_SORT_COLUMNS` exists to work
+  around). After 0.7.0 there is a real layer, `tests/Integration/`, which runs
+  inside a Nextcloud container against its real database and web server (login,
+  CSRF, admin/auditor roles, concurrent restores, token secrecy) —
+  `build/run-integration.sh`, on MariaDB and PostgreSQL, Nextcloud 35. What is
+  left: run it in CI (it needs Docker and the ~1.5 GB Nextcloud image, a few
+  minutes per engine), and repeat it on the older Nextcloud versions the app
+  declares.
 - ~~Exposure score: Talk conversations are classified too coarsely~~ — done
   (0.7.0, part of the security pass): a Talk conversation open to anyone
   with the link (`Room::TYPE_PUBLIC`) now counts toward *public* instead of

@@ -82,11 +82,16 @@ class RecipientLookupService {
      *
      * A Talk conversation is found by its name, like in the share list. Its
      * `share_with` is its token, a bare credential, so only a caller with
-     * $canSeeTokens may match a query against it or be handed it back: any
+     * $canSeeTokens may be handed it back, or have a query matched against it,
+     * or be given results in an order or a cut-off that depends on it: any
      * other gets an opaque handle in its place (see roomHandle()) and, for
-     * that item, `opaque: true`. Otherwise this endpoint would let an auditor
-     * read every conversation's token — by listing them, or by probing for
-     * them a substring at a time.
+     * that item, `opaque: true`. An ORDER BY on the token would be as good as
+     * the token to someone who can make rooms of their own — every comparison
+     * against a token they know is a bit of one they do not — so for that
+     * caller the conversations are kept out of the SQL that sorts and limits,
+     * and are ordered here by what is public about them (how many shares, what
+     * they are called), with the handle, a keyed hash that says nothing about
+     * how tokens compare, as the last resort.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -104,42 +109,12 @@ class RecipientLookupService {
         );
         $roomTokens = $this->recipientDetails->searchRoomTokens($query);
 
-        $qb = $this->db->getQueryBuilder();
-        $notRoom = fn () => $qb->expr()->neq('share_type', $qb->createNamedParameter(IShare::TYPE_ROOM, IQueryBuilder::PARAM_INT));
-        $matchesShareWith = $qb->expr()->iLike('share_with', $qb->createNamedParameter($like));
-        // A room's share_with is not something to match text against unless
-        // the caller may see it: see the docblock.
-        $conditions = [$canSeeTokens ? $matchesShareWith : $qb->expr()->andX($notRoom(), $matchesShareWith)];
-        if ($matchingIds !== []) {
-            // uids and gids: never a room's token, whoever is asking.
-            $conditions[] = $qb->expr()->andX($notRoom(), $qb->expr()->in('share_with',
-                $qb->createNamedParameter($matchingIds, IQueryBuilder::PARAM_STR_ARRAY)));
+        $found = $this->findRecipients($like, $matchingIds, $canSeeTokens ? $roomTokens : [], $limit, $canSeeTokens);
+        if (!$canSeeTokens) {
+            foreach ($this->countSharesIntoRooms($roomTokens) as $token => $count) {
+                $found[] = ['share_with' => (string)$token, 'share_type' => IShare::TYPE_ROOM, 'cnt' => $count];
+            }
         }
-        if ($roomTokens !== []) {
-            $conditions[] = $qb->expr()->andX(
-                $qb->expr()->eq('share_type', $qb->createNamedParameter(IShare::TYPE_ROOM, IQueryBuilder::PARAM_INT)),
-                $qb->expr()->in('share_with', $qb->createNamedParameter($roomTokens, IQueryBuilder::PARAM_STR_ARRAY)),
-            );
-        }
-
-        $qb->select('share_with', 'share_type')
-            ->selectAlias($qb->func()->count('*'), 'cnt')
-            ->from('share')
-            ->where($qb->expr()->in('share_type',
-                $qb->createNamedParameter(self::RECIPIENT_TYPES, IQueryBuilder::PARAM_INT_ARRAY)))
-            ->andWhere($qb->expr()->orX(...$conditions))
-            ->groupBy('share_with', 'share_type')
-            ->orderBy('cnt', 'DESC')
-            // Same reason as ShareMapper::topOwners(): with a LIMIT, an
-            // untied-broken sort decides which recipients are offered as
-            // autocomplete results at all, and the databases disagree.
-            ->addOrderBy('share_with', 'ASC')
-            ->addOrderBy('share_type', 'ASC')
-            ->setMaxResults($limit);
-
-        $result = $qb->executeQuery();
-        $found = $result->fetchAll();
-        $result->closeCursor();
 
         $names = $this->recipientDetails->roomLabels(array_column(array_filter(
             $found,
@@ -166,7 +141,92 @@ class RecipientLookupService {
             }
             $rows[] = $item;
         }
+
+        if (!$canSeeTokens) {
+            // The SQL ordered and cut the people, groups and addresses (none of
+            // which is a credential); the conversations joined afterwards, so the
+            // whole is put in one order and cut once, here.
+            usort($rows, static fn (array $a, array $b) => [-$a['count'], mb_strtolower($a['label']), $a['shareType'], $a['shareWith']]
+                <=> [-$b['count'], mb_strtolower($b['label']), $b['shareType'], $b['shareWith']]);
+            $rows = array_slice($rows, 0, $limit);
+        }
         return $rows;
+    }
+
+    /**
+     * The recipients (share_with, share_type, share count) that match, most shares
+     * first. Without $withRooms no Talk row is a candidate at all; with it, the
+     * rows into $roomTokens (found by name) are, along with any Talk row whose
+     * token contains the query.
+     *
+     * @param string[] $matchingIds uids and gids whose display name matched
+     * @param string[] $roomTokens tokens of the conversations whose name matched
+     * @return array<int, array<string, mixed>>
+     */
+    private function findRecipients(string $like, array $matchingIds, array $roomTokens, int $limit, bool $withRooms): array {
+        $types = $withRooms ? self::RECIPIENT_TYPES : array_values(array_diff(self::RECIPIENT_TYPES, [IShare::TYPE_ROOM]));
+
+        $qb = $this->db->getQueryBuilder();
+        $conditions = [$qb->expr()->iLike('share_with', $qb->createNamedParameter($like))];
+        if ($matchingIds !== []) {
+            $conditions[] = $qb->expr()->in('share_with',
+                $qb->createNamedParameter($matchingIds, IQueryBuilder::PARAM_STR_ARRAY));
+        }
+        if ($roomTokens !== []) {
+            $conditions[] = $qb->expr()->andX(
+                $qb->expr()->eq('share_type', $qb->createNamedParameter(IShare::TYPE_ROOM, IQueryBuilder::PARAM_INT)),
+                $qb->expr()->in('share_with', $qb->createNamedParameter($roomTokens, IQueryBuilder::PARAM_STR_ARRAY)),
+            );
+        }
+
+        $qb->select('share_with', 'share_type')
+            ->selectAlias($qb->func()->count('*'), 'cnt')
+            ->from('share')
+            ->where($qb->expr()->in('share_type',
+                $qb->createNamedParameter($types, IQueryBuilder::PARAM_INT_ARRAY)))
+            ->andWhere($qb->expr()->orX(...$conditions))
+            ->groupBy('share_with', 'share_type')
+            ->orderBy('cnt', 'DESC')
+            // Same reason as ShareMapper::topOwners(): with a LIMIT, an
+            // untied-broken sort decides which recipients are offered as
+            // autocomplete results at all, and the databases disagree.
+            ->addOrderBy('share_with', 'ASC')
+            ->addOrderBy('share_type', 'ASC')
+            ->setMaxResults($limit);
+
+        $result = $qb->executeQuery();
+        $found = $result->fetchAll();
+        $result->closeCursor();
+        return $found;
+    }
+
+    /**
+     * How many shares go into each of these conversations. Deliberately with
+     * no ORDER BY and no LIMIT: this is for a caller who may not see the
+     * tokens, and the database's idea of "first" would be theirs to read (see
+     * search()). $tokens is already capped by searchRoomTokens().
+     *
+     * @param string[] $tokens
+     * @return array<string, int> token => shares
+     */
+    private function countSharesIntoRooms(array $tokens): array {
+        if ($tokens === []) {
+            return [];
+        }
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('share_with')
+            ->selectAlias($qb->func()->count('*'), 'cnt')
+            ->from('share')
+            ->where($qb->expr()->eq('share_type', $qb->createNamedParameter(IShare::TYPE_ROOM, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->in('share_with', $qb->createNamedParameter($tokens, IQueryBuilder::PARAM_STR_ARRAY)))
+            ->groupBy('share_with');
+        $result = $qb->executeQuery();
+        $counts = [];
+        while ($row = $result->fetch()) {
+            $counts[(string)$row['share_with']] = (int)$row['cnt'];
+        }
+        $result->closeCursor();
+        return $counts;
     }
 
     /**

@@ -178,7 +178,11 @@ class RecipientDetailsResolver {
                     $qb->createNamedParameter('%' . $this->db->escapeLikeParameter($term) . '%')))
                 ->andWhere($qb->expr()->in('type',
                     $qb->createNamedParameter([self::ROOM_GROUP, self::ROOM_PUBLIC], IQueryBuilder::PARAM_INT_ARRAY)))
-                ->orderBy('token', 'ASC')
+                // Not by token: which conversations make the cut-off is what a
+                // caller who may not see tokens would read them from (see
+                // RecipientLookupService::search()). The id is public, and as
+                // good a tiebreak.
+                ->orderBy('id', 'ASC')
                 ->setMaxResults($limit);
             $result = $qb->executeQuery();
             $tokens = [];

@@ -20,6 +20,7 @@ js/*.map
 # Tests & CI
 tests
 phpunit.xml
+phpunit.integration.xml
 .phpunit.result.cache
 .github
 

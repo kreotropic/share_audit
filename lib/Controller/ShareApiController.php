@@ -19,6 +19,7 @@ use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\ShareAuditLogger;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
 use OCA\ShareAuditDashboard\Service\SoftDeleteService;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
@@ -107,6 +108,9 @@ class ShareApiController extends AdminController {
         $filters['ownerSearch'] = $ownerSearch !== '' ? $ownerSearch : null;
         $filters['recipientSearch'] = $recipientSearch !== '' ? $recipientSearch : null;
         $filters['exposure'] = $exposure !== '' ? $exposure : null;
+        if ($exposure !== '' && !$this->exposure->isCategory($exposure)) {
+            return new JSONResponse(['message' => 'Unknown exposure category.'], Http::STATUS_BAD_REQUEST);
+        }
 
         return new JSONResponse($this->collector->getShares($filters, $page, $limit, $sort, $sortDir, $scope->canSeeTokens()));
     }
@@ -147,6 +151,9 @@ class ShareApiController extends AdminController {
         $filters['ownerSearch'] = $ownerSearch !== '' ? $ownerSearch : null;
         $filters['recipientSearch'] = $recipientSearch !== '' ? $recipientSearch : null;
         $filters['exposure'] = $exposure !== '' ? $exposure : null;
+        if ($exposure !== '' && !$this->exposure->isCategory($exposure)) {
+            return new JSONResponse(['message' => 'Unknown exposure category.'], Http::STATUS_BAD_REQUEST);
+        }
 
         $rows = $this->collector->getAllForExport($filters, $includeTokens, $sort, $sortDir);
         $csv = $this->report->buildCsv($rows, $includeTokens);

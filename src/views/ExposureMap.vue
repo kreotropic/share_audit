@@ -40,8 +40,7 @@
 								:style="{ width: pct(cat.value) + '%', background: cat.color }" />
 						</div>
 						<span class="sad-exposure__val">{{ cat.value }} · {{ pct(cat.value) }}%</span>
-						<NcButton v-if="cat.key !== 'other'"
-							variant="tertiary"
+						<NcButton variant="tertiary"
 							:disabled="cat.value === 0"
 							@click="$emit('drilldown', cat.key)">
 							{{ t('share_audit_dashboard', 'View') }}

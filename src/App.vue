@@ -90,7 +90,7 @@ export default {
 			orphanCount: 0,
 			deletedCount: 0,
 			sharesPreset: null,
-			// An exposure category (internal | external | public) the shares
+			// An exposure category (internal | external | public | other) the shares
 			// list opens filtered to. Not a list of share types: which shares
 			// belong to a category is the backend's call (a public Talk
 			// conversation is public, whatever its share type), so the list is

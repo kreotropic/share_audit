@@ -24,6 +24,14 @@ Follow-up to the 0.7.0 review, which found the fixes above incomplete:
   and through sorting by recipient: for an auditor those no longer match or
   order by a conversation's token either (a conversation is still found by its
   name).
+- That lookup also *ordered* its results, and cut them off at twenty, by the
+  conversations' tokens — which is as good as the token to anyone who can
+  create conversations of their own, since every comparison against a token
+  they know is one bit of one they don't (42 comparisons recover eight
+  characters). For an auditor the conversations are now ordered by what is
+  public about them (how many shares, what they are called), with a keyed hash
+  as the last resort, and the search that finds conversations by name is cut
+  off by their id, not their token.
 - Redacting a token by showing the conversation's name failed for a
   conversation with no name: the token was its own fallback name, so it came
   out in the recipient, its display name and its label, in the list, the CSV,
@@ -33,11 +41,19 @@ Follow-up to the 0.7.0 review, which found the fixes above incomplete:
   keeping its own copy.
 - Restoring a public link that had a password no longer creates it open for a
   moment and puts the password back afterwards: it is created protected by a
-  strong temporary password and the original one is swapped in once it exists,
-  so an interruption or a failed clean-up leaves a link nobody can open, never
-  an open one. This also lets such a link be restored on an instance that
-  enforces passwords for public links, where creating it without one was
-  refused.
+  strong temporary password and the original one is swapped in once it exists.
+  This also lets such a link be restored on an instance that enforces
+  passwords for public links, where creating it without one was refused.
+- Restoring the same recycle-bin entry twice at the same moment — a double
+  click, or two admins — created a link for each request, and each wrote the
+  same original token onto its link: two, three or more live links on one URL,
+  so that revoking the link the owner knew about left the file reachable
+  through the others. A restore now claims the entry first and is one
+  transaction: only one request creates anything, the others are told the
+  entry is gone, and any failure rolls all of it back — the entry stays in the
+  bin, and there is no half-restored link left to clean up. (Checked by racing
+  four simultaneous restores, ten times over: before, all four answered
+  *success*, on MariaDB and on PostgreSQL; now exactly one does, on both.)
 - Restoring a link whose original token had since been taken by another share
   no longer leaves two links on one URL. The database index on the token is not
   unique, so the restore relied on a constraint that is not there and quietly
@@ -45,6 +61,9 @@ Follow-up to the 0.7.0 review, which found the fixes above incomplete:
   had a password, refuses and keeps the backup, as before).
 
 ### Fixed
+- The exposure map's *Other* row now has a *View* button like the others, and
+  asking *All shares* for an exposure category the app does not have is
+  refused instead of quietly listing everything.
 - The dashboard's *Internal vs external* donut counted every Talk conversation
   as internal, and the exposure map's *Public* "View" button opened only public
   file links, leaving public conversations out of a list that its own count

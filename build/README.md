@@ -16,6 +16,7 @@ working on the app, not for running it.
 | `docker-compose.mysql.yml` | Disposable MariaDB Nextcloud instance, port 8084. |
 | `seed-fixture.php` | Creates a deterministic set of shares to compare between the two. |
 | `dump-readpaths.php` | Prints every read path over that fixture, normalised so two instances can be diffed. |
+| `run-integration.sh` | Runs `tests/Integration` on those two instances — see *Integration tests* below. |
 
 ## Cross-engine checks
 
@@ -92,3 +93,57 @@ docker compose -p shareaudit-my -f build/docker-compose.mysql.yml down -v
 Note that Nextcloud refuses to start on a *lower* version than its data already
 has, so lowering the `image:` in a compose file against an existing instance
 means tearing it down first.
+
+## Integration tests
+
+`tests/Unit` mocks the database and calls controller methods directly, so it
+cannot tell what a `WHERE` or an `ORDER BY` really does, what happens when two
+requests arrive at once, or what Nextcloud's own login and CSRF checks do
+before a controller runs. `tests/Integration` is for exactly those: it runs
+**inside** a Nextcloud container, against its real database, and talks to its
+real web server over HTTP, logged in like a browser.
+
+```bash
+composer install                 # once: the containers mount this directory, vendor/ included
+build/run-integration.sh         # MariaDB, then PostgreSQL
+build/run-integration.sh pgsql --filter RestoreConcurrencyTest
+```
+
+What it covers:
+
+- **`AccessAndCsrfTest`** — every route in `routes.php` as an anonymous
+  visitor, a regular account, an auditor and an admin, and again without the
+  CSRF token; plus, by effect, that a refused revoke/restore/settings change
+  really changed nothing. The classification of routes (which are for auditors)
+  is read from `ControllerAccessTest`, so the two cannot drift apart.
+- **`RestoreConcurrencyTest`** — several restores of one recycle-bin entry sent
+  at the same moment: exactly one may create a link, and no two links may ever
+  share a token (`oc_share.token` has a plain index, so the database will not
+  stop it). Also a restore racing a purge, and a token that was taken while the
+  entry sat in the bin.
+- **`AuditorTokenSecrecyTest`** — a Talk conversation's token must not reach an
+  auditor, directly or by inference: not in any response, not through a search
+  that only matches when a guess is right, and not through an order or a cut-off
+  that follows the tokens (the same conversations are dealt new tokens and the
+  auditor's view must not move). Each check is paired with the admin doing the
+  same, who *does* see the difference — otherwise a clean result could just mean
+  the probe was pointed at nothing. Also that every exposure count equals the
+  size of the list behind its "View" button.
+
+Things to know:
+
+- **Never point it at an instance you use.** It creates accounts (`sai_*`) and
+  shares, deletes rows, sets the app's auditor groups and — when Talk is not
+  installed, as on these instances — creates the two Talk tables the app reads a
+  conversation's name from (and drops them again). The bootstrap refuses to run
+  unless `SHARE_AUDIT_INTEGRATION=disposable-instance` is set, which the script
+  does.
+- **The web server caches PHP for up to a minute** (`opcache.revalidate_freq`).
+  The script restarts the container first; if you run `phpunit` by hand after
+  editing `lib/`, restart it yourself.
+- **The race tests need real concurrency**, which is why they go through Apache
+  (separate workers, separate database connections) and not through PHP calls in
+  the test process. They send several requests per round and repeat rounds,
+  because a race is not one that happens every time; a bug they are meant to
+  catch shows as more than one success, not as a flaky pass.
+

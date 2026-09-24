@@ -218,6 +218,18 @@ class ShareMapperExposureAndTokenTest extends TestCase {
         $this->assertSame([['eq(s.share_type,10)', 'in(s.share_with,["pub12345"])']], $this->andGroups);
     }
 
+    /**
+     * The category defined by what it is not: a type outside the ones that have a
+     * category of their own, or a conversation that could not be resolved.
+     */
+    public function testTheOtherCategoryIsATypeOutsideTheKnownOnesOrAnUnresolvedConversation(): void {
+        $this->mapper->countShares(['exposure' => ['types' => [], 'roomTokens' => ['stale123'], 'notTypes' => [0, 1, 3, 10]]]);
+
+        $this->assertCount(2, $this->orGroups[0]);
+        $this->assertSame('cond', $this->orGroups[0][0], 'share_type NOT IN the known types');
+        $this->assertSame([['eq(s.share_type,10)', 'in(s.share_with,["stale123"])']], $this->andGroups);
+    }
+
     public function testAnExposureCategoryThatContainsNothingMatchesNothing(): void {
         $this->mapper->countShares(['exposure' => ['types' => [], 'roomTokens' => []]]);
 

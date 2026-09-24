@@ -100,20 +100,40 @@ class ExposureMapService {
      * What "the shares of this exposure category" means for ShareMapper: the
      * raw share types that belong to it, plus the Talk conversations that do —
      * a public conversation is public exposure, and a filter on share types
-     * alone (a public link's type) leaves it out. Null for a category that has
-     * no such filter ('other', or an unknown name): what could not be
-     * classified is not something a filter can name.
+     * alone (a public link's type) leaves it out.
      *
-     * @return array{types: int[], roomTokens: string[]}|null
+     * 'other' is what none of the others take, so it cannot be listed, only
+     * described by what it is not: `notTypes` are the share types that have a
+     * category of their own (a type outside them is one this app does not know,
+     * whatever a future Nextcloud adds), and its conversations are the ones that
+     * could not be resolved. Null for a name that is no category at all.
+     *
+     * @return array{types: int[], roomTokens: string[], notTypes?: int[]}|null
      */
     public function filterFor(string $category): ?array {
-        if ($category === 'other' || !isset(self::WEIGHT[$category])) {
+        if (!isset(self::WEIGHT[$category])) {
             return null;
+        }
+        $rooms = array_map('strval', array_keys($this->classifyRoomShares()[$category] ?? []));
+        if ($category === 'other') {
+            return [
+                'types' => [],
+                'roomTokens' => $rooms,
+                'notTypes' => [...array_keys(self::CATEGORY), IShare::TYPE_ROOM],
+            ];
         }
         return [
             'types' => array_keys(array_filter(self::CATEGORY, static fn (string $c) => $c === $category)),
-            'roomTokens' => array_map('strval', array_keys($this->classifyRoomShares()[$category] ?? [])),
+            'roomTokens' => $rooms,
         ];
+    }
+
+    /**
+     * Whether $category is one of the exposure categories a list can be
+     * filtered by.
+     */
+    public function isCategory(string $category): bool {
+        return isset(self::WEIGHT[$category]);
     }
 
     /**

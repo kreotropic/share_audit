@@ -223,14 +223,14 @@ class SoftDeleteService {
      * created with a fresh token and then those two columns are overwritten
      * with a raw UPDATE.
      *
-     * A share that HAD a password is never allowed to exist without one, not
-     * even for the moment between the creation and that UPDATE: it is created
-     * with a strong random temporary password (only ever held in memory, the
-     * provider hashes it) and the UPDATE swaps the original hash back in. So
-     * an interruption in between, or a failed clean-up after it, leaves a link
-     * nobody can open — never an open one — and the instance's "passwords are
-     * enforced" rule, which refuses a creation with no password, does not
-     * turn a restore of a protected link into a failure either.
+     * A share that HAD a password is never allowed to exist without one: it is
+     * created with a strong random temporary password (only ever held in
+     * memory, the provider hashes it) and the UPDATE swaps the original hash
+     * back in. That is belt and braces next to the transaction below, which
+     * keeps the half-restored share from being seen at all — and it is what
+     * lets a protected link be restored on an instance that enforces
+     * passwords, whose "passwords are enforced" rule refuses a creation with
+     * none.
      *
      * If the original token can no longer be kept — another share has taken
      * it while this one sat in the bin (see restoreRawColumns()) — and the
@@ -239,8 +239,18 @@ class SoftDeleteService {
      * owner: a new link URL is a minor inconvenience, not a security
      * regression. But if a password WAS set, the share would come back with a
      * password nobody knows instead of the one it had — so this is treated as
-     * a full failure (`reason: 'password_lost'`): the just-created share is
-     * undone and the original retention entry is kept untouched.
+     * a full failure (`reason: 'password_lost'`) and nothing is kept.
+     *
+     * The whole restore is one transaction that starts by claiming the bin
+     * entry (DeletedShareMapper::claim()): of two restores of the same entry
+     * at once — a double click, two admins — only one gets to create anything,
+     * and the other reports the entry as gone. Nothing done is visible to
+     * anyone else until it is all done, and any failure rolls all of it back,
+     * the claim included, so the entry is still in the bin to retry from — and
+     * there is no half-made share for a clean-up to fail to remove. Without
+     * that, both would create a share and both would write the same token onto
+     * it: two live links on one URL, so that revoking the one an owner knows
+     * about leaves the file reachable through the other.
      *
      * $reason on failure is a stable code (not the human-readable $message,
      * which is English-only and meant for logs) — 'not_found' | 'file_missing'
@@ -301,36 +311,59 @@ class SoftDeleteService {
             }
         }
 
+        $this->db->beginTransaction();
         try {
+            if (!$this->mapper->claim($id)) {
+                // Restored or purged by someone else since it was read above.
+                $this->rollBack();
+                return ['success' => false, 'reason' => 'not_found', 'message' => 'Not found.'];
+            }
             $created = $this->shareManager->createShare($share);
         } catch (\Throwable $e) {
+            $this->rollBack();
             $this->logger->warning('Soft-delete restore failed for retention id {id}: {exception}', [
                 'id' => $id, 'exception' => $e,
             ]);
             return ['success' => false, 'reason' => 'create_failed', 'message' => 'Could not recreate the share (recipient or permissions no longer valid?).'];
         }
 
-        $tokenRestored = $this->restoreRawColumns((int)$created->getId(), $entity);
+        try {
+            $tokenRestored = $this->restoreRawColumns((int)$created->getId(), $entity);
+        } catch (\Throwable $e) {
+            // The database refused the write. On PostgreSQL that leaves the
+            // transaction unusable, so this is a failure, not a link that keeps
+            // a new token.
+            $this->rollBack();
+            $this->logger->warning('Could not restore the original token/password for retention id {id}: {exception}', [
+                'id' => $id, 'exception' => $e,
+            ]);
+            return $entity->getPassword() !== null
+                ? $this->passwordLost()
+                : ['success' => false, 'reason' => 'create_failed', 'message' => 'Could not recreate the share (recipient or permissions no longer valid?).'];
+        }
         if (!$tokenRestored && $entity->getPassword() !== null) {
             // The share exists with the temporary password, not the one it
             // had before revocation (most likely cause: its original token
             // was reused by a different link created while this one sat in
-            // the bin, and the token and password go back in one statement,
-            // so either both landed or neither did). Handing that back, a
-            // link whose password its owner does not know, is worse than the
-            // restore simply failing — undo the
-            // share we just created (a raw delete: IShareManager::
-            // deleteShare() would re-capture it right back into the bin
-            // we're restoring FROM) and keep the original retention entry so
-            // the admin can retry once the token conflict clears.
-            $this->undoRestoredShare((int)$created->getId());
-            return [
-                'success' => false,
-                'reason' => 'password_lost',
-                'message' => 'Could not restore the share\'s password protection (its original link token was likely reused by another share). Nothing was changed — retry once the conflicting share is gone.',
-            ];
+            // the bin). Handing that back, a link whose password its owner
+            // does not know, is worse than the restore simply failing — so
+            // none of it is kept: the rollback takes the share back out and
+            // puts the bin entry back, for the admin to retry once the token
+            // conflict clears.
+            $this->rollBack();
+            return $this->passwordLost();
         }
-        $this->mapper->delete($entity);
+
+        try {
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->rollBack();
+            $this->logger->warning('Soft-delete restore of retention id {id} could not be committed: {exception}', [
+                'id' => $id, 'exception' => $e,
+            ]);
+            return ['success' => false, 'reason' => 'create_failed', 'message' => 'Could not recreate the share (recipient or permissions no longer valid?).'];
+        }
+
         $this->auditLogger->logRestore(
             (int)$created->getId(),
             $entity->getOriginalShareId(),
@@ -350,6 +383,32 @@ class SoftDeleteService {
         ];
     }
 
+    /**
+     * @return array{success: false, reason: string, message: string}
+     */
+    private function passwordLost(): array {
+        return [
+            'success' => false,
+            'reason' => 'password_lost',
+            'message' => 'Could not restore the share\'s password protection (its original link token was likely reused by another share). Nothing was changed — retry once the conflicting share is gone.',
+        ];
+    }
+
+    /**
+     * Roll the restore back, whatever state the transaction is in: this runs
+     * on the way out of a failure, where a second exception would replace the
+     * failure being reported.
+     */
+    private function rollBack(): void {
+        try {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('Could not roll back a failed share restore: {exception}', ['exception' => $e]);
+        }
+    }
+
     private function parseStoredExpiration(string $raw): ?\DateTime {
         try {
             return new \DateTime($raw);
@@ -367,15 +426,15 @@ class SoftDeleteService {
 
     /**
      * Puts the original token and password hash back on the share restore() just
-     * created. False when they could not be put back.
+     * created. False when the token is taken and nothing was written; a
+     * database error is thrown, for restore() to roll back.
      *
      * The token is checked for being in use by another share BEFORE writing,
      * rather than trusting the database to refuse a duplicate: oc_share.token
      * has a plain, non-unique index (verified on Nextcloud 33 with MariaDB), so
      * the UPDATE would go through and leave two links answering to one URL —
      * the older one's file served under the restored one's password, or the
-     * reverse. Nothing is written when it is taken. A unique index, where an
-     * installation has added one, is still caught below.
+     * reverse.
      */
     private function restoreRawColumns(int $newId, DeletedShare $entity): bool {
         if ($entity->getToken() === null && $entity->getPassword() === null) {
@@ -397,15 +456,8 @@ class SoftDeleteService {
             $qb->set('password', $qb->createNamedParameter($entity->getPassword()));
         }
         $qb->where($qb->expr()->eq('id', $qb->createNamedParameter($newId, IQueryBuilder::PARAM_INT)));
-        try {
-            $qb->executeStatement();
-            return true;
-        } catch (\Throwable $e) {
-            $this->logger->info('Could not restore the original token/password for share {id} (likely a reused token): {exception}', [
-                'id' => $newId, 'exception' => $e,
-            ]);
-            return false;
-        }
+        $qb->executeStatement();
+        return true;
     }
 
     /**
@@ -422,34 +474,6 @@ class SoftDeleteService {
         $inUse = $result->fetchOne() !== false;
         $result->closeCursor();
         return $inUse;
-    }
-
-    /**
-     * Undo a share creation that restore() must not keep — a raw DELETE
-     * rather than IShareManager::deleteShare(), which would fire
-     * BeforeShareDeletedEvent and hand this exact row right back to
-     * SoftDeleteListener, creating a second, redundant recycle-bin entry for
-     * a share that never really existed from the caller's point of view.
-     * Safe here specifically because the share was *just* created moments
-     * ago in this same request and nothing has had a chance to depend on it
-     * yet — this is not a general-purpose delete.
-     *
-     * If even this fails the share is still there, but with the temporary
-     * password it was created with: closed to everybody, and logged so the
-     * admin can find and remove it. Nothing here may throw, or the caller would
-     * report a crash instead of the failure it is already reporting.
-     */
-    private function undoRestoredShare(int $id): void {
-        try {
-            $qb = $this->db->getQueryBuilder();
-            $qb->delete('share')
-                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
-            $qb->executeStatement();
-        } catch (\Throwable $e) {
-            $this->logger->error('Could not undo the half-restored share {id}; it stays behind protected by a temporary password nobody knows and should be deleted: {exception}', [
-                'id' => $id, 'exception' => $e,
-            ]);
-        }
     }
 
     /**

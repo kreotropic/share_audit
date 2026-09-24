@@ -161,12 +161,36 @@ class ExposureMapServiceTest extends TestCase {
         $this->assertSame(['23456789'], $this->service->filterFor('public')['roomTokens']);
     }
 
-    public function testACategoryNothingCanFilterOnHasNoFilter(): void {
+    public function testANameThatIsNoCategoryHasNoFilter(): void {
         $this->instanceHas([]);
 
-        $this->assertNull($this->service->filterFor('other'));
         $this->assertNull($this->service->filterFor('nonsense'));
         $this->assertNull($this->service->filterFor(''));
+        $this->assertFalse($this->service->isCategory('nonsense'));
+        $this->assertTrue($this->service->isCategory('other'));
+    }
+
+    /**
+     * "Other" is what the rest leave: it cannot be listed, so it is described
+     * by what it is not — plus the conversations that could not be resolved.
+     */
+    public function testTheOtherFilterIsEverythingTheOthersDoNotTakeAndTheUnresolvedConversations(): void {
+        $this->instanceHas(
+            [IShare::TYPE_ROOM => 3],
+            ['pub12345' => 1, 'grp12345' => 1, 'stale123' => 1],
+            ['pub12345' => 'public', 'grp12345' => 'internal'],
+        );
+
+        $filter = $this->service->filterFor('other');
+
+        $this->assertSame([], $filter['types']);
+        $this->assertSame(['stale123'], $filter['roomTokens']);
+        $this->assertEqualsCanonicalizing(
+            [IShare::TYPE_USER, IShare::TYPE_GROUP, IShare::TYPE_CIRCLE, IShare::TYPE_EMAIL, IShare::TYPE_REMOTE,
+                IShare::TYPE_REMOTE_GROUP, IShare::TYPE_LINK, IShare::TYPE_ROOM],
+            $filter['notTypes'],
+            'a type with a category of its own, and Talk (classified room by room), are not "other"',
+        );
     }
 
     /**

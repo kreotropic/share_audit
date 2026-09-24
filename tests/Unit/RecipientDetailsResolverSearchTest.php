@@ -34,6 +34,9 @@ class RecipientDetailsResolverSearchTest extends TestCase {
     /** @var string[] the conditions built, as text */
     private array $conditions = [];
 
+    /** @var string[] every column the query was ordered by */
+    private array $orders = [];
+
     private IDBConnection&MockObject $db;
     private LoggerInterface&MockObject $logger;
     private RecipientDetailsResolver $resolver;
@@ -41,6 +44,7 @@ class RecipientDetailsResolverSearchTest extends TestCase {
     protected function setUp(): void {
         $this->bound = [];
         $this->conditions = [];
+        $this->orders = [];
         $this->db = $this->createMock(IDBConnection::class);
         $this->db->method('escapeLikeParameter')->willReturnCallback(
             static fn (string $value) => addcslashes($value, '%_\\'),
@@ -75,9 +79,13 @@ class RecipientDetailsResolverSearchTest extends TestCase {
         });
 
         $qb = $this->createMock(IQueryBuilder::class);
-        foreach (['select', 'from', 'innerJoin', 'where', 'andWhere', 'orderBy', 'setMaxResults'] as $method) {
+        foreach (['select', 'from', 'innerJoin', 'where', 'andWhere', 'setMaxResults'] as $method) {
             $qb->method($method)->willReturnSelf();
         }
+        $qb->method('orderBy')->willReturnCallback(function (string $column) use ($qb) {
+            $this->orders[] = $column;
+            return $qb;
+        });
         $qb->method('createNamedParameter')->willReturnCallback(function ($value) {
             $this->bound[] = $value;
             return ':p' . count($this->bound);
@@ -100,6 +108,20 @@ class RecipientDetailsResolverSearchTest extends TestCase {
 
         // A one-to-one's "name" is a list of account ids: nobody types that.
         $this->assertContains([2, 3], $this->bound);
+    }
+
+    /**
+     * The search is capped, so what it orders by decides which conversations
+     * are found at all when many match — and a caller who may not see tokens
+     * gets the result. Ordered by token, the cut-off is a comparison against a
+     * token; ordered by the (public) id it says nothing about one.
+     */
+    public function testTheCutOffOfTheConversationSearchDoesNotFollowTheToken(): void {
+        $this->queryReturns([]);
+
+        $this->resolver->searchRoomTokens('market');
+
+        $this->assertSame(['id'], $this->orders);
     }
 
     public function testTheTypedNameIsMatchedLiterally(): void {

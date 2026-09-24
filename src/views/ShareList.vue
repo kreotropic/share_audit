@@ -79,6 +79,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
 import ShareTable from '../components/ShareTable.vue'
+import { categoryLabel } from '../utils/format.js'
 import { fetchShares, exportShares } from '../services/api.js'
 
 export default {
@@ -98,7 +99,7 @@ export default {
 			type: Array,
 			default: null,
 		},
-		// An exposure category (internal | external | public) to open filtered
+		// An exposure category (internal | external | public | other) to open filtered
 		// to — see App.vue. Sent to the backend as it is.
 		presetExposure: {
 			type: String,
@@ -152,6 +153,7 @@ export default {
 				internal: t('share_audit_dashboard', 'Internal'),
 				external: t('share_audit_dashboard', 'External'),
 				public: t('share_audit_dashboard', 'Public'),
+				other: categoryLabel('other'),
 			}
 			return t('share_audit_dashboard', 'Exposure: {level}', { level: levels[this.exposure] ?? this.exposure })
 		},

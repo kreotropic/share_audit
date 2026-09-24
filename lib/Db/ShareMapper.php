@@ -581,11 +581,13 @@ class ShareMapper {
      *  - hasPassword:  bool
      *  - hasExpiration:bool
      *  - createdSince: int unix timestamp
-     *  - exposure:     array{types: int[], roomTokens: string[]} the shares of
-     *                  one exposure category (see ExposureMapService::
-     *                  filterFor()): every row of those share types, plus the
-     *                  Talk rows into those conversations. Both lists empty
-     *                  matches nothing.
+     *  - exposure:     array{types: int[], roomTokens: string[], notTypes?: int[]}
+     *                  the shares of one exposure category (see
+     *                  ExposureMapService::filterFor()): every row of those
+     *                  share types, plus the Talk rows into those
+     *                  conversations, plus — for the category defined by what
+     *                  it is not — every row of a type outside `notTypes`.
+     *                  Nothing to match at all matches nothing.
      *  - hideRoomTokens: bool the caller may not see a Talk conversation's
      *                  token, so neither `search` nor `recipientSearch` may
      *                  match a room's share_with (that would read the token
@@ -620,6 +622,10 @@ class ShareMapper {
             if (!empty($filters['exposure']['types'])) {
                 $exposed[] = $qb->expr()->in('s.share_type',
                     $qb->createNamedParameter($filters['exposure']['types'], IQueryBuilder::PARAM_INT_ARRAY));
+            }
+            if (!empty($filters['exposure']['notTypes'])) {
+                $exposed[] = $qb->expr()->notIn('s.share_type',
+                    $qb->createNamedParameter($filters['exposure']['notTypes'], IQueryBuilder::PARAM_INT_ARRAY));
             }
             if (!empty($filters['exposure']['roomTokens'])) {
                 $exposed[] = $qb->expr()->andX(

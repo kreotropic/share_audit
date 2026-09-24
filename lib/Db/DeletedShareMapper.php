@@ -37,6 +37,24 @@ class DeletedShareMapper extends QBMapper {
     }
 
     /**
+     * Take an entry out of the bin, saying whether this call is the one that
+     * did. Of any number of callers that try at once, exactly one gets true:
+     * the DELETE takes the row's lock, the others wait for it, and — once the
+     * first has committed — find nothing left to delete. Inside a transaction
+     * that rolls back, the entry is simply still there afterwards.
+     *
+     * This is what makes restore() safe to run twice at the same time; a
+     * find() followed by delete() (QBMapper's, which never looks at how many
+     * rows it removed) lets both through.
+     */
+    public function claim(int $id): bool {
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+        return $qb->executeStatement() === 1;
+    }
+
+    /**
      * @return DeletedShare[]
      */
     public function findPage(int $limit, int $offset): array {

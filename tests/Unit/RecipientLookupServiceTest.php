@@ -51,11 +51,37 @@ class RecipientLookupServiceTest extends TestCase {
     private RecipientDetailsResolver&MockObject $details;
     private RecipientLookupService $service;
 
-    /** @var string[] the columns every neq() was built on */
-    private array $neq = [];
+    /**
+     * What Talk knows, by token: token => a talk_rooms row. Mutable, so a test
+     * can give the same conversations different tokens between two calls.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private array $talkRooms = [];
+
+    /** @var string[] the tokens of the conversations whose NAME matches the query */
+    private array $foundByName = [];
+
+    /** @var array<int, array<string, mixed>> what the general recipient query returns */
+    private array $generalRows = [];
+
+    /** @var array<int, array{share_with: string, cnt: int}> what the per-conversation count query returns */
+    private array $roomCountRows = [];
+
+    /**
+     * One record per query built, in order: the values bound as parameters,
+     * every ORDER BY, and the LIMIT.
+     *
+     * @var array<int, array{params: mixed[], orders: string[], limit: ?int}>
+     */
+    private array $queries = [];
 
     protected function setUp(): void {
-        $this->neq = [];
+        $this->talkRooms = [];
+        $this->foundByName = [];
+        $this->generalRows = [];
+        $this->roomCountRows = [];
+        $this->queries = [];
         $this->db = $this->createMock(IDBConnection::class);
         $this->db->method('escapeLikeParameter')->willReturnArgument(0);
         $this->mapper = $this->createMock(ShareMapper::class);
@@ -70,6 +96,11 @@ class RecipientLookupServiceTest extends TestCase {
             ->onlyMethods(['fetchRooms', 'fetchAttendeeCounts', 'searchRoomTokens'])
             ->getMock();
         $this->details->method('fetchAttendeeCounts')->willReturn([]);
+        $this->details->method('fetchRooms')->willReturnCallback(
+            fn (array $tokens) => array_intersect_key($this->talkRooms, array_flip($tokens)),
+        );
+        $this->details->method('searchRoomTokens')->willReturnCallback(fn () => $this->foundByName);
+        $this->db->method('getQueryBuilder')->willReturnCallback(fn () => $this->recordingBuilder());
 
         $collector = $this->createMock(ShareCollectorService::class);
         $collector->method('normalizeRow')->willReturnCallback(static fn (array $row) => [
@@ -97,12 +128,10 @@ class RecipientLookupServiceTest extends TestCase {
     }
 
     /**
-     * Talk knows a conversation under TOKEN.
+     * Talk knows a conversation under TOKEN, and it is the one whose name the query matches.
      */
     private function talkKnowsTheRoom(string $name = 'Equipa de Marketing'): void {
-        $this->details->method('fetchRooms')->willReturn([self::TOKEN => [
-            'id' => 10, 'token' => self::TOKEN, 'type' => 3, 'name' => $name, 'listable' => 0,
-        ]]);
+        $this->talkRooms[self::TOKEN] = ['id' => 10, 'token' => self::TOKEN, 'type' => 3, 'name' => $name, 'listable' => 0];
     }
 
     private function roomShareRow(int $id = 1): array {
@@ -113,26 +142,24 @@ class RecipientLookupServiceTest extends TestCase {
      * The handle search() hands an auditor for TOKEN.
      */
     private function handleForTheRoom(): string {
-        $this->stubSearchQuery([['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 2]]);
-        $this->details->method('searchRoomTokens')->willReturn([self::TOKEN]);
+        $this->foundByName = [self::TOKEN];
+        $this->roomCountRows = [['share_with' => self::TOKEN, 'cnt' => 2]];
         return $this->service->search('marketing', 20, false)[0]['shareWith'];
     }
 
     /**
-     * A query builder that records the conditions search() builds and returns
-     * $found from fetchAll().
-     *
-     * @param array<int, array<string, mixed>> $found
+     * A query builder that records what search() builds and answers from
+     * $generalRows / $roomCountRows, in the order the queries are made: the
+     * general recipient query first, the per-conversation count second.
      */
-    private function stubSearchQuery(array $found): void {
+    private function recordingBuilder(): IQueryBuilder {
+        $index = count($this->queries);
+        $this->queries[$index] = ['params' => [], 'orders' => [], 'limit' => null];
+
         $expr = $this->createMock(IExpressionBuilder::class);
-        foreach (['eq', 'iLike', 'in'] as $method) {
+        foreach (['eq', 'neq', 'iLike', 'in'] as $method) {
             $expr->method($method)->willReturn($method);
         }
-        $expr->method('neq')->willReturnCallback(function (string $column) {
-            $this->neq[] = $column;
-            return 'neq';
-        });
         $expr->method('andX')->willReturn($this->createMock(ICompositeExpression::class));
         $expr->method('orX')->willReturn($this->createMock(ICompositeExpression::class));
 
@@ -140,18 +167,38 @@ class RecipientLookupServiceTest extends TestCase {
         $func->method('count')->willReturn($this->createMock(IQueryFunction::class));
 
         $result = $this->createMock(IResult::class);
-        $result->method('fetchAll')->willReturn($found);
         $result->method('closeCursor')->willReturn(true);
+        if ($index === 0) {
+            $result->method('fetchAll')->willReturn($this->generalRows);
+        } else {
+            $rows = $this->roomCountRows;
+            $result->method('fetch')->willReturnCallback(static function () use (&$rows) {
+                return $rows === [] ? false : array_shift($rows);
+            });
+        }
 
         $qb = $this->createMock(IQueryBuilder::class);
-        foreach (['select', 'selectAlias', 'from', 'where', 'andWhere', 'groupBy', 'orderBy', 'addOrderBy', 'setMaxResults'] as $method) {
+        foreach (['select', 'selectAlias', 'from', 'where', 'andWhere', 'groupBy'] as $method) {
             $qb->method($method)->willReturnSelf();
         }
+        foreach (['orderBy', 'addOrderBy'] as $method) {
+            $qb->method($method)->willReturnCallback(function (string $column) use ($index, $qb) {
+                $this->queries[$index]['orders'][] = $column;
+                return $qb;
+            });
+        }
+        $qb->method('setMaxResults')->willReturnCallback(function (int $limit) use ($index, $qb) {
+            $this->queries[$index]['limit'] = $limit;
+            return $qb;
+        });
         $qb->method('expr')->willReturn($expr);
         $qb->method('func')->willReturn($func);
-        $qb->method('createNamedParameter')->willReturnArgument(0);
+        $qb->method('createNamedParameter')->willReturnCallback(function ($value) use ($index) {
+            $this->queries[$index]['params'][] = $value;
+            return $value;
+        });
         $qb->method('executeQuery')->willReturn($result);
-        $this->db->method('getQueryBuilder')->willReturn($qb);
+        return $qb;
     }
 
     // -------------------------------------------------------------------
@@ -159,14 +206,15 @@ class RecipientLookupServiceTest extends TestCase {
     // -------------------------------------------------------------------
 
     public function testAnAuditorIsGivenAnOpaqueHandleAndTheNameNeverTheToken(): void {
-        $this->stubSearchQuery([['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 2]]);
-        $this->details->method('searchRoomTokens')->willReturn([self::TOKEN]);
+        $this->foundByName = [self::TOKEN];
+        $this->roomCountRows = [['share_with' => self::TOKEN, 'cnt' => 2]];
         $this->talkKnowsTheRoom();
 
         $items = $this->service->search('marketing', 20, false);
 
         $this->assertCount(1, $items);
         $this->assertSame('Equipa de Marketing', $items[0]['label']);
+        $this->assertSame(2, $items[0]['count']);
         $this->assertTrue($items[0]['opaque']);
         $this->assertNotSame(self::TOKEN, $items[0]['shareWith']);
         $this->assertMatchesRegularExpression('/^[0-9a-f]{32}$/', $items[0]['shareWith']);
@@ -174,19 +222,18 @@ class RecipientLookupServiceTest extends TestCase {
     }
 
     public function testAnUnnamedConversationIsOfferedToAnAuditorWithNoLabelAndNoToken(): void {
-        $this->stubSearchQuery([['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 1]]);
-        $this->details->method('searchRoomTokens')->willReturn([]);
+        $this->foundByName = [];
         $this->talkKnowsTheRoom('');
-
+        // Not found by name (it has none): the only way in is a share_with the
+        // caller is not allowed to match, so it is simply not offered.
         $items = $this->service->search('synthetic', 20, false);
 
-        $this->assertSame('', $items[0]['label']);
-        $this->assertStringNotContainsString(self::TOKEN, json_encode($items));
+        $this->assertSame([], $items);
     }
 
     public function testAnAdminStillGetsTheTokenAndTheNameToRecogniseItBy(): void {
-        $this->stubSearchQuery([['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 2]]);
-        $this->details->method('searchRoomTokens')->willReturn([self::TOKEN]);
+        $this->generalRows = [['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 2]];
+        $this->foundByName = [self::TOKEN];
         $this->talkKnowsTheRoom();
 
         $items = $this->service->search('marketing', 20, true);
@@ -196,9 +243,18 @@ class RecipientLookupServiceTest extends TestCase {
         $this->assertArrayNotHasKey('opaque', $items[0]);
     }
 
+    public function testAnAdminFindsAnUnnamedConversationByItsToken(): void {
+        $this->generalRows = [['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 1]];
+        $this->talkKnowsTheRoom('');
+
+        $items = $this->service->search('synthetic', 20, true);
+
+        $this->assertSame(self::TOKEN, $items[0]['shareWith']);
+        $this->assertSame(self::TOKEN, $items[0]['label'], 'for an admin the token is the only name it has');
+    }
+
     public function testOtherRecipientsAreUntouchedForAnAuditor(): void {
-        $this->stubSearchQuery([['share_with' => 'bob', 'share_type' => IShare::TYPE_USER, 'cnt' => 2]]);
-        $this->details->method('searchRoomTokens')->willReturn([]);
+        $this->generalRows = [['share_with' => 'bob', 'share_type' => IShare::TYPE_USER, 'cnt' => 2]];
 
         $items = $this->service->search('bob', 20, false);
 
@@ -208,30 +264,186 @@ class RecipientLookupServiceTest extends TestCase {
 
     /**
      * The other way to read a token: type a guess and see whether it comes
-     * back. For an auditor the text match on share_with must leave Talk rows
-     * out (so a query can only ever find a room by its NAME); an admin's is
-     * unchanged.
+     * back. For an auditor no Talk row is a candidate of the general query at
+     * all (so a query can only ever find a conversation by its NAME); an
+     * admin's includes them.
      */
-    public function testAnAuditorCannotProbeTokensWithTheTextSearch(): void {
-        $this->stubSearchQuery([]);
-        $this->details->method('searchRoomTokens')->willReturn([]);
-
+    public function testAnAuditorsGeneralQueryDoesNotIncludeTalkRows(): void {
         $this->service->search('synt', 20, false);
-        $this->assertSame(['share_type'], $this->neq, 'the LIKE on share_with is limited to rows that are not Talk');
+
+        $types = $this->queries[0]['params'][1];
+        $this->assertNotContains(IShare::TYPE_ROOM, $types);
+        $this->assertContains(IShare::TYPE_USER, $types);
     }
 
     public function testAnAdminsTextSearchStillReachesTokens(): void {
-        $this->stubSearchQuery([]);
-        $this->details->method('searchRoomTokens')->willReturn([]);
-
         $this->service->search('synt', 20, true);
-        $this->assertSame([], $this->neq);
+
+        $this->assertContains(IShare::TYPE_ROOM, $this->queries[0]['params'][1]);
+    }
+
+    // -------------------------------------------------------------------
+    // ...and their order. An ORDER BY on the token, or a LIMIT that cuts
+    // where the token says, reads the token just as surely as printing it:
+    // anyone who can make rooms of their own gets one bit per comparison
+    // against a token they know, and 42 comparisons are enough for eight
+    // characters.
+    // -------------------------------------------------------------------
+
+    public function testNoQueryAnAuditorCausesOrdersOrCutsConversationsByToken(): void {
+        $this->foundByName = [self::TOKEN];
+        $this->roomCountRows = [['share_with' => self::TOKEN, 'cnt' => 2]];
+        $this->talkKnowsTheRoom();
+
+        $this->service->search('marketing', 20, false);
+
+        $this->assertCount(2, $this->queries, 'the general query, and the conversations counted on their own');
+        $general = $this->queries[0];
+        $rooms = $this->queries[1];
+        // The general one may order and limit — it holds no Talk row at all.
+        $this->assertNotContains(IShare::TYPE_ROOM, $general['params'][1]);
+        // The conversations' own query has neither an order nor a limit for the database to decide with.
+        $this->assertSame([], $rooms['orders']);
+        $this->assertNull($rooms['limit']);
+    }
+
+    /**
+     * Same conversations, same names, same counts — only the tokens differ,
+     * and they are dealt out in every combination and handed back by the
+     * "database" both in ascending and in descending token order. The list an
+     * auditor gets must not change: if it followed the tokens, it would.
+     */
+    public function testTheListAnAuditorGetsDoesNotFollowTheTokens(): void {
+        $names = ['Alpha', 'Beta', 'Gamma'];
+        $pool = ['aaaa1111', 'kkkk2222', 'zzzz3333'];
+
+        foreach ($this->permutations($pool) as $tokens) {
+            foreach (['ascending', 'descending'] as $dbOrder) {
+                $this->talkRooms = [];
+                $counts = [];
+                foreach ($names as $i => $name) {
+                    $this->talkRooms[$tokens[$i]] = ['id' => $i + 1, 'token' => $tokens[$i], 'type' => 2, 'name' => $name, 'listable' => 0];
+                    $counts[$tokens[$i]] = 2;   // a tie on everything the count says
+                }
+                $dbOrder === 'ascending' ? ksort($counts) : krsort($counts);
+                $this->foundByName = array_keys($counts);
+                $this->roomCountRows = array_map(
+                    static fn ($token, $count) => ['share_with' => (string)$token, 'cnt' => $count],
+                    array_keys($counts),
+                    $counts,
+                );
+                $this->queries = [];
+
+                $labels = array_column($this->service->search('aa', 20, false), 'label');
+
+                $this->assertSame(['Alpha', 'Beta', 'Gamma'], $labels, 'tokens ' . implode(',', $tokens) . " from a $dbOrder scan");
+            }
+        }
+    }
+
+    public function testWhichConversationsSurviveTheLimitDoesNotFollowTheTokens(): void {
+        $pool = ['aaaa1111', 'kkkk2222', 'zzzz3333'];
+
+        foreach ($this->permutations($pool) as $tokens) {
+            $this->talkRooms = [];
+            foreach (['Alpha', 'Beta', 'Gamma'] as $i => $name) {
+                $this->talkRooms[$tokens[$i]] = ['id' => $i + 1, 'token' => $tokens[$i], 'type' => 2, 'name' => $name, 'listable' => 0];
+            }
+            $this->foundByName = $tokens;
+            $this->roomCountRows = array_map(static fn ($token) => ['share_with' => $token, 'cnt' => 2], $tokens);
+            $this->queries = [];
+
+            $labels = array_column($this->service->search('aa', 2, false), 'label');
+
+            $this->assertSame(['Alpha', 'Beta'], $labels, 'tokens ' . implode(',', $tokens));
+        }
+    }
+
+    public function testAMoreSharedConversationComesFirstWhateverItsToken(): void {
+        foreach ([['zzzz3333', 'aaaa1111'], ['aaaa1111', 'zzzz3333']] as [$busy, $quiet]) {
+            $this->talkRooms = [
+                $busy => ['id' => 1, 'token' => $busy, 'type' => 2, 'name' => 'Zeta', 'listable' => 0],
+                $quiet => ['id' => 2, 'token' => $quiet, 'type' => 2, 'name' => 'Alpha', 'listable' => 0],
+            ];
+            $this->foundByName = [$quiet, $busy];
+            $this->roomCountRows = [['share_with' => $quiet, 'cnt' => 1], ['share_with' => $busy, 'cnt' => 5]];
+            $this->queries = [];
+
+            $this->assertSame(['Zeta', 'Alpha'], array_column($this->service->search('aa', 20, false), 'label'));
+        }
+    }
+
+    /**
+     * Two conversations that are the same in everything public (name, count)
+     * can only be told apart by their handles: a keyed hash, so the order it
+     * gives is not the order of the tokens. Over many token pairs it comes out
+     * both ways — an order that followed the tokens would come out one way
+     * every time.
+     */
+    public function testConversationsThatAreTheSameInEverythingPublicAreNotOrderedByToken(): void {
+        $tokens = ['aaaa1111', 'bbbb2222', 'cccc3333', 'dddd4444', 'eeee5555', 'ffff6666', 'gggg7777', 'hhhh8888'];
+        $tokenAscendingFirst = 0;
+        $pairs = 0;
+        for ($i = 0; $i < count($tokens); $i++) {
+            for ($j = $i + 1; $j < count($tokens); $j++) {
+                $this->talkRooms = [];
+                foreach ([$tokens[$i], $tokens[$j]] as $k => $token) {
+                    $this->talkRooms[$token] = ['id' => $k + 1, 'token' => $token, 'type' => 2, 'name' => 'Same name', 'listable' => 0];
+                }
+                $this->foundByName = [$tokens[$i], $tokens[$j]];
+                $this->roomCountRows = [['share_with' => $tokens[$i], 'cnt' => 3], ['share_with' => $tokens[$j], 'cnt' => 3]];
+                $this->queries = [];
+
+                $handles = array_column($this->service->search('same', 20, false), 'shareWith');
+                $this->assertCount(2, $handles);
+                $tokenAscendingFirst += $handles[0] === $this->handleOf($tokens[$i]) ? 1 : 0;
+                $pairs++;
+            }
+        }
+
+        $this->assertGreaterThan(0, $tokenAscendingFirst, 'sometimes the smaller token is first');
+        $this->assertLessThan($pairs, $tokenAscendingFirst, 'and sometimes it is not: the order is not the tokens\'');
+    }
+
+    /**
+     * @param string[] $items
+     * @return array<int, string[]>
+     */
+    private function permutations(array $items): array {
+        if (count($items) <= 1) {
+            return [$items];
+        }
+        $result = [];
+        foreach ($items as $i => $item) {
+            $rest = $items;
+            unset($rest[$i]);
+            foreach ($this->permutations(array_values($rest)) as $tail) {
+                $result[] = [$item, ...$tail];
+            }
+        }
+        return $result;
+    }
+
+    private function handleOf(string $token): string {
+        return bin2hex(substr(hash_hmac('sha512', 'share_audit_dashboard:room:' . $token, 'the-instance-secret', true), 0, 16));
     }
 
     public function testASearchTooShortToBeUsefulRunsNoQuery(): void {
+        $this->db = $this->createMock(IDBConnection::class);
         $this->db->expects($this->never())->method('getQueryBuilder');
+        $service = new RecipientLookupService(
+            $this->db,
+            $this->createMock(IUserManager::class),
+            $this->createMock(IGroupManager::class),
+            $this->mapper,
+            $this->createMock(ShareCollectorService::class),
+            $this->createMock(ShareDeletionService::class),
+            $this->createMock(DisplayNameResolver::class),
+            $this->details,
+            $this->createMock(ICrypto::class),
+        );
 
-        $this->assertSame([], $this->service->search('a', 20, false));
+        $this->assertSame([], $service->search('a', 20, false));
     }
 
     // -------------------------------------------------------------------
@@ -367,11 +579,13 @@ class RecipientLookupServiceTest extends TestCase {
     }
 
     public function testTheControllerPassesTheScopeToSearchToo(): void {
-        $this->stubSearchQuery([['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 1]]);
-        $this->details->method('searchRoomTokens')->willReturn([self::TOKEN]);
+        $this->generalRows = [['share_with' => self::TOKEN, 'share_type' => IShare::TYPE_ROOM, 'cnt' => 1]];
+        $this->roomCountRows = [['share_with' => self::TOKEN, 'cnt' => 1]];
+        $this->foundByName = [self::TOKEN];
         $this->talkKnowsTheRoom();
 
         $auditor = $this->controllerFor(AccessScope::auditor())->search('marketing')->getData()['items'];
+        $this->queries = [];   // the next search starts with its general query again
         $admin = $this->controllerFor(AccessScope::admin())->search('marketing')->getData()['items'];
 
         $this->assertStringNotContainsString(self::TOKEN, json_encode($auditor));

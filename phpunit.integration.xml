@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  - SPDX-FileCopyrightText: 2025 Ricardo Ferreira <rsfneg@gmail.com>
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+  -->
+<!--
+  Integration suite: runs INSIDE a Nextcloud container, against its real
+  database and its real web server. Never point it at an instance you use:
+  it creates accounts and shares and drops rows. See build/README.md and
+  build/run-integration.sh, which brings up the disposable instances for it.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.0/phpunit.xsd"
+         bootstrap="tests/Integration/bootstrap.php"
+         cacheResult="false"
+         colors="true">
+    <testsuites>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
