@@ -24,6 +24,11 @@ class ExposureMapService {
      * a Talk conversation's reach depends on the room itself (private vs.
      * anyone-with-the-link public), not on the share_type alone, so it is
      * classified per-room in classifyRoomShares() instead of by this table.
+     *
+     * This table and classifyRoomShares() are the one place that decides what a
+     * share's exposure is: the counts, the score and the "View" filter
+     * (filterFor()) all read it, so a category's number and the list behind it
+     * cannot disagree.
      */
     private const CATEGORY = [
         IShare::TYPE_USER => 'internal',
@@ -37,11 +42,11 @@ class ExposureMapService {
 
     /**
      * Risk weight per category (0 = safe … 2 = most exposed). 'other' covers
-     * any share_type not in CATEGORY above (a type added in a future
-     * Nextcloud version, e.g. ScienceMesh federation). It must NOT default
-     * to 'internal'/weight 0:
-     * an unrecognized type is not known to be safe, so it is weighted the
-     * same as 'external' rather than assumed internal.
+     * what could not be classified: a share_type not in CATEGORY above (one
+     * added in a future Nextcloud version, e.g. ScienceMesh federation) and a
+     * Talk conversation this app could not look up. It must NOT default to
+     * 'internal'/weight 0: something that is not known to be safe is weighted
+     * the same as 'external' rather than assumed internal.
      */
     private const WEIGHT = ['internal' => 0, 'external' => 1, 'public' => 2, 'other' => 1];
 
@@ -56,17 +61,7 @@ class ExposureMapService {
      * @return array<string, mixed>
      */
     public function getOverview(): array {
-        $counts = ['internal' => 0, 'external' => 0, 'public' => 0, 'other' => 0];
-        foreach ($this->mapper->countByType() as $type => $count) {
-            if ($type === IShare::TYPE_ROOM) {
-                continue;
-            }
-            $category = self::CATEGORY[$type] ?? 'other';
-            $counts[$category] += $count;
-        }
-        foreach ($this->classifyRoomShares() as $category => $count) {
-            $counts[$category] += $count;
-        }
+        $counts = $this->getCounts();
         $total = array_sum($counts);
         $score = $this->score($counts, $total);
 
@@ -76,6 +71,48 @@ class ExposureMapService {
             'score' => $score,
             'level' => $this->level($score),
             'topUsers' => $this->getTopExposedUsers(5),
+        ];
+    }
+
+    /**
+     * Shares per exposure category. The exposure map and the dashboard's
+     * "internal vs external" donut both read this, so the two cannot count a
+     * Talk conversation differently.
+     *
+     * @return array{internal: int, external: int, public: int, other: int}
+     */
+    public function getCounts(): array {
+        $counts = ['internal' => 0, 'external' => 0, 'public' => 0, 'other' => 0];
+        foreach ($this->mapper->countByType() as $type => $count) {
+            if ($type === IShare::TYPE_ROOM) {
+                continue;
+            }
+            $category = self::CATEGORY[$type] ?? 'other';
+            $counts[$category] += $count;
+        }
+        foreach ($this->classifyRoomShares() as $category => $rooms) {
+            $counts[$category] += array_sum($rooms);
+        }
+        return $counts;
+    }
+
+    /**
+     * What "the shares of this exposure category" means for ShareMapper: the
+     * raw share types that belong to it, plus the Talk conversations that do —
+     * a public conversation is public exposure, and a filter on share types
+     * alone (a public link's type) leaves it out. Null for a category that has
+     * no such filter ('other', or an unknown name): what could not be
+     * classified is not something a filter can name.
+     *
+     * @return array{types: int[], roomTokens: string[]}|null
+     */
+    public function filterFor(string $category): ?array {
+        if ($category === 'other' || !isset(self::WEIGHT[$category])) {
+            return null;
+        }
+        return [
+            'types' => array_keys(array_filter(self::CATEGORY, static fn (string $c) => $c === $category)),
+            'roomTokens' => array_map('strval', array_keys($this->classifyRoomShares()[$category] ?? [])),
         ];
     }
 
@@ -100,21 +137,25 @@ class ExposureMapService {
      * not, instead of the flat 'internal' every Talk share used to get
      * regardless of the room's own openness.
      *
-     * @return array<string, int> category => count
+     * A conversation that cannot be resolved lands in 'other', not in
+     * 'internal': when Talk is gone, or its tables are not what this expects,
+     * every room is unresolvable at once, and "internal" would report an
+     * instance full of public conversations as having no exposure at all.
+     *
+     * @return array<string, array<string, int>> category => (token => shares into that room)
      */
     private function classifyRoomShares(): array {
         $byToken = $this->mapper->countRoomSharesByToken();
         if ($byToken === []) {
             return [];
         }
-        $openness = $this->recipientDetails->describeRoomOpenness(array_keys($byToken));
+        $openness = $this->recipientDetails->describeRoomOpenness(array_map('strval', array_keys($byToken)));
 
-        $counts = [];
+        $classified = [];
         foreach ($byToken as $token => $count) {
-            $category = $openness[$token] ?? 'internal';
-            $counts[$category] = ($counts[$category] ?? 0) + $count;
+            $classified[$openness[$token] ?? 'other'][$token] = $count;
         }
-        return $counts;
+        return $classified;
     }
 
     /**

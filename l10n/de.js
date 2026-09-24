@@ -111,7 +111,6 @@ OC.L10N.register(
     "score" : "Punktzahl",
     "0 = everything internal, 100 = everything public." : "0 = alles intern, 100 = alles öffentlich.",
     "Exposure by reach" : "Exposition nach Reichweite",
-    "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe." : "Freigabetypen, die diese Version der App noch nicht erkennt. Sie werden als mindestens extern exponiert behandelt, nicht als sicher angenommen.",
     "View" : "Anzeigen",
     "Most public exposure" : "Höchste öffentliche Exposition",
     "_%n public link_::_%n public links_" : ["%n öffentlicher Link", "%n öffentliche Links"],
@@ -303,6 +302,9 @@ OC.L10N.register(
     "Cannot restore: the file no longer exists." : "Wiederherstellung nicht möglich: Die Datei existiert nicht mehr.",
     "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n ausgewählte Freigabe kann nicht wiederhergestellt werden (ihre Datei existiert nicht mehr) und wird übersprungen.", "%n ausgewählte Freigaben können nicht wiederhergestellt werden (ihre Datei existiert nicht mehr) und werden übersprungen."],
     "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n ausgewählte Freigabe kann nicht übertragen werden (ihre Datei existiert nicht mehr) und wird übersprungen.", "%n ausgewählte Freigaben können nicht übertragen werden (ihre Datei existiert nicht mehr) und werden übersprungen."],
-    "Clear filter" : "Filter zurücksetzen"
+    "Clear filter" : "Filter zurücksetzen",
+    "Unnamed conversation" : "Unbenannte Unterhaltung",
+    "Exposure: {level}" : "Exposition: {level}",
+    "Shares this app could not classify: share types it doesn’t recognize yet, or Talk conversations it could not look up. Treated as at least externally exposed, not assumed safe." : "Freigaben, die diese App nicht einordnen konnte: Freigabetypen, die sie noch nicht erkennt, oder Talk-Unterhaltungen, die sie nicht nachschlagen konnte. Sie werden als mindestens extern exponiert behandelt, nicht als sicher angenommen."
 },
 "nplurals=2; plural=(n != 1);");

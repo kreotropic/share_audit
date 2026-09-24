@@ -44,6 +44,7 @@ class ShareCollectorService {
         private PathFormatter $pathFormatter,
         private DisplayNameResolver $displayNames,
         private RecipientDetailsResolver $recipientDetails,
+        private ExposureMapService $exposure,
     ) {
     }
 
@@ -178,8 +179,9 @@ class ShareCollectorService {
      * always the caller's own shares, so there is nothing to redact from
      * them. Pass false for a multi-user viewer (see AccessScope::
      * canSeeTokens()) so a Talk conversation's bare token — functionally a
-     * credential, unlike a uid/gid — is replaced by its resolved name; see
-     * redactRoomTokens().
+     * credential, unlike a uid/gid — is replaced by its resolved name (see
+     * RecipientDetailsResolver::redactRoomTokens()) and cannot be searched
+     * for or sorted by either (ShareMapper's `hideRoomTokens`).
      *
      * @param array $filters normalized filters (see ShareMapper::applyFilters)
      * @return array{items: array<int, array<string, mixed>>, total: int, page: int, limit: int}
@@ -190,6 +192,10 @@ class ShareCollectorService {
         $offset = ($page - 1) * $limit;
         $filters = $this->withOwnerSearchUids($filters);
         $filters = $this->withRecipientSearchIds($filters);
+        $filters = $this->withExposure($filters);
+        if (!$canSeeTokens) {
+            $filters['hideRoomTokens'] = true;
+        }
 
         $rows = $this->mapper->findShares($filters, $limit, $offset, $sort, $dir);
         $items = $this->recipientDetails->decorate(
@@ -197,7 +203,7 @@ class ShareCollectorService {
         );
 
         return [
-            'items' => $canSeeTokens ? $items : $this->redactRoomTokens($items),
+            'items' => $canSeeTokens ? $items : $this->recipientDetails->redactRoomTokens($items),
             'total' => $this->mapper->countShares($filters),
             'page' => $page,
             'limit' => $limit,
@@ -226,33 +232,17 @@ class ShareCollectorService {
     ): array {
         $filters = $this->withOwnerSearchUids($filters);
         $filters = $this->withRecipientSearchIds($filters);
+        $filters = $this->withExposure($filters);
+        if (!$includeTokens) {
+            // The file will not carry tokens, so the filter must not be a way
+            // to find them either — see getShares().
+            $filters['hideRoomTokens'] = true;
+        }
         $rows = $this->mapper->findShares($filters, $max, 0, $sort, $dir);
         $items = $this->recipientDetails->decorate(
             array_map(fn (array $row) => $this->normalizeRow($row, $includeTokens), $rows),
         );
-        return $includeTokens ? $items : $this->redactRoomTokens($items);
-    }
-
-    /**
-     * Replace a Talk conversation's bare token in `recipient` with its
-     * resolved name (see RecipientDetailsResolver::decorate(), which must
-     * run first) for a caller not allowed to see bare credentials. Unlike a
-     * username or group id — already the exact thing a display name
-     * resolves from — the token itself is what lets anyone holding it join
-     * a public conversation, so it gets the same treatment as a public
-     * link's token (see AccessScope::canSeeTokens()).
-     *
-     * @param array<int, array<string, mixed>> $items decorate() output
-     * @return array<int, array<string, mixed>>
-     */
-    public function redactRoomTokens(array $items): array {
-        foreach ($items as &$item) {
-            if (($item['type'] ?? null) === IShare::TYPE_ROOM) {
-                $item['recipient'] = $item['recipientDisplayName'] ?? '';
-            }
-        }
-        unset($item);
-        return $items;
+        return $includeTokens ? $items : $this->recipientDetails->redactRoomTokens($items);
     }
 
     /**
@@ -291,6 +281,29 @@ class ShareCollectorService {
             // Talk conversations and Deck cards are shown by name too.
             $filters['recipientSearchRooms'] = $this->recipientDetails->searchRoomTokens($term);
             $filters['recipientSearchCards'] = $this->recipientDetails->searchCardIds($term);
+        }
+        return $filters;
+    }
+
+    /**
+     * Expands an 'exposure' filter ('internal', 'external' or 'public') into
+     * the share types and Talk conversations that belong to that category, as
+     * ExposureMapService counts them — so the list a category's "View" button
+     * opens is the very set its number was made of. An unknown or unfilterable
+     * category is dropped rather than failing the request.
+     *
+     * @param array<string, mixed> $filters
+     * @return array<string, mixed>
+     */
+    private function withExposure(array $filters): array {
+        if (!isset($filters['exposure'])) {
+            return $filters;
+        }
+        $expanded = is_string($filters['exposure']) ? $this->exposure->filterFor($filters['exposure']) : null;
+        if ($expanded === null) {
+            unset($filters['exposure']);
+        } else {
+            $filters['exposure'] = $expanded;
         }
         return $filters;
     }

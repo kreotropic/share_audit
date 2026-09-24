@@ -60,6 +60,25 @@ export function typeFilterOptions() {
 }
 
 /**
+ * What to show in the Recipient column of a row that has nothing to put there:
+ * a public link has no recipient by design, and a Talk conversation has none
+ * when it was never named or when the backend took its token out (the token is
+ * a credential, not a name to fall back on).
+ *
+ * @param {string} category the row's category
+ * @return {string}
+ */
+export function emptyRecipientLabel(category) {
+	if (category === 'link') {
+		return t(APP, '(public)')
+	}
+	if (category === 'talk') {
+		return t(APP, 'Unnamed conversation')
+	}
+	return '—'
+}
+
+/**
  * Translate a permission token from the backend into a readable word.
  *
  * @param {string} token read|update|create|delete|share

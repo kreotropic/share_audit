@@ -281,8 +281,17 @@ class ShareMapper {
             // should reorder the rows that have a value, not drag the ones
             // that do not up to the top.
             $column = self::SORT_COLUMNS[$sort];
+            $order = $column;
+            if ($sort === 'recipient' && !empty($filters['hideRoomTokens'])) {
+                // A room's share_with is its token: ordering by it would tell a
+                // caller who may not see tokens how they rank against each
+                // other and against every uid. Rooms count as "no recipient
+                // value" instead, and park at the end.
+                $column = 'CASE WHEN s.share_type = ' . IShare::TYPE_ROOM . ' THEN NULL ELSE s.share_with END';
+                $order = $qb->createFunction($column);
+            }
             $qb->orderBy($qb->createFunction("CASE WHEN $column IS NULL THEN 1 ELSE 0 END"), 'ASC')
-                ->addOrderBy($column, $direction);
+                ->addOrderBy($order, $direction);
         } else {
             $qb->orderBy(self::SORT_COLUMNS[$sort] ?? 's.stime', $direction);
         }
@@ -572,6 +581,17 @@ class ShareMapper {
      *  - hasPassword:  bool
      *  - hasExpiration:bool
      *  - createdSince: int unix timestamp
+     *  - exposure:     array{types: int[], roomTokens: string[]} the shares of
+     *                  one exposure category (see ExposureMapService::
+     *                  filterFor()): every row of those share types, plus the
+     *                  Talk rows into those conversations. Both lists empty
+     *                  matches nothing.
+     *  - hideRoomTokens: bool the caller may not see a Talk conversation's
+     *                  token, so neither `search` nor `recipientSearch` may
+     *                  match a room's share_with (that would read the token
+     *                  back one substring at a time), and findShares() does not
+     *                  order by it. Rooms stay findable by name, through
+     *                  recipientSearchRooms.
      */
     private function applyFilters(IQueryBuilder $qb, array $filters): void {
         // Always exclude the internal per-recipient child rows.
@@ -581,6 +601,34 @@ class ShareMapper {
         if (!empty($filters['types'])) {
             $qb->andWhere($qb->expr()->in('s.share_type',
                 $qb->createNamedParameter($filters['types'], IQueryBuilder::PARAM_INT_ARRAY)));
+        }
+
+        // A room's share_with, as far as a text match goes: with the token
+        // hidden, only a row that is not a Talk share may be matched on it.
+        $hideRoomTokens = !empty($filters['hideRoomTokens']);
+        $onRecipient = function ($condition) use ($qb, $hideRoomTokens) {
+            return $hideRoomTokens
+                ? $qb->expr()->andX(
+                    $qb->expr()->neq('s.share_type', $qb->createNamedParameter(IShare::TYPE_ROOM, IQueryBuilder::PARAM_INT)),
+                    $condition,
+                )
+                : $condition;
+        };
+
+        if (isset($filters['exposure']) && is_array($filters['exposure'])) {
+            $exposed = [];
+            if (!empty($filters['exposure']['types'])) {
+                $exposed[] = $qb->expr()->in('s.share_type',
+                    $qb->createNamedParameter($filters['exposure']['types'], IQueryBuilder::PARAM_INT_ARRAY));
+            }
+            if (!empty($filters['exposure']['roomTokens'])) {
+                $exposed[] = $qb->expr()->andX(
+                    $qb->expr()->eq('s.share_type', $qb->createNamedParameter(IShare::TYPE_ROOM, IQueryBuilder::PARAM_INT)),
+                    $qb->expr()->in('s.share_with',
+                        $qb->createNamedParameter(array_map('strval', $filters['exposure']['roomTokens']), IQueryBuilder::PARAM_STR_ARRAY)),
+                );
+            }
+            $qb->andWhere($exposed === [] ? '1 = 0' : $qb->expr()->orX(...$exposed));
         }
 
         // Scalar uid filters below use a strict "present and not an empty
@@ -629,7 +677,7 @@ class ShareMapper {
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['search']) . '%';
             $qb->andWhere($qb->expr()->orX(
                 $qb->expr()->iLike('f.path', $qb->createNamedParameter($like)),
-                $qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like)),
+                $onRecipient($qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like))),
                 $qb->expr()->iLike('s.label', $qb->createNamedParameter($like)),
             ));
         }
@@ -662,10 +710,10 @@ class ShareMapper {
         // user/group recipient is shown by display name, not raw uid/gid.
         if (!empty($filters['recipientSearch'])) {
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['recipientSearch']) . '%';
-            $recipientConditions = [$qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like))];
+            $recipientConditions = [$onRecipient($qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like)))];
             if (!empty($filters['recipientSearchIds'])) {
-                $recipientConditions[] = $qb->expr()->in('s.share_with',
-                    $qb->createNamedParameter($filters['recipientSearchIds'], IQueryBuilder::PARAM_STR_ARRAY));
+                $recipientConditions[] = $onRecipient($qb->expr()->in('s.share_with',
+                    $qb->createNamedParameter($filters['recipientSearchIds'], IQueryBuilder::PARAM_STR_ARRAY)));
             }
             // A token or a card number could equal somebody's uid, so these
             // are only matched on the type of share they belong to.

@@ -152,12 +152,20 @@ class RecipientDetailsResolverTest extends TestCase {
         $this->assertNull($item['recipientInfo']['openTo']);
     }
 
-    public function testAConversationWithoutANameShowsItsToken(): void {
+    /**
+     * The token is what a conversation is stored under, and a credential: an
+     * unnamed one must come out with no name at all — never the token as a
+     * stand-in, or every place that "hides" the token by showing the name
+     * shows the token.
+     */
+    public function testAConversationWithoutANameHasNoNameNotItsToken(): void {
         $this->talkHas([$this->room(7, 'noname12', '   ')], [7 => ['users' => 2]]);
 
         [$item] = $this->resolver->decorate([$this->row(IShare::TYPE_ROOM, 'noname12')]);
 
-        $this->assertSame('noname12', $item['recipientDisplayName']);
+        $this->assertArrayNotHasKey('recipientDisplayName', $item);
+        $this->assertSame('', $item['recipientInfo']['label']);
+        $this->assertSame('noname12', $item['recipient'], 'the raw key is still the row\'s, for whoever may see it');
     }
 
     public function testAOneToOneIsNamedAfterItsTwoPeople(): void {
@@ -189,13 +197,14 @@ class RecipientDetailsResolverTest extends TestCase {
         $this->assertSame('ghost ↔ Bob', $item['recipientDisplayName']);
     }
 
-    public function testAOneToOneWhoseNameIsNotAListOfAccountsFallsBackToTheToken(): void {
+    public function testAOneToOneWhoseNameIsNotAListOfAccountsHasNoNameNotItsToken(): void {
         $this->talkHas([$this->room(5, 'one12345', 'not json', 1)]);
         $this->displayNames->method('resolveMany')->willReturn([]);
 
         [$item] = $this->resolver->decorate([$this->row(IShare::TYPE_ROOM, 'one12345')]);
 
-        $this->assertSame('one12345', $item['recipientDisplayName']);
+        $this->assertArrayNotHasKey('recipientDisplayName', $item);
+        $this->assertSame('', $item['recipientInfo']['label']);
         $this->assertSame([], $item['recipientInfo']['people']);
     }
 
@@ -276,6 +285,90 @@ class RecipientDetailsResolverTest extends TestCase {
         $items = [$this->row(IShare::TYPE_DECK, '99')];
 
         $this->assertSame($items, $this->resolver->decorate($items));
+    }
+
+    // -------------------------------------------------------------------
+    // redactRoomTokens(): what a caller who may not see tokens is handed
+    // -------------------------------------------------------------------
+
+    /**
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed>
+     */
+    private function roomRow(string $token, array $extra = []): array {
+        return $this->row(IShare::TYPE_ROOM, $token) + $extra;
+    }
+
+    public function testARedactedRoomRowCarriesItsNameInPlaceOfItsToken(): void {
+        $this->talkHas([$this->room(7, 'iitqa25e', 'Equipa de Marketing')], [7 => ['users' => 2]]);
+
+        $items = $this->resolver->redactRoomTokens($this->resolver->decorate([$this->roomRow('iitqa25e')]));
+
+        $this->assertSame('Equipa de Marketing', $items[0]['recipient']);
+        $this->assertSame('Equipa de Marketing', $items[0]['recipientDisplayName']);
+        $this->assertSame('Equipa de Marketing', $items[0]['recipientInfo']['label']);
+    }
+
+    /**
+     * The reported leak, end to end: an unnamed public conversation, through
+     * decorate() and then the redaction. No field may still hold the token.
+     */
+    public function testAnUnnamedConversationLeaksItsTokenInNoFieldOnceRedacted(): void {
+        $this->talkHas([$this->room(10, 'synthetic-room-token', '', 3)], []);
+
+        $items = $this->resolver->redactRoomTokens($this->resolver->decorate([$this->roomRow('synthetic-room-token')]));
+
+        $this->assertSame('', $items[0]['recipient']);
+        $this->assertArrayNotHasKey('recipientDisplayName', $items[0]);
+        $this->assertSame('', $items[0]['recipientInfo']['label']);
+        $this->assertStringNotContainsString('synthetic-room-token', json_encode($items));
+    }
+
+    public function testAOneToOneWithNoNameableParticipantsLeaksItsTokenInNoFieldOnceRedacted(): void {
+        $this->talkHas([$this->room(5, 'one12345', 'not json', 1)]);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+
+        $items = $this->resolver->redactRoomTokens($this->resolver->decorate([$this->roomRow('one12345')]));
+
+        $this->assertStringNotContainsString('one12345', json_encode($items));
+    }
+
+    /**
+     * Defence in depth: whatever put the token into a name field — an older
+     * resolver, another code path — the redaction still refuses to let it
+     * through, rather than trusting that the fields it copies from are clean.
+     */
+    public function testANameThatIsTheTokenItselfIsStillRemoved(): void {
+        $items = $this->resolver->redactRoomTokens([[
+            'id' => 1, 'type' => IShare::TYPE_ROOM, 'recipient' => 'tok12345',
+            'recipientDisplayName' => 'tok12345',
+            'recipientInfo' => ['kind' => 'talk', 'label' => 'tok12345', 'people' => []],
+        ]]);
+
+        $this->assertStringNotContainsString('tok12345', json_encode($items));
+        $this->assertSame('', $items[0]['recipient']);
+    }
+
+    public function testARoomRowThatWasNeverDecoratedIsBlankedNotLeftWithItsToken(): void {
+        // Talk not installed, or the room deleted: nothing resolved a name.
+        $items = $this->resolver->redactRoomTokens([$this->roomRow('gone1234')]);
+
+        $this->assertSame('', $items[0]['recipient']);
+    }
+
+    public function testRedactionLeavesEveryOtherKindOfRecipientAlone(): void {
+        $items = [$this->row(IShare::TYPE_USER, 'bob'), $this->row(IShare::TYPE_GROUP, 'staff'), $this->row(IShare::TYPE_EMAIL, 'a@b.c')];
+
+        $this->assertSame($items, $this->resolver->redactRoomTokens($items));
+    }
+
+    public function testRoomLabelsOnlyReturnsTheConversationsThatHaveAName(): void {
+        $this->talkHas([
+            $this->room(7, 'named123', 'Equipa de Marketing'),
+            $this->room(8, 'blank123', ''),
+        ], [7 => ['users' => 1], 8 => ['users' => 1]]);
+
+        $this->assertSame(['named123' => 'Equipa de Marketing'], $this->resolver->roomLabels(['named123', 'blank123', 'gone1234']));
     }
 
     // -------------------------------------------------------------------

@@ -18,7 +18,9 @@ use OCP\IRequest;
 
 /**
  * API for the reverse recipient drill-down. search()/shares() are read-only
- * and open to admins and auditors; revokeAll() stays admin-only.
+ * and open to admins and auditors; revokeAll() stays admin-only. An auditor
+ * never gets a Talk conversation's token from either (see
+ * RecipientLookupService).
  */
 class RecipientController extends AdminController {
 
@@ -40,7 +42,7 @@ class RecipientController extends AdminController {
         if (($scope = $this->requireViewer()) instanceof JSONResponse) {
             return $scope;
         }
-        return new JSONResponse(['items' => $this->lookup->search($q)]);
+        return new JSONResponse(['items' => $this->lookup->search($q, canSeeTokens: $scope->canSeeTokens())]);
     }
 
     /**
@@ -58,7 +60,7 @@ class RecipientController extends AdminController {
         if (($scope = $this->requireViewer()) instanceof JSONResponse) {
             return $scope;
         }
-        return new JSONResponse($this->lookup->getShares($shareWith, $shareType, $page, $limit));
+        return new JSONResponse($this->lookup->getShares($shareWith, $shareType, $page, $limit, $scope->canSeeTokens()));
     }
 
     /**

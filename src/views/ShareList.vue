@@ -5,6 +5,8 @@
 <template>
 	<div>
 		<div class="sad-list-toolbar">
+			<NcChip v-if="exposure" :text="exposureLabel" @close="clearExposure" />
+
 			<NcButton v-if="filtersActive" variant="tertiary" @click="clearFilters">
 				{{ t('share_audit_dashboard', 'Clear filters') }}
 			</NcButton>
@@ -71,6 +73,7 @@
 import { translate as t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
+import NcChip from '@nextcloud/vue/components/NcChip'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import PageNavigation from '../components/PageNavigation.vue'
@@ -83,6 +86,7 @@ export default {
 	components: {
 		NcButton,
 		NcCheckboxRadioSwitch,
+		NcChip,
 		NcLoadingIcon,
 		NcNoteCard,
 		PageNavigation,
@@ -93,6 +97,12 @@ export default {
 		presetTypes: {
 			type: Array,
 			default: null,
+		},
+		// An exposure category (internal | external | public) to open filtered
+		// to — see App.vue. Sent to the backend as it is.
+		presetExposure: {
+			type: String,
+			default: '',
 		},
 	},
 	inject: {
@@ -112,6 +122,7 @@ export default {
 			],
 			pageSize: { id: 50, label: '50' },
 			filters: this.presetTypes?.length ? { types: this.presetTypes.join(',') } : {},
+			exposure: this.presetExposure,
 			activePreset: this.presetTypes ? [...this.presetTypes] : [],
 			tableKey: 0,
 			sortKey: 'created',
@@ -129,7 +140,20 @@ export default {
 			return Math.max(1, Math.ceil(this.total / this.apiLimit))
 		},
 		filtersActive() {
-			return Object.keys(this.filters).length > 0
+			return Object.keys(this.filters).length > 0 || this.exposure !== ''
+		},
+		// The table's own filters plus the exposure category, which the table
+		// knows nothing about and so never puts in what it emits.
+		requestFilters() {
+			return this.exposure ? { ...this.filters, exposure: this.exposure } : this.filters
+		},
+		exposureLabel() {
+			const levels = {
+				internal: t('share_audit_dashboard', 'Internal'),
+				external: t('share_audit_dashboard', 'External'),
+				public: t('share_audit_dashboard', 'Public'),
+			}
+			return t('share_audit_dashboard', 'Exposure: {level}', { level: levels[this.exposure] ?? this.exposure })
 		},
 		rangeLabel() {
 			if (this.total === 0) {
@@ -161,8 +185,14 @@ export default {
 			this.page = 1
 			this.load()
 		},
+		clearExposure() {
+			this.exposure = ''
+			this.page = 1
+			this.load()
+		},
 		clearFilters() {
 			this.filters = {}
+			this.exposure = ''
 			this.activePreset = []
 			this.page = 1
 			this.tableKey++
@@ -190,7 +220,7 @@ export default {
 			this.exportError = null
 			try {
 				const res = await exportShares({
-					...this.filters,
+					...this.requestFilters,
 					sort: this.sortKey,
 					sortDir: this.sortDir,
 					includeTokens: this.includeTokens,
@@ -223,7 +253,7 @@ export default {
 					limit: this.apiLimit,
 					sort: this.sortKey,
 					sortDir: this.sortDir,
-					...this.filters,
+					...this.requestFilters,
 				})
 				this.items = data.items
 				this.total = data.total

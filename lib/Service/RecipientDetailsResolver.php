@@ -85,7 +85,11 @@ class RecipientDetailsResolver {
             $recipient = (string)($item['recipient'] ?? '');
             if (($item['type'] ?? null) === IShare::TYPE_ROOM && isset($rooms[$recipient])) {
                 $item['recipientInfo'] = $rooms[$recipient];
-                $item['recipientDisplayName'] = $rooms[$recipient]['label'];
+                // An unnamed conversation has no display name: the token is what
+                // it is stored under, never what it is called.
+                if ($rooms[$recipient]['label'] !== '') {
+                    $item['recipientDisplayName'] = $rooms[$recipient]['label'];
+                }
             } elseif (($item['type'] ?? null) === IShare::TYPE_DECK && ctype_digit($recipient) && isset($cards['cards'][(int)$recipient])) {
                 $card = $cards['cards'][(int)$recipient];
                 $card['people'] = $cards['people'][(int)$item['id']] ?? null;
@@ -95,6 +99,63 @@ class RecipientDetailsResolver {
         }
         unset($item);
         return $items;
+    }
+
+    /**
+     * Takes a Talk conversation's token out of the rows of a caller who may not
+     * see bare credentials (see AccessScope::canSeeTokens()): whoever holds a
+     * public conversation's token can join it, unlike a uid or a group id, which
+     * is only what a display name resolves from. `recipient` is left holding the
+     * conversation's name, or nothing when it has none — never the token.
+     *
+     * Runs on decorate()'s output. It also has to catch a name that IS the
+     * token, in `recipientDisplayName` and in `recipientInfo.label`, whatever
+     * produced it: a redaction that swaps one field for another only works as
+     * long as the other field never carries the credential itself.
+     *
+     * @param array<int, array<string, mixed>> $items decorate() output
+     * @return array<int, array<string, mixed>>
+     */
+    public function redactRoomTokens(array $items): array {
+        foreach ($items as &$item) {
+            if (($item['type'] ?? null) !== IShare::TYPE_ROOM) {
+                continue;
+            }
+            $token = (string)($item['recipient'] ?? '');
+            $name = (string)($item['recipientDisplayName'] ?? '');
+            if ($name === $token) {
+                $name = '';
+            }
+            $item['recipient'] = $name;
+            if ($name === '') {
+                unset($item['recipientDisplayName']);
+            } else {
+                $item['recipientDisplayName'] = $name;
+            }
+            if (isset($item['recipientInfo']['label']) && $item['recipientInfo']['label'] === $token) {
+                $item['recipientInfo']['label'] = '';
+            }
+        }
+        unset($item);
+        return $items;
+    }
+
+    /**
+     * The name of each of $tokens' conversations that has one. A conversation
+     * without a name (or that cannot be found) is left out, so the caller can
+     * tell "no name" from a name.
+     *
+     * @param string[] $tokens
+     * @return array<string, string> token => name
+     */
+    public function roomLabels(array $tokens): array {
+        $labels = [];
+        foreach ($this->describeRooms(array_map('strval', $tokens)) as $token => $info) {
+            if ($info['label'] !== '') {
+                $labels[(string)$token] = $info['label'];
+            }
+        }
+        return $labels;
     }
 
     /**
@@ -171,21 +232,20 @@ class RecipientDetailsResolver {
     /**
      * Exposure category for each of $tokens' conversation: 'public' when
      * anyone holding the link can join (Room::TYPE_PUBLIC — same reach as a
-     * public file link), 'internal' for every other kind (one-to-one, a
-     * defined group of participants, or a room that could not be resolved
-     * at all). Used by ExposureMapService, which otherwise has no way to
-     * tell a public conversation's shares apart from a private one's: both
-     * are just a TYPE_ROOM row whose share_with is an opaque token.
+     * public file link), 'internal' for every other kind (one-to-one, or a
+     * defined group of participants). Used by ExposureMapService, which
+     * otherwise has no way to tell a public conversation's shares apart from
+     * a private one's: both are just a TYPE_ROOM row whose share_with is an
+     * opaque token.
      *
-     * A room this app can't resolve (Talk uninstalled, or its schema
-     * doesn't match) keeps the pre-existing "assume internal" behaviour
-     * rather than being counted as unknown/other: unlike a share_type this
-     * app has simply never seen before, a TYPE_ROOM share can only exist at
-     * all because Talk created it, so an unresolvable one is stale data
-     * (the room itself is gone), not evidence of anything actually public.
+     * A conversation this app cannot resolve — Talk uninstalled, a schema that
+     * does not match, a token Talk no longer knows — is left out of the result
+     * altogether, so the caller can say "unknown" rather than have this
+     * method guess: not being able to look a room up is not evidence that it
+     * is private.
      *
      * @param string[] $tokens
-     * @return array<string, string> token => 'public' | 'internal'
+     * @return array<string, string> token => 'public' | 'internal', resolved rooms only
      */
     public function describeRoomOpenness(array $tokens): array {
         try {
@@ -238,7 +298,11 @@ class RecipientDetailsResolver {
 
     /**
      * What a conversation is, from its row, the count of its attendees by kind,
-     * and — for a one-to-one — the display names of its two people.
+     * and — for a one-to-one — the display names of its two people. `label` is
+     * the conversation's name, or '' when it has none (a one-to-one whose two
+     * people cannot be named, a group or public conversation left unnamed):
+     * the token is not a fallback, it is a credential, so the caller shows a
+     * placeholder of its own.
      *
      * @param array<string, mixed> $room a talk_rooms row
      * @param array<string, int> $attendees attendee count by actor type
@@ -246,7 +310,6 @@ class RecipientDetailsResolver {
      * @return array<string, mixed>
      */
     private function roomInfo(array $room, array $attendees, array $people): array {
-        $token = (string)$room['token'];
         $type = (int)$room['type'];
         $name = trim((string)$room['name']);
 
@@ -254,7 +317,7 @@ class RecipientDetailsResolver {
             return [
                 'kind' => 'talk',
                 'roomType' => 'one_to_one',
-                'label' => $people !== [] ? implode(' ↔ ', $people) : $token,
+                'label' => implode(' ↔ ', $people),
                 'people' => $people,
                 'participants' => null,
                 'groups' => null,
@@ -286,7 +349,7 @@ class RecipientDetailsResolver {
                 self::ROOM_PUBLIC => 'public',
                 default => 'other',
             },
-            'label' => $name !== '' ? $name : $token,
+            'label' => $name,
             'people' => [],
             'participants' => $participants,
             'groups' => $groups,

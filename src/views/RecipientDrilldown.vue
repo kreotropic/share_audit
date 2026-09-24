@@ -26,8 +26,8 @@
 				class="sad-recipient__result"
 				@click="select(r)">
 				<NcChip :text="categoryLabel(r.category)" :no-close="true" />
-				<span class="sad-recipient__name">{{ r.label }}</span>
-				<span v-if="r.label !== r.shareWith" class="sad-recipient__id">{{ r.shareWith }}</span>
+				<span class="sad-recipient__name">{{ recipientLabel(r) }}</span>
+				<span v-if="idHint(r)" class="sad-recipient__id">{{ idHint(r) }}</span>
 				<span class="sad-recipient__count">
 					{{ n('share_audit_dashboard', '%n share', '%n shares', r.count) }}
 				</span>
@@ -46,7 +46,7 @@
 				</NcButton>
 				<h3 class="sad-recipient__title">
 					<NcChip :text="categoryLabel(selected.category)" :no-close="true" />
-					{{ selected.label }}
+					{{ recipientLabel(selected) }}
 					<span class="sad-recipient__has">
 						{{ n('share_audit_dashboard', 'has access to %n item', 'has access to %n items', total) }}
 					</span>
@@ -222,6 +222,21 @@ export default {
 		categoryLabel,
 		permissionLabel,
 		formatDate,
+		// A conversation nobody named has an empty label — and, for someone
+		// who may not see Talk tokens, nothing else to call it by.
+		recipientLabel(recipient) {
+			return recipient.label || t('share_audit_dashboard', 'Unnamed conversation')
+		},
+		// What tells two results apart besides the name: the id itself (a uid,
+		// an address, a token an admin may see), or — for a conversation whose
+		// token is withheld — the first characters of the opaque handle the
+		// server gives it instead.
+		idHint(recipient) {
+			if (recipient.opaque) {
+				return '#' + recipient.shareWith.slice(0, 6)
+			}
+			return recipient.label !== recipient.shareWith ? recipient.shareWith : ''
+		},
 		onSearch() {
 			clearTimeout(this.searchTimer)
 			this.selected = null

@@ -146,7 +146,6 @@
         "score": "puntuación",
         "0 = everything internal, 100 = everything public.": "0 = todo interno, 100 = todo público.",
         "Exposure by reach": "Exposición por alcance",
-        "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe.": "Tipos de recurso compartido que esta versión de la app aún no reconoce. Se tratan como expuestos al menos externamente, nunca se presumen seguros.",
         "View": "Ver",
         "Most public exposure": "Mayor exposición pública",
         "_%n public link_::_%n public links_": [
@@ -383,7 +382,10 @@
             "%n recurso compartido seleccionado no se puede transferir (su archivo ya no existe) y se omitirá.",
             "%n recursos compartidos seleccionados no se pueden transferir (su archivo ya no existe) y se omitirán."
         ],
-        "Clear filter": "Borrar filtro"
+        "Clear filter": "Borrar filtro",
+        "Unnamed conversation": "Conversación sin nombre",
+        "Exposure: {level}": "Exposición: {level}",
+        "Shares this app could not classify: share types it doesn’t recognize yet, or Talk conversations it could not look up. Treated as at least externally exposed, not assumed safe.": "Recursos compartidos que esta app no pudo clasificar: tipos que aún no reconoce, o conversaciones de Talk que no pudo consultar. Se tratan como expuestos al menos externamente, nunca se presumen seguros."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

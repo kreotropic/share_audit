@@ -12,6 +12,7 @@ use OCA\ShareAuditDashboard\Db\DeletedShare;
 use OCA\ShareAuditDashboard\Db\DeletedShareMapper;
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
 use OCA\ShareAuditDashboard\Service\FileNodeResolver;
+use OCA\ShareAuditDashboard\Service\PasswordGeneratorService;
 use OCA\ShareAuditDashboard\Service\RecipientDetailsResolver;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
@@ -52,6 +53,8 @@ class SoftDeleteServiceTest extends TestCase {
     private SecurityAnalyzerService&MockObject $analyzer;
     private RecipientDetailsResolver&MockObject $recipientDetails;
     private ShareAuditLogger&MockObject $auditLogger;
+    private PasswordGeneratorService&MockObject $passwords;
+    private LoggerInterface&MockObject $logger;
     private SoftDeleteService $service;
 
     protected function setUp(): void {
@@ -66,6 +69,9 @@ class SoftDeleteServiceTest extends TestCase {
         $this->analyzer = $this->createMock(SecurityAnalyzerService::class);
         $this->recipientDetails = $this->createMock(RecipientDetailsResolver::class);
         $this->auditLogger = $this->createMock(ShareAuditLogger::class);
+        $this->passwords = $this->createMock(PasswordGeneratorService::class);
+        $this->passwords->method('generate')->willReturn('Temp-Passw0rd!');
+        $this->logger = $this->createMock(LoggerInterface::class);
 
         $this->service = new SoftDeleteService(
             $this->mapper,
@@ -79,7 +85,8 @@ class SoftDeleteServiceTest extends TestCase {
             $this->analyzer,
             $this->recipientDetails,
             $this->auditLogger,
-            $this->createMock(LoggerInterface::class),
+            $this->passwords,
+            $this->logger,
         );
     }
 
@@ -416,12 +423,12 @@ class SoftDeleteServiceTest extends TestCase {
     }
 
     /**
-     * The one case restore() must never allow: the new share ends up live
-     * and public with no password, because the raw UPDATE that was supposed
-     * to reapply it failed (most likely cause: the original token got
-     * reused by another share while this one sat in the bin — token is
-     * UNIQUE). It must undo the share it just created and keep the
-     * retention entry so the admin can retry, not report success.
+     * The raw UPDATE that was supposed to put the original password back
+     * failed (most likely cause: the original token got reused by another
+     * share while this one sat in the bin — token is UNIQUE). The new share
+     * only has its temporary password, so restore() must not report success:
+     * it undoes the share it just created and keeps the retention entry so
+     * the admin can retry.
      */
     public function testRestoreUndoesShareAndKeepsRetentionEntryWhenPasswordCannotBeRestored(): void {
         $entity = $this->retainedLinkEntity();
@@ -448,6 +455,110 @@ class SoftDeleteServiceTest extends TestCase {
 
         $this->assertFalse($result['success']);
         $this->assertSame('password_lost', $result['reason']);
+    }
+
+    /**
+     * oc_share.token is NOT unique in the database (a plain index), so the
+     * UPDATE would not fail when another link already answers to the original
+     * token — it would quietly leave two links on one URL. restore() has to
+     * look, and treat a taken token exactly like a failed UPDATE: with a
+     * password that means undoing the share and keeping the retention entry.
+     */
+    public function testRestoreDoesNotWriteAndUndoesTheShareWhenAnotherShareHasTheOriginalToken(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setPassword('hashed-secret');
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($this->createMock(Node::class));
+        $this->shareManager->method('newShare')->willReturn($this->createMock(IShare::class));
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $sets = [];
+        $qb = $this->stubRestoreQueries(true, 0, $sets);
+        // The only write is the DELETE that undoes the just-created share.
+        $qb->expects($this->once())->method('executeStatement');
+        $qb->expects($this->once())->method('delete')->with('share')->willReturnSelf();
+
+        $this->mapper->expects($this->never())->method('delete');
+        $this->analyzer->expects($this->never())->method('invalidate');
+
+        $result = $this->service->restore(1);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('password_lost', $result['reason']);
+        $this->assertSame([], $sets, 'neither the token nor the password was written over the other link\'s');
+    }
+
+    public function testRestoreKeepsTheShareWithANewTokenWhenTheOriginalOneIsTakenAndThereWasNoPassword(): void {
+        $entity = $this->retainedLinkEntity();
+        $this->assertNull($entity->getPassword());
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($this->createMock(Node::class));
+        $this->shareManager->method('newShare')->willReturn($this->createMock(IShare::class));
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $sets = [];
+        $qb = $this->stubRestoreQueries(true, 0, $sets);
+        $qb->expects($this->never())->method('executeStatement');
+        $qb->expects($this->never())->method('delete');
+
+        $this->mapper->expects($this->once())->method('delete')->with($entity);
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['tokenChanged']);
+        $this->assertSame([], $sets);
+    }
+
+    public function testAnEmptyTokenIsNotAUrlAnotherShareCanBeOn(): void {
+        // Deck and Talk rows carry '' in oc_share.token, and many of them share it.
+        $entity = $this->retainedLinkEntity();
+        $entity->setToken('');
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($this->createMock(Node::class));
+        $this->shareManager->method('newShare')->willReturn($this->createMock(IShare::class));
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $qb = $this->stubRestoreQueries(true);
+        $qb->expects($this->never())->method('executeQuery');
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertFalse($result['tokenChanged']);
+    }
+
+    public function testRestoreLooksForAnotherShareWithTheTokenNotForItself(): void {
+        $entity = $this->retainedLinkEntity();
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($this->createMock(Node::class));
+        $this->shareManager->method('newShare')->willReturn($this->createMock(IShare::class));
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        $expr = $this->createMock(IExpressionBuilder::class);
+        $expr->method('eq')->willReturn('expr');
+        $expr->expects($this->once())->method('neq')->with('id', 777)->willReturn('expr');
+        $result = $this->createMock(\OCP\DB\IResult::class);
+        $result->method('fetchOne')->willReturn(false);
+        $qb = $this->createMock(IQueryBuilder::class);
+        foreach (['select', 'from', 'update', 'set', 'where', 'andWhere', 'setMaxResults'] as $method) {
+            $qb->method($method)->willReturnSelf();
+        }
+        $qb->method('expr')->willReturn($expr);
+        $qb->method('createNamedParameter')->willReturnArgument(0);
+        $qb->method('executeQuery')->willReturn($result);
+        $qb->method('executeStatement')->willReturn(1);
+        $this->db->method('getQueryBuilder')->willReturn($qb);
+
+        $this->assertTrue($this->service->restore(1)['success']);
     }
 
     /**
@@ -481,6 +592,97 @@ class SoftDeleteServiceTest extends TestCase {
     }
 
     /**
+     * The moment the share exists it must already be protected: it is created
+     * with a temporary password — set BEFORE createShare(), or there would be a
+     * window where the link is open — and the original hash goes in afterwards.
+     */
+    public function testRestoreCreatesAPasswordedLinkWithATemporaryPasswordFromTheStart(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setPassword('hashed-secret');
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($this->createMock(Node::class));
+
+        $order = [];
+        $newShare = $this->createMock(IShare::class);
+        $newShare->expects($this->once())->method('setPassword')->with('Temp-Passw0rd!')
+            ->willReturnCallback(function () use (&$order, $newShare) {
+                $order[] = 'setPassword';
+                return $newShare;
+            });
+        $this->shareManager->method('newShare')->willReturn($newShare);
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturnCallback(function () use (&$order, $created) {
+            $order[] = 'createShare';
+            return $created;
+        });
+
+        $sets = [];
+        $this->stubTokenPasswordUpdateQuery($sets);
+
+        $result = $this->service->restore(1);
+
+        $this->assertSame(['setPassword', 'createShare'], $order);
+        $this->assertTrue($result['success']);
+        $this->assertFalse($result['tokenChanged']);
+        // ...and what lands in the row is the ORIGINAL hash, not the temporary password.
+        $this->assertSame('hashed-secret', $sets['password']);
+        $this->assertSame('tok123', $sets['token']);
+        $this->assertNotContains('Temp-Passw0rd!', $sets);
+    }
+
+    /**
+     * A link that never had a password must not get one: generating and setting
+     * a password nobody asked for would lock the owner's own link.
+     */
+    public function testRestoreDoesNotGiveALinkThatHadNoPasswordOne(): void {
+        $entity = $this->retainedLinkEntity();
+        $this->assertNull($entity->getPassword());
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($this->createMock(Node::class));
+
+        $newShare = $this->createMock(IShare::class);
+        $newShare->expects($this->never())->method('setPassword');
+        $this->shareManager->method('newShare')->willReturn($newShare);
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+        $this->stubTokenPasswordUpdateQuery();
+
+        $this->assertTrue($this->service->restore(1)['success']);
+    }
+
+    /**
+     * If the compensating DELETE fails as well, the share is left behind — but
+     * with a temporary password nobody knows, i.e. closed, not open. restore()
+     * must still answer with the failure it was already going to report (not
+     * crash), keep the retention entry, and say where the leftover is.
+     */
+    public function testRestoreReportsPasswordLostEvenWhenUndoingTheShareFails(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setPassword('hashed-secret');
+        $this->mapper->method('find')->with(1)->willReturn($entity);
+        $this->nodeResolver->method('resolve')->with('bob', 99)->willReturn($this->createMock(Node::class));
+        $this->shareManager->method('newShare')->willReturn($this->createMock(IShare::class));
+        $created = $this->createMock(IShare::class);
+        $created->method('getId')->willReturn('777');
+        $this->shareManager->method('createShare')->willReturn($created);
+
+        // UPDATE fails, and so does the DELETE after it.
+        $this->stubTokenPasswordUpdateQueryThatFails(2);
+
+        $this->mapper->expects($this->never())->method('delete');
+        $this->analyzer->expects($this->never())->method('invalidate');
+        $this->logger->expects($this->once())->method('error')
+            ->with($this->stringContains('temporary password'), $this->arrayHasKey('id'));
+
+        $result = $this->service->restore(1);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('password_lost', $result['reason']);
+    }
+
+    /**
      * captureRow()'s own oc_filecache existence check (fileExistsInCache()).
      */
     private function stubFileExistsQuery(bool $exists): void {
@@ -501,49 +703,65 @@ class SoftDeleteServiceTest extends TestCase {
     }
 
     /**
-     * Raw token/password restore UPDATE — permissive query builder mock,
-     * same pattern as ShareMapperTest: these tests care that the retention
-     * row is deleted and the new id is reported, not the exact SQL shape.
+     * The query builder restore() writes through: the "is this token already
+     * taken?" SELECT, the raw token/password UPDATE and, when it has to undo
+     * itself, the DELETE. Permissive, same pattern as ShareMapperTest: these
+     * tests care what restore() decides and reports, not the exact SQL shape.
+     *
+     * @param bool $tokenInUse what the "is the token taken by another share?" SELECT finds
+     * @param int $failingWrites how many of the first writes (UPDATE, then the
+     *        DELETE that undoes the share) throw
+     * @param array<string, mixed>|null $sets filled with the column => value
+     *        pairs the UPDATE sets, for a test that cares what was written
      */
-    private function stubTokenPasswordUpdateQuery(): void {
+    private function stubRestoreQueries(bool $tokenInUse = false, int $failingWrites = 0, ?array &$sets = null): IQueryBuilder&MockObject {
         $expr = $this->createMock(IExpressionBuilder::class);
         $expr->method('eq')->willReturn('expr');
-        $qb = $this->createMock(IQueryBuilder::class);
-        $qb->method('update')->willReturnSelf();
-        $qb->method('set')->willReturnSelf();
-        $qb->method('where')->willReturnSelf();
-        $qb->method('expr')->willReturn($expr);
-        $qb->method('createNamedParameter')->willReturnArgument(0);
-        $qb->method('executeStatement')->willReturn(1);
-        $this->db->method('getQueryBuilder')->willReturn($qb);
-    }
+        $expr->method('neq')->willReturn('expr');
 
-    /**
-     * Same shape as stubTokenPasswordUpdateQuery(), but the raw UPDATE's
-     * executeStatement() throws on its first call (modelling the token
-     * UNIQUE conflict) and succeeds on every call after — modelling
-     * deleteRawShare()'s later DELETE succeeding once restore() compensates.
-     */
-    private function stubTokenPasswordUpdateQueryThatFails(): IQueryBuilder&MockObject {
-        $expr = $this->createMock(IExpressionBuilder::class);
-        $expr->method('eq')->willReturn('expr');
+        $result = $this->createMock(\OCP\DB\IResult::class);
+        $result->method('fetchOne')->willReturn($tokenInUse ? 55 : false);
+        $result->method('closeCursor')->willReturn(true);
+
         $qb = $this->createMock(IQueryBuilder::class);
-        $qb->method('update')->willReturnSelf();
-        $qb->method('delete')->willReturnSelf();
-        $qb->method('set')->willReturnSelf();
-        $qb->method('where')->willReturnSelf();
+        foreach (['select', 'from', 'update', 'delete', 'where', 'andWhere', 'setMaxResults'] as $method) {
+            $qb->method($method)->willReturnSelf();
+        }
+        $qb->method('set')->willReturnCallback(function (string $column, $value) use (&$sets, $qb) {
+            $sets[$column] = $value;
+            return $qb;
+        });
         $qb->method('expr')->willReturn($expr);
         $qb->method('createNamedParameter')->willReturnArgument(0);
-        $calls = 0;
-        $qb->method('executeStatement')->willReturnCallback(function () use (&$calls) {
-            $calls++;
-            if ($calls === 1) {
-                throw new \RuntimeException('token unique constraint');
+        $qb->method('executeQuery')->willReturn($result);
+        $writes = 0;
+        $qb->method('executeStatement')->willReturnCallback(function () use (&$writes, $failingWrites) {
+            $writes++;
+            if ($writes <= $failingWrites) {
+                throw new \RuntimeException('database refused the write');
             }
             return 1;
         });
         $this->db->method('getQueryBuilder')->willReturn($qb);
         return $qb;
+    }
+
+    /**
+     * The raw UPDATE goes through.
+     *
+     * @param array<string, mixed>|null $sets see stubRestoreQueries()
+     */
+    private function stubTokenPasswordUpdateQuery(?array &$sets = null): void {
+        $this->stubRestoreQueries(false, 0, $sets);
+    }
+
+    /**
+     * The raw UPDATE throws (a unique index, on an installation that has one)
+     * and — by default — the DELETE that undoes the share afterwards works.
+     * $failingCalls = 2 makes that DELETE fail as well.
+     */
+    private function stubTokenPasswordUpdateQueryThatFails(int $failingCalls = 1): IQueryBuilder&MockObject {
+        return $this->stubRestoreQueries(false, $failingCalls);
     }
 
     // -------------------------------------------------------------------
@@ -596,6 +814,38 @@ class SoftDeleteServiceTest extends TestCase {
         $result = $this->service->list(1, 25);
 
         $this->assertFalse($result['items'][0]['sourceExistsAtDeletion']);
+    }
+
+    public function testListRunsARowsThroughTheTokenRedactionWhenTheCallerCannotSeeTokens(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setShareType(IShare::TYPE_ROOM);
+        $entity->setShareWith('abc12345');
+        $this->mapper->method('findPage')->willReturn([$entity]);
+        $this->mapper->method('count')->willReturn(1);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+        $this->recipientDetails->method('decorate')->willReturnArgument(0);
+        $this->recipientDetails->expects($this->once())->method('redactRoomTokens')
+            ->willReturnCallback(static function (array $items): array {
+                $items[0]['recipient'] = '';
+                return $items;
+            });
+
+        $result = $this->service->list(1, 25, false);
+
+        $this->assertSame('', $result['items'][0]['recipient']);
+    }
+
+    public function testListLeavesTheRecipientAloneForACallerWhoCanSeeTokens(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setShareType(IShare::TYPE_ROOM);
+        $entity->setShareWith('abc12345');
+        $this->mapper->method('findPage')->willReturn([$entity]);
+        $this->mapper->method('count')->willReturn(1);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+        $this->recipientDetails->method('decorate')->willReturnArgument(0);
+        $this->recipientDetails->expects($this->never())->method('redactRoomTokens');
+
+        $this->assertSame('abc12345', $this->service->list(1, 25, true)['items'][0]['recipient']);
     }
 
     public function testCountDelegatesToMapper(): void {

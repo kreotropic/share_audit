@@ -158,7 +158,7 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
-import { categoryLabel, formatDate } from '../utils/format.js'
+import { categoryLabel, formatDate, emptyRecipientLabel } from '../utils/format.js'
 import { fetchDeletedShares, restoreDeletedShare, purgeDeletedShares } from '../services/api.js'
 
 // Mirrors OrphanShareController::MAX_IDS — larger selections are split into
@@ -257,7 +257,7 @@ export default {
 			if (share.recipient) {
 				return share.recipient
 			}
-			return share.category === 'link' ? t('share_audit_dashboard', '(public)') : '—'
+			return emptyRecipientLabel(share.category)
 		},
 		purgeDaysLeft(share) {
 			return Math.ceil((share.purgeAfter * 1000 - Date.now()) / 86400000)

@@ -99,17 +99,18 @@ export default {
 				{ key: 'external', label: t('share_audit_dashboard', 'External'), value: c.external, color: 'var(--sad-external)' },
 				{ key: 'public', label: t('share_audit_dashboard', 'Public'), value: c.public, color: 'var(--sad-public)' },
 			]
-			// Only shown when non-zero: groups share types this version of the
-			// app doesn't recognize yet (e.g. added in a newer Nextcloud release).
-			// Treated as at least as exposed as "External" rather than assumed
-			// safe.
+			// Only shown when non-zero: what this version of the app could not
+			// classify — share types it doesn't recognize yet (e.g. added in a
+			// newer Nextcloud release) and Talk conversations it could not look
+			// up. Treated as at least as exposed as "External" rather than
+			// assumed safe.
 			if (c.other > 0) {
 				segments.push({
 					key: 'other',
 					label: categoryLabel('other'),
 					value: c.other,
 					color: 'var(--sad-type-other)',
-					title: t('share_audit_dashboard', 'Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe.'),
+					title: t('share_audit_dashboard', 'Shares this app could not classify: share types it doesn’t recognize yet, or Talk conversations it could not look up. Treated as at least externally exposed, not assumed safe.'),
 				})
 			}
 			return segments

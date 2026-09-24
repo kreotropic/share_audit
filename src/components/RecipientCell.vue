@@ -4,7 +4,7 @@
   -->
 <template>
 	<span class="sad-recipient">
-		<span class="sad-recipient__name" :title="title">{{ info.label }}</span>
+		<span class="sad-recipient__name" :title="title">{{ name }}</span>
 		<span class="sad-recipient__meta">{{ meta }}</span>
 		<span v-if="flag" class="sad-recipient__flag" :title="flag.hint">{{ flag.text }}</span>
 	</span>
@@ -33,10 +33,16 @@ export default {
 		info() {
 			return this.share.recipientInfo
 		},
+		// A conversation nobody named has an empty label: the token it is
+		// stored under is not a name, and for a viewer without token
+		// visibility it is not even sent.
+		name() {
+			return this.info.label || t('share_audit_dashboard', 'Unnamed conversation')
+		},
 		title() {
 			return this.info.kind === 'deck'
 				? `${this.info.card} — ${this.info.board}`
-				: this.info.label
+				: this.name
 		},
 		// The second line: what it is and how far it reaches, then the key it is
 		// stored under, so a row can still be matched to Talk's own link.

@@ -11,6 +11,7 @@ namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Service\AccessService;
 use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
+use OCA\ShareAuditDashboard\Service\ExposureMapService;
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\ReportService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
@@ -31,7 +32,7 @@ use OCP\IRequest;
  * and auditors (see AdminController::requireViewer()) — export() and
  * alerts() additionally strip public-link tokens for a non-admin, and
  * index()/export() likewise redact a Talk conversation's bare token from
- * `recipient` (see ShareCollectorService::redactRoomTokens()), since those
+ * `recipient` (see RecipientDetailsResolver::redactRoomTokens()), since those
  * are bare credentials too. Every other action, including settings, stays
  * behind requireAdmin(): these endpoints expose or change share metadata
  * across all users and must never be reachable by a regular account.
@@ -50,6 +51,7 @@ class ShareApiController extends AdminController {
         private ExpiryDefaultsService $expiryDefaults,
         private IGroupManager $groupManager,
         private ShareAuditLogger $auditLogger,
+        private ExposureMapService $exposure,
         AccessService $access,
     ) {
         parent::__construct($appName, $request, $access);
@@ -66,6 +68,10 @@ class ShareApiController extends AdminController {
         $stats = $this->collector->getStats();
         $stats['orphanCount'] = $this->orphanService->countOrphanShares();
         $stats['deletedCount'] = $this->softDelete->count();
+        // The donut is drawn from the exposure categories, not from the raw
+        // share types: a public Talk conversation is public exposure whatever
+        // its share type says (see ExposureMapService).
+        $stats['exposure'] = $this->exposure->getCounts();
         return new JSONResponse($stats);
     }
 
@@ -90,6 +96,7 @@ class ShareApiController extends AdminController {
         int $createdSince = 0,
         string $sort = 'created',
         string $sortDir = 'desc',
+        string $exposure = '',
     ): JSONResponse {
         if (($scope = $this->requireViewer()) instanceof JSONResponse) {
             return $scope;
@@ -99,6 +106,7 @@ class ShareApiController extends AdminController {
         $filters['pathSearch'] = $pathSearch !== '' ? $pathSearch : null;
         $filters['ownerSearch'] = $ownerSearch !== '' ? $ownerSearch : null;
         $filters['recipientSearch'] = $recipientSearch !== '' ? $recipientSearch : null;
+        $filters['exposure'] = $exposure !== '' ? $exposure : null;
 
         return new JSONResponse($this->collector->getShares($filters, $page, $limit, $sort, $sortDir, $scope->canSeeTokens()));
     }
@@ -127,6 +135,7 @@ class ShareApiController extends AdminController {
         string $sort = 'created',
         string $sortDir = 'desc',
         bool $includeTokens = false,
+        string $exposure = '',
     ): DataDownloadResponse|JSONResponse {
         if (($scope = $this->requireViewer()) instanceof JSONResponse) {
             return $scope;
@@ -137,6 +146,7 @@ class ShareApiController extends AdminController {
         $filters['pathSearch'] = $pathSearch !== '' ? $pathSearch : null;
         $filters['ownerSearch'] = $ownerSearch !== '' ? $ownerSearch : null;
         $filters['recipientSearch'] = $recipientSearch !== '' ? $recipientSearch : null;
+        $filters['exposure'] = $exposure !== '' ? $exposure : null;
 
         $rows = $this->collector->getAllForExport($filters, $includeTokens, $sort, $sortDir);
         $csv = $this->report->buildCsv($rows, $includeTokens);

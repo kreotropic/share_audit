@@ -185,7 +185,7 @@ import NcSelect from '@nextcloud/vue/components/NcSelect'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
 import RecipientCell from '../components/RecipientCell.vue'
-import { categoryLabel, permissionLabel, formatDate } from '../utils/format.js'
+import { categoryLabel, permissionLabel, formatDate, emptyRecipientLabel } from '../utils/format.js'
 import { fetchOrphans, revokeOrphans, searchTransferTargets, transferOrphans } from '../services/api.js'
 
 // Must match OrphanShareController::MAX_IDS — larger selections are split
@@ -320,7 +320,7 @@ export default {
 			if (share.recipient) {
 				return share.recipient
 			}
-			return share.category === 'link' ? t('share_audit_dashboard', '(public)') : '—'
+			return emptyRecipientLabel(share.category)
 		},
 		toggleAll(checked) {
 			this.selectedIds = checked ? this.items.map((s) => s.id) : []

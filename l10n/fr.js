@@ -111,7 +111,6 @@ OC.L10N.register(
     "score" : "score",
     "0 = everything internal, 100 = everything public." : "0 = tout est interne, 100 = tout est public.",
     "Exposure by reach" : "Exposition par portée",
-    "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe." : "Types de partage que cette version de l’application ne reconnaît pas encore. Traités comme au moins exposés à l’externe, sans être considérés comme sûrs.",
     "View" : "Voir",
     "Most public exposure" : "Exposition publique maximale",
     "_%n public link_::_%n public links_" : ["%n lien public", "%n liens publics"],
@@ -303,6 +302,9 @@ OC.L10N.register(
     "Cannot restore: the file no longer exists." : "Impossible de restaurer : le fichier n'existe plus.",
     "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n partage sélectionné ne peut pas être restauré (son fichier n'existe plus) et sera ignoré.", "%n partages sélectionnés ne peuvent pas être restaurés (leur fichier n'existe plus) et seront ignorés."],
     "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n partage sélectionné ne peut pas être transféré (son fichier n'existe plus) et sera ignoré.", "%n partages sélectionnés ne peuvent pas être transférés (leur fichier n'existe plus) et seront ignorés."],
-    "Clear filter" : "Effacer le filtre"
+    "Clear filter" : "Effacer le filtre",
+    "Unnamed conversation" : "Conversation sans nom",
+    "Exposure: {level}" : "Exposition : {level}",
+    "Shares this app could not classify: share types it doesn’t recognize yet, or Talk conversations it could not look up. Treated as at least externally exposed, not assumed safe." : "Partages que cette application n’a pas pu classer : types de partage qu’elle ne reconnaît pas encore, ou conversations Talk qu’elle n’a pas pu consulter. Traités comme au moins exposés à l’externe, sans être considérés comme sûrs."
 },
 "nplurals=2; plural=(n > 1);");

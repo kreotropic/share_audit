@@ -138,12 +138,18 @@ export default {
 		warningCount() {
 			return (this.stats.alertsCount ?? 0) + (this.stats.orphanCount ?? 0)
 		},
+		// The backend's own exposure classification (ExposureMapService), the
+		// one the Exposure section below and its "View" buttons use — so a
+		// public Talk conversation is not counted as internal here just
+		// because its share type is "talk", and one that could not be
+		// classified is "other", not internal. Public links count as
+		// external here, as this donut always has.
 		buckets() {
-			const b = this.stats.byType
+			const e = this.stats.exposure
 			return {
-				internal: (b.user ?? 0) + (b.group ?? 0) + (b.talk ?? 0),
-				external: (b.link ?? 0) + (b.email ?? 0) + (b.federated ?? 0),
-				other: b.other ?? 0,
+				internal: e.internal,
+				external: e.external + e.public,
+				other: e.other,
 			}
 		},
 		ieSegments() {

@@ -32,17 +32,17 @@ class OrphanShareServiceTest extends TestCase {
 
     private ShareMapper&MockObject $mapper;
     private ShareCollectorService&MockObject $collector;
+    private RecipientDetailsResolver&MockObject $recipientDetails;
     private ArrayCache $cache;
     private OrphanShareService $service;
 
     protected function setUp(): void {
         $this->mapper = $this->createMock(ShareMapper::class);
         $this->collector = $this->createMock(ShareCollectorService::class);
-        $this->collector->method('redactRoomTokens')->willReturnArgument(0);
         $displayNames = $this->createMock(DisplayNameResolver::class);
         $displayNames->method('resolveMany')->willReturn([]);
-        $recipientDetails = $this->createMock(RecipientDetailsResolver::class);
-        $recipientDetails->method('decorate')->willReturnArgument(0);
+        $this->recipientDetails = $this->createMock(RecipientDetailsResolver::class);
+        $this->recipientDetails->method('decorate')->willReturnArgument(0);
 
         $cacheFactory = $this->createMock(ICacheFactory::class);
         $this->cache = new ArrayCache();
@@ -55,7 +55,7 @@ class OrphanShareServiceTest extends TestCase {
             $this->collector,
             $this->createMock(ShareDeletionService::class),
             $displayNames,
-            $recipientDetails,
+            $this->recipientDetails,
             $cacheFactory,
         );
 
@@ -91,5 +91,25 @@ class OrphanShareServiceTest extends TestCase {
 
         $this->assertFalse($item['canTransfer']);
         $this->assertSame('source_missing', $item['orphanReason']);
+    }
+
+    public function testAnOrphanListRunsThroughTheTokenRedactionForACallerWhoCannotSeeTokens(): void {
+        $this->mapper->method('findShares')->willReturn([['id' => 1, 'uid_owner' => 'gone']]);
+        $this->collector->method('normalizeRow')->willReturn($this->normalizedRow(true) + ['recipient' => 'iitqa25e']);
+        $this->recipientDetails->expects($this->once())->method('redactRoomTokens')
+            ->willReturnCallback(static function (array $items): array {
+                $items[0]['recipient'] = '';
+                return $items;
+            });
+
+        $this->assertSame('', $this->service->getOrphanShares(1, 25, false)['items'][0]['recipient']);
+    }
+
+    public function testAnOrphanListKeepsTheRecipientForACallerWhoCanSeeTokens(): void {
+        $this->mapper->method('findShares')->willReturn([['id' => 1, 'uid_owner' => 'gone']]);
+        $this->collector->method('normalizeRow')->willReturn($this->normalizedRow(true) + ['recipient' => 'iitqa25e']);
+        $this->recipientDetails->expects($this->never())->method('redactRoomTokens');
+
+        $this->assertSame('iitqa25e', $this->service->getOrphanShares(1, 25, true)['items'][0]['recipient']);
     }
 }

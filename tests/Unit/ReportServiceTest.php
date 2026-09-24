@@ -68,6 +68,28 @@ class ReportServiceTest extends TestCase {
         return $lines;
     }
 
+    public function testAPublicLinkHasNoRecipientAndSaysSo(): void {
+        [, $line] = $this->parse([$this->row(['recipient' => ''])]);
+
+        $this->assertSame('(public)', $line[4]);
+    }
+
+    /**
+     * A Talk share whose conversation has no name, or whose token was redacted
+     * for the export: an empty cell would read as "no recipient".
+     */
+    public function testATalkShareWithNoNameToShowIsMarkedNotLeftBlank(): void {
+        [, $line] = $this->parse([$this->row(['category' => 'talk', 'recipient' => ''])]);
+
+        $this->assertSame('(unnamed conversation)', $line[4]);
+    }
+
+    public function testATalkShareWithANameShowsIt(): void {
+        [, $line] = $this->parse([$this->row(['category' => 'talk', 'recipient' => 'Equipa de Marketing'])]);
+
+        $this->assertSame('Equipa de Marketing', $line[4]);
+    }
+
     public function testTheShareNameIsAColumnOfItsOwn(): void {
         [$header] = $this->parse([$this->row()]);
 

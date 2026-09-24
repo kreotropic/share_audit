@@ -111,7 +111,6 @@ OC.L10N.register(
     "score" : "pontuação",
     "0 = everything internal, 100 = everything public." : "0 = tudo interno, 100 = tudo público.",
     "Exposure by reach" : "Exposição por alcance",
-    "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe." : "Tipos de partilha que esta versão da app ainda não reconhece. Tratados como pelo menos externamente expostos, nunca presumidos seguros.",
     "View" : "Ver",
     "Most public exposure" : "Maior exposição pública",
     "_%n public link_::_%n public links_" : ["%n hiperligação pública", "%n hiperligações públicas"],
@@ -303,6 +302,9 @@ OC.L10N.register(
     "Cannot restore: the file no longer exists." : "Não é possível restaurar: o ficheiro já não existe.",
     "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n partilha selecionada não pode ser restaurada (o seu ficheiro já não existe) e será ignorada.", "%n partilhas selecionadas não podem ser restauradas (o seu ficheiro já não existe) e serão ignoradas."],
     "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n partilha selecionada não pode ser transferida (o seu ficheiro já não existe) e será ignorada.", "%n partilhas selecionadas não podem ser transferidas (o seu ficheiro já não existe) e serão ignoradas."],
-    "Clear filter" : "Limpar filtro"
+    "Clear filter" : "Limpar filtro",
+    "Unnamed conversation" : "Conversa sem nome",
+    "Exposure: {level}" : "Exposição: {level}",
+    "Shares this app could not classify: share types it doesn’t recognize yet, or Talk conversations it could not look up. Treated as at least externally exposed, not assumed safe." : "Partilhas que esta app não conseguiu classificar: tipos de partilha que ainda não reconhece, ou conversas do Talk que não conseguiu consultar. Tratadas como pelo menos externamente expostas, nunca presumidas seguras."
 },
 "nplurals=2; plural=(n != 1);");

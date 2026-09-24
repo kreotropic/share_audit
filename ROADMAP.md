@@ -20,7 +20,7 @@ a self-initiated security review of 0.6.0 (cache/UID isolation, Talk-token
 redaction, restore atomicity, audit-log completeness — see CHANGELOG.md's
 0.7.0 *Security* section), and distinguished an orphan share whose file is
 also gone from one that can still be transferred (issue #21). The app has a
-test suite (`phpunit`, `tests/Unit/`, 309 tests) and CI
+test suite (`phpunit`, `tests/Unit/`, 380 tests) and CI
 (`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
 already implemented and working:
 
@@ -381,13 +381,15 @@ upfront). Like the CSV, the report must not include access tokens.
   for Deck (a board's membership lives in `oc_deck_board_acl`, not
   `oc_share` at all) — michel-thomas checked and found no equivalent
   "open/guest" concept on the Deck side to audit.
-- **`RecipientLookupService`/`RecipientController` (the reverse "who has
-  access to X" drill-down) still hands a Talk conversation's bare token
-  back to an auditor.** Deliberately not fixed alongside the other
-  Talk-token redactions in 0.7.0's security pass: `search()` returns the
-  token as the recipient's own identifier and `shares()`/`revokeAll()` take
-  it back as the lookup key, so redacting it here needs an opaque-identifier
-  redesign, not a field swap like the other three spots got.
+- ~~`RecipientLookupService`/`RecipientController` (the reverse "who has
+  access to X" drill-down) still hands a Talk conversation's bare token back
+  to an auditor~~ — done (after 0.7.0, see CHANGELOG.md's *Unreleased*
+  section): an auditor identifies a conversation by an opaque handle
+  (`RecipientLookupService::roomHandle()`, an HMAC with the instance secret,
+  reversed by scanning the conversations that have shares) and finds it by
+  name; the text search, the recipient filter and the sort in *All shares*
+  no longer reach a conversation's token either (`ShareMapper`'s
+  `hideRoomTokens`).
 - **`SoftDeleteService::restore()` has no protection against two concurrent
   restores of the same recycle-bin entry.** Noted while fixing 0.7.0's
   restore-loses-password bug: the correct fix (atomically claim the
@@ -412,7 +414,10 @@ upfront). Like the CSV, the report must not include access tokens.
   `ShareMapper::countRoomSharesByToken()` +
   `RecipientDetailsResolver::describeRoomOpenness()`). A conversation open
   to any *logged-in* user (`openTo === 'users'`, not a public link) still
-  counts as internal, matching a group share's own reach.
+  counts as internal, matching a group share's own reach. A conversation that
+  cannot be resolved counts as *other* (weighed like external), not internal,
+  and the dashboard donut and the "View" buttons read the same classification
+  (`ExposureMapService::getCounts()`/`filterFor()`).
 - **Deck still has no dashboard bucket, colour or internal/external call of
   its own** — its counters keep counting under *other*, which weighs like
   *external*. Not addressed in 0.7.0.

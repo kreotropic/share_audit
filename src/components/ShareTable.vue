@@ -135,7 +135,7 @@ import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActionInput from '@nextcloud/vue/components/NcActionInput'
 import NcChip from '@nextcloud/vue/components/NcChip'
 import RecipientCell from './RecipientCell.vue'
-import { categoryLabel, permissionLabel, formatDate, typeFilterOptions } from '../utils/format.js'
+import { categoryLabel, permissionLabel, formatDate, typeFilterOptions, emptyRecipientLabel } from '../utils/format.js'
 
 export default {
 	name: 'ShareTable',
@@ -249,7 +249,7 @@ export default {
 			if (share.recipient) {
 				return share.recipientDisplayName || share.recipient
 			}
-			return share.category === 'link' ? t('share_audit_dashboard', '(public)') : '—'
+			return emptyRecipientLabel(share.category)
 		},
 		isActive(col) {
 			if (col.filter === 'types') {

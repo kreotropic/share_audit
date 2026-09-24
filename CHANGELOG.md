@@ -10,6 +10,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Security
+Follow-up to the 0.7.0 review, which found the fixes above incomplete:
+- A Talk conversation's token still reached an auditor through the *Access
+  lookup* (the "who can reach this" search): it listed every conversation with
+  its token, took the token back as the lookup key, and an empty recipient
+  listed every Talk share on the instance with the token in each row. The
+  lookup now identifies a conversation to an auditor by an opaque handle (a
+  keyed hash with the instance's secret) and finds it by its *name*; a token
+  passed in finds nothing, and an empty recipient lists nothing. An admin
+  still gets the token, since an admin may have it. The same hole was open a
+  substring at a time through *All shares*' search and its recipient filter,
+  and through sorting by recipient: for an auditor those no longer match or
+  order by a conversation's token either (a conversation is still found by its
+  name).
+- Redacting a token by showing the conversation's name failed for a
+  conversation with no name: the token was its own fallback name, so it came
+  out in the recipient, its display name and its label, in the list, the CSV,
+  the orphan list and the recycle bin. A conversation nobody named is now
+  shown as *Unnamed conversation* and no field carries its token; the
+  recycle bin shares the one redaction with the other lists instead of
+  keeping its own copy.
+- Restoring a public link that had a password no longer creates it open for a
+  moment and puts the password back afterwards: it is created protected by a
+  strong temporary password and the original one is swapped in once it exists,
+  so an interruption or a failed clean-up leaves a link nobody can open, never
+  an open one. This also lets such a link be restored on an instance that
+  enforces passwords for public links, where creating it without one was
+  refused.
+- Restoring a link whose original token had since been taken by another share
+  no longer leaves two links on one URL. The database index on the token is not
+  unique, so the restore relied on a constraint that is not there and quietly
+  succeeded; it now checks first, and keeps the link with a new token (or, if it
+  had a password, refuses and keeps the backup, as before).
+
+### Fixed
+- The dashboard's *Internal vs external* donut counted every Talk conversation
+  as internal, and the exposure map's *Public* "View" button opened only public
+  file links, leaving public conversations out of a list that its own count
+  included. Both now come from the same classification as the exposure score,
+  so a category's number and the list behind it are the same shares.
+- A Talk conversation the exposure map could not look up (Talk missing, or its
+  tables not what this expects) was counted as internal, so an instance of
+  public conversations could score zero. It is now counted as *Other* — what
+  could not be classified, weighed like external — never as safe.
+
 ## [0.7.0]
 
 ### Added

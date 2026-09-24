@@ -41,7 +41,9 @@
 				@alerts-count="alertsCount = $event"
 				@orphan-count="orphanCount = $event"
 				@deleted-count="deletedCount = $event" />
-			<ShareList v-else-if="activeTab === 'shares'" :preset-types="sharesPreset" />
+			<ShareList v-else-if="activeTab === 'shares'"
+				:preset-types="sharesPreset"
+				:preset-exposure="sharesExposure" />
 			<SecurityAlerts v-else-if="activeTab === 'alerts'"
 				@alerts-count="alertsCount = $event" />
 			<LookupAndOrphans v-else-if="activeTab === 'lookup'"
@@ -63,12 +65,6 @@ import SecurityAlerts from './views/SecurityAlerts.vue'
 import LookupAndOrphans from './views/LookupAndOrphans.vue'
 import DeletedShares from './views/DeletedShares.vue'
 import Settings from './views/Settings.vue'
-
-const DRILLDOWN_TYPES = {
-	internal: [0, 1, 10, 7],
-	external: [4, 6, 9],
-	public: [3],
-}
 
 export default {
 	name: 'App',
@@ -94,6 +90,13 @@ export default {
 			orphanCount: 0,
 			deletedCount: 0,
 			sharesPreset: null,
+			// An exposure category (internal | external | public) the shares
+			// list opens filtered to. Not a list of share types: which shares
+			// belong to a category is the backend's call (a public Talk
+			// conversation is public, whatever its share type), so the list is
+			// asked for the category itself and can never disagree with the
+			// count on the button that opened it.
+			sharesExposure: '',
 		}
 	},
 	computed: {
@@ -119,17 +122,20 @@ export default {
 		selectTab(id) {
 			if (id !== 'shares') {
 				this.sharesPreset = null
+				this.sharesExposure = ''
 			}
 			this.activeTab = id
 		},
 		onDrilldown(category) {
-			this.sharesPreset = DRILLDOWN_TYPES[category] ?? null
+			this.sharesPreset = null
+			this.sharesExposure = category
 			this.activeTab = 'shares'
 		},
 		// A dashboard stat card was clicked: open All shares filtered to its
 		// share types (null = the "Total" card → no filter).
 		onOpenShares(types) {
 			this.sharesPreset = types
+			this.sharesExposure = ''
 			this.activeTab = 'shares'
 		},
 		counterFor(id) {

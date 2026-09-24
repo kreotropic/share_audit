@@ -84,7 +84,13 @@ class ReportService {
         if ($recipient !== '') {
             return $recipient;
         }
-        return ($row['category'] ?? '') === 'link' ? '(public)' : '';
+        return match ($row['category'] ?? '') {
+            'link' => '(public)',
+            // A conversation with no name, or one whose token was redacted:
+            // an empty cell would read as "no recipient".
+            'talk' => '(unnamed conversation)',
+            default => '',
+        };
     }
 
     /**

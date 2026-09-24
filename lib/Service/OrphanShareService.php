@@ -127,7 +127,7 @@ class OrphanShareService {
      * "select all" bulk revoke can span the whole set rather than one page.
      *
      * $canSeeTokens follows AccessScope::canSeeTokens() — see
-     * ShareCollectorService::redactRoomTokens() for why a Talk conversation's
+     * RecipientDetailsResolver::redactRoomTokens() for why a Talk conversation's
      * bare token gets the same treatment as a public link's, even though
      * neither is $includeToken (that flag only ever covers the latter).
      *
@@ -174,7 +174,7 @@ class OrphanShareService {
         }, $rows));
 
         return [
-            'items' => $canSeeTokens ? $items : $this->collector->redactRoomTokens($items),
+            'items' => $canSeeTokens ? $items : $this->recipientDetails->redactRoomTokens($items),
             'total' => $total,
             'page' => $page,
             'limit' => $limit,

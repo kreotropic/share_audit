@@ -10,6 +10,7 @@ namespace OCA\ShareAuditDashboard\Tests\Unit;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
+use OCA\ShareAuditDashboard\Service\ExposureMapService;
 use OCA\ShareAuditDashboard\Service\PathFormatter;
 use OCA\ShareAuditDashboard\Service\RecipientDetailsResolver;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
@@ -30,11 +31,13 @@ class ShareCollectorServiceTest extends TestCase {
     private ShareMapper&MockObject $mapper;
     private DisplayNameResolver&MockObject $displayNames;
     private RecipientDetailsResolver&MockObject $recipientDetails;
+    private ExposureMapService&MockObject $exposure;
 
     protected function setUp(): void {
         $this->mapper = $this->createMock(ShareMapper::class);
         $this->displayNames = $this->createMock(DisplayNameResolver::class);
         $this->recipientDetails = $this->createMock(RecipientDetailsResolver::class);
+        $this->exposure = $this->createMock(ExposureMapService::class);
         // Pass-through unless a test says otherwise, as for a list with no Talk or Deck rows.
         $this->recipientDetails->method('decorate')->willReturnArgument(0);
     }
@@ -46,6 +49,7 @@ class ShareCollectorServiceTest extends TestCase {
             new PathFormatter(),
             $this->displayNames,
             $details ?? $this->recipientDetails,
+            $this->exposure,
         );
     }
 
@@ -257,25 +261,41 @@ class ShareCollectorServiceTest extends TestCase {
     }
 
     /**
-     * A Talk conversation's bare token is functionally a credential (anyone
-     * holding it can join a public room), unlike a uid/gid — so a caller
-     * without token visibility (see AccessScope::canSeeTokens()) must get
-     * the resolved name instead, not the raw key.
+     * A resolver whose decorate() names the row's conversation and whose
+     * redactRoomTokens() stands in for the real thing (tested on its own, in
+     * RecipientDetailsResolverTest) by blanking `recipient` — so what these
+     * tests prove is who the collector applies it to.
      */
-    public function testGetSharesRedactsRoomTokenWhenCallerCannotSeeTokens(): void {
-        $this->mapper->method('findShares')->willReturn([
-            ['id' => 9, 'share_type' => IShare::TYPE_ROOM, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e'],
-        ]);
-        $this->mapper->method('countShares')->willReturn(1);
+    private function detailsThatRedactByBlanking(): RecipientDetailsResolver&MockObject {
         $details = $this->createMock(RecipientDetailsResolver::class);
         $details->method('decorate')->willReturnCallback(static function (array $items) {
             $items[0]['recipientDisplayName'] = 'Equipa de Marketing';
             return $items;
         });
+        $details->method('redactRoomTokens')->willReturnCallback(static function (array $items) {
+            $items[0]['recipient'] = '';
+            return $items;
+        });
+        return $details;
+    }
 
-        $result = $this->collector($details)->getShares([], 1, 25, 'created', 'desc', false);
+    private function roomRow(): array {
+        return ['id' => 9, 'share_type' => IShare::TYPE_ROOM, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e'];
+    }
 
-        $this->assertSame('Equipa de Marketing', $result['items'][0]['recipient']);
+    /**
+     * A Talk conversation's bare token is functionally a credential (anyone
+     * holding it can join a public room), unlike a uid/gid — so a caller
+     * without token visibility (see AccessScope::canSeeTokens()) must get
+     * the redacted rows, not the raw key.
+     */
+    public function testGetSharesRedactsRoomTokenWhenCallerCannotSeeTokens(): void {
+        $this->mapper->method('findShares')->willReturn([$this->roomRow()]);
+        $this->mapper->method('countShares')->willReturn(1);
+
+        $result = $this->collector($this->detailsThatRedactByBlanking())->getShares([], 1, 25, 'created', 'desc', false);
+
+        $this->assertSame('', $result['items'][0]['recipient']);
     }
 
     /**
@@ -283,36 +303,125 @@ class ShareCollectorServiceTest extends TestCase {
      * before this parameter was added — the raw token stays for them.
      */
     public function testGetSharesKeepsRawRoomTokenByDefault(): void {
-        $this->mapper->method('findShares')->willReturn([
-            ['id' => 9, 'share_type' => IShare::TYPE_ROOM, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e'],
-        ]);
+        $this->mapper->method('findShares')->willReturn([$this->roomRow()]);
         $this->mapper->method('countShares')->willReturn(1);
-        $details = $this->createMock(RecipientDetailsResolver::class);
-        $details->method('decorate')->willReturnCallback(static function (array $items) {
-            $items[0]['recipientDisplayName'] = 'Equipa de Marketing';
-            return $items;
-        });
 
-        $result = $this->collector($details)->getShares([], 1, 25);
+        $result = $this->collector($this->detailsThatRedactByBlanking())->getShares([], 1, 25);
 
         $this->assertSame('iitqa25e', $result['items'][0]['recipient']);
     }
 
     public function testGetAllForExportRedactsRoomTokenUnlessTokensAreIncluded(): void {
-        $this->mapper->method('findShares')->willReturn([
-            ['id' => 9, 'share_type' => IShare::TYPE_ROOM, 'uid_owner' => 'alice', 'permissions' => 1, 'share_with' => 'iitqa25e'],
-        ]);
-        $details = $this->createMock(RecipientDetailsResolver::class);
-        $details->method('decorate')->willReturnCallback(static function (array $items) {
-            $items[0]['recipientDisplayName'] = 'Equipa de Marketing';
-            return $items;
-        });
+        $this->mapper->method('findShares')->willReturn([$this->roomRow()]);
+        $details = $this->detailsThatRedactByBlanking();
 
         $redacted = $this->collector($details)->getAllForExport([]);
-        $this->assertSame('Equipa de Marketing', $redacted[0]['recipient']);
+        $this->assertSame('', $redacted[0]['recipient']);
 
         $withTokens = $this->collector($details)->getAllForExport([], true);
         $this->assertSame('iitqa25e', $withTokens[0]['recipient']);
+    }
+
+    /**
+     * Redacting the output is not enough: a caller who may not see tokens
+     * must not be able to search for one (or sort by it) either, or the
+     * redacted column can be read back a substring at a time. The mapper is
+     * told, for the listing and for the count that pages it.
+     */
+    public function testTokenSearchAndSortAreClosedToACallerWhoCannotSeeTokens(): void {
+        $seen = [];
+        $this->mapper->method('findShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen[] = $filters;
+            return [];
+        });
+        $this->mapper->method('countShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen[] = $filters;
+            return 0;
+        });
+
+        $this->collector()->getShares(['recipientSearch' => 'abc'], 1, 25, 'recipient', 'asc', false);
+
+        $this->assertCount(2, $seen);
+        foreach ($seen as $filters) {
+            $this->assertTrue($filters['hideRoomTokens']);
+        }
+    }
+
+    public function testTokenSearchStaysOpenToACallerWhoCanSeeTokens(): void {
+        $seen = null;
+        $this->mapper->method('findShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen = $filters;
+            return [];
+        });
+
+        $this->collector()->getShares(['recipientSearch' => 'abc'], 1, 25, 'recipient', 'asc', true);
+
+        $this->assertArrayNotHasKey('hideRoomTokens', $seen);
+    }
+
+    public function testAnExportWithoutTokensDoesNotLetTheFilterFindThem(): void {
+        $seen = [];
+        $this->mapper->method('findShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen[] = $filters;
+            return [];
+        });
+
+        $this->collector()->getAllForExport(['recipientSearch' => 'abc']);
+        $this->collector()->getAllForExport(['recipientSearch' => 'abc'], true);
+
+        $this->assertTrue($seen[0]['hideRoomTokens']);
+        $this->assertArrayNotHasKey('hideRoomTokens', $seen[1]);
+    }
+
+    // -------------------------------------------------------------------
+    // The exposure filter: the list behind a category's "View" button must be
+    // the same set ExposureMapService counted.
+    // -------------------------------------------------------------------
+
+    public function testAnExposureCategoryIsExpandedIntoItsSharesTypesAndConversations(): void {
+        $this->exposure->method('filterFor')->with('public')->willReturn(['types' => [3], 'roomTokens' => ['pub12345']]);
+        $seen = null;
+        $this->mapper->method('findShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen = $filters;
+            return [];
+        });
+
+        $this->collector()->getShares(['exposure' => 'public'], 1, 25);
+
+        $this->assertSame(['types' => [3], 'roomTokens' => ['pub12345']], $seen['exposure']);
+    }
+
+    public function testAnExposureCategoryNothingCanFilterOnIsDroppedNotFailed(): void {
+        $this->exposure->method('filterFor')->with('bogus')->willReturn(null);
+        $seen = null;
+        $this->mapper->method('findShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen = $filters;
+            return [];
+        });
+
+        $this->collector()->getShares(['exposure' => 'bogus'], 1, 25);
+
+        $this->assertArrayNotHasKey('exposure', $seen);
+    }
+
+    public function testNoExposureFilterMeansNoExposureLookup(): void {
+        $this->exposure->expects($this->never())->method('filterFor');
+        $this->mapper->method('findShares')->willReturn([]);
+
+        $this->collector()->getShares(['exposure' => null], 1, 25);
+    }
+
+    public function testTheExportFollowsTheSameExposureFilterAsTheList(): void {
+        $this->exposure->method('filterFor')->with('internal')->willReturn(['types' => [0, 1, 7], 'roomTokens' => []]);
+        $seen = null;
+        $this->mapper->method('findShares')->willReturnCallback(function (array $filters) use (&$seen) {
+            $seen = $filters;
+            return [];
+        });
+
+        $this->collector()->getAllForExport(['exposure' => 'internal']);
+
+        $this->assertSame([0, 1, 7], $seen['exposure']['types']);
     }
 
     public function testTheRecipientSearchAlsoLooksUpConversationsAndCardsByName(): void {

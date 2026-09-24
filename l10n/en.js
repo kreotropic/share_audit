@@ -111,7 +111,6 @@ OC.L10N.register(
     "score" : "score",
     "0 = everything internal, 100 = everything public." : "0 = everything internal, 100 = everything public.",
     "Exposure by reach" : "Exposure by reach",
-    "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe." : "Share types this version of the app doesn’t recognize yet. Treated as at least externally exposed, not assumed safe.",
     "View" : "View",
     "Most public exposure" : "Most public exposure",
     "_%n public link_::_%n public links_" : ["%n public link", "%n public links"],
@@ -303,6 +302,9 @@ OC.L10N.register(
     "Cannot restore: the file no longer exists." : "Cannot restore: the file no longer exists.",
     "_%n selected share cannot be restored (its file no longer exists) and will be skipped._::_%n selected shares cannot be restored (their file no longer exists) and will be skipped._" : ["%n selected share cannot be restored (its file no longer exists) and will be skipped.", "%n selected shares cannot be restored (their file no longer exists) and will be skipped."],
     "_%n selected share cannot be transferred (its file no longer exists) and will be skipped._::_%n selected shares cannot be transferred (their file no longer exists) and will be skipped._" : ["%n selected share cannot be transferred (its file no longer exists) and will be skipped.", "%n selected shares cannot be transferred (their file no longer exists) and will be skipped."],
-    "Clear filter" : "Clear filter"
+    "Clear filter" : "Clear filter",
+    "Unnamed conversation" : "Unnamed conversation",
+    "Exposure: {level}" : "Exposure: {level}",
+    "Shares this app could not classify: share types it doesn’t recognize yet, or Talk conversations it could not look up. Treated as at least externally exposed, not assumed safe." : "Shares this app could not classify: share types it doesn’t recognize yet, or Talk conversations it could not look up. Treated as at least externally exposed, not assumed safe."
 },
 "nplurals=2; plural=(n != 1);");
