@@ -35,6 +35,67 @@ class ShareAuditLoggerTest extends TestCase {
     }
 
     // -------------------------------------------------------------------
+    // File moves. admin_audit fills the message's %s placeholders from the
+    // parameters in order, so a mismatch in count or order would put the
+    // wrong name in the wrong place of a record nobody can redo.
+    // -------------------------------------------------------------------
+
+    private function dispatchedLine(): callable {
+        $line = null;
+        $this->dispatcher->expects($this->once())->method('dispatchTyped')
+            ->willReturnCallback(function (CriticalActionPerformedEvent $event) use (&$line): void {
+                $line = vsprintf($event->getLogMessage(), array_values($event->getParameters()));
+            });
+        return static function () use (&$line): ?string {
+            return $line;
+        };
+    }
+
+    public function testAQueuedMoveNamesWhoAskedWhatFromWhomToWhom(): void {
+        $this->stubActor('admin1');
+        $line = $this->dispatchedLine();
+
+        $this->logger->logFileMoveQueued('leaver', 'taker', 'Docs/plan.txt', 3);
+
+        $this->assertSame(
+            'Share Audit Dashboard: "admin1" queued moving the files at "Docs/plan.txt" of "leaver" to "taker" (3 share(s) covered)',
+            $line(),
+        );
+    }
+
+    public function testAQueuedMoveOfAWholeAccountSaysSo(): void {
+        $this->stubActor('admin1');
+        $line = $this->dispatchedLine();
+
+        $this->logger->logFileMoveQueued('leaver', 'taker', null, 9);
+
+        $this->assertStringContainsString('queued moving all files of "leaver" to "taker"', $line());
+    }
+
+    public function testAFinishedMoveNamesWhoAskedForItEvenThoughNobodyIsLoggedInToTheJob(): void {
+        // A background job has no session: the requester comes from the queue row.
+        $line = $this->dispatchedLine();
+
+        $this->logger->logFileMoveFinished('admin1', 'leaver', 'taker', 'Docs', null);
+
+        $this->assertSame(
+            'Share Audit Dashboard: moved the files at "Docs" of "leaver" to "taker", as requested by "admin1"',
+            $line(),
+        );
+    }
+
+    public function testAFailedMoveSaysWhy(): void {
+        $line = $this->dispatchedLine();
+
+        $this->logger->logFileMoveFinished('admin1', 'leaver', 'taker', null, 'not enough space');
+
+        $this->assertSame(
+            'Share Audit Dashboard: could not move all files of "leaver" to "taker", as requested by "admin1": not enough space',
+            $line(),
+        );
+    }
+
+    // -------------------------------------------------------------------
     // logSettingsChanged() — the one method callers (SettingsService) hand
     // both snapshots to unconditionally, relying on this method itself to
     // decide whether anything actually happened.

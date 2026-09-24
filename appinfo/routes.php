@@ -48,6 +48,9 @@ return [
         ['name' => 'orphanShare#revoke', 'url' => '/api/orphans/revoke', 'verb' => 'POST'],
         ['name' => 'orphanShare#transfer', 'url' => '/api/orphans/transfer', 'verb' => 'POST'],
         ['name' => 'orphanShare#transferTargets', 'url' => '/api/orphans/transfer-targets', 'verb' => 'GET'],
+        // Move the files of a disabled owner too (background job). Queuing is admin-only; the status list is read-only.
+        ['name' => 'orphanShare#moveFiles', 'url' => '/api/orphans/move-files', 'verb' => 'POST'],
+        ['name' => 'orphanShare#fileMoves', 'url' => '/api/orphans/file-moves', 'verb' => 'GET'],
         // Exposure map (internal / external / public + score). Read-only.
         ['name' => 'exposure#overview', 'url' => '/api/exposure', 'verb' => 'GET'],
         // Personal (per-user) view: audit and fix your own shares.

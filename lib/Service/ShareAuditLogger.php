@@ -80,6 +80,49 @@ class ShareAuditLogger {
     }
 
     /**
+     * Records a request to move a disabled account's files to another account.
+     * Files leaving one person's storage for another's is a data-governance
+     * step with no undo in this app, so the request belongs on the record
+     * with who made it, before anything moves.
+     *
+     * @param string|null $path null for the whole account
+     */
+    public function logFileMoveQueued(string $from, string $to, ?string $path, int $shares): void {
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: "%s" queued moving %s of "%s" to "%s" (%s share(s) covered)',
+            [
+                'actor' => $this->actor(),
+                'what' => $path === null ? 'all files' : 'the files at "' . $path . '"',
+                'from' => $from,
+                'to' => $to,
+                'shares' => (string)$shares,
+            ],
+        ));
+    }
+
+    /**
+     * Records how a queued file move ended. Runs in a background job, where
+     * there is no logged-in user, so who asked for it is passed in.
+     *
+     * @param string|null $path null for the whole account
+     * @param string|null $error null when the move succeeded
+     */
+    public function logFileMoveFinished(string $requestedBy, string $from, string $to, ?string $path, ?string $error): void {
+        $what = $path === null ? 'all files' : 'the files at "' . $path . '"';
+        if ($error === null) {
+            $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+                'Share Audit Dashboard: moved %s of "%s" to "%s", as requested by "%s"',
+                ['what' => $what, 'from' => $from, 'to' => $to, 'actor' => $requestedBy],
+            ));
+            return;
+        }
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: could not move %s of "%s" to "%s", as requested by "%s": %s',
+            ['what' => $what, 'from' => $from, 'to' => $to, 'actor' => $requestedBy, 'error' => $error],
+        ));
+    }
+
+    /**
      * Records a CSV export by a read-only viewer (auditor, or later a
      * manager — see AccessService): unlike an admin, who already has
      * unaudited access to everything, this is new-since-#16 visibility into

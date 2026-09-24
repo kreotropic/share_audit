@@ -92,6 +92,22 @@ already implemented and working:
   reported with its reason. The creator changes only when it was the departed
   owner (as in `occ files:transfer-ownership`), a group share's per-user rows
   follow it, and the audit log records it. User, group and public-link shares
+  are supported; see *Transfer of orphan shares: what it leaves out* below.
+- **Move the files of a disabled owner too.** The transfer above needs the new
+  owner to reach the file already, so a file in the departed user's own home
+  used to be skipped with a note to run `occ files:transfer-ownership`. The
+  picker now also offers to move *the files the selected shares point to* or
+  *everything the account owns*, using the Files app's own
+  `OwnershipTransferService` (the code behind that command) in a background job
+  (`OrphanFileMoveJob`, one row per move in `oc_shareaudit_filemove`), with a
+  *File moves* list showing queued / running / done / failed. The shares of
+  what moves follow it with the same id and link token. Only a *disabled*
+  account qualifies — a deleted one's files went with it, which is what the
+  "file no longer exists" badge already says — and everything is re-checked when
+  the job runs, so a re-enabled account keeps its files. Two moves to one
+  account are kept at least a second apart: the destination folder is named
+  after the second, and the Files app deletes what it finds at a name that
+  already exists.
 - **Access lookup** (reverse drill-down): search by user, group or email
   and list **every file/folder that recipient can reach**, with *revoke all
   access* (server-side batches of 500)
@@ -462,6 +478,18 @@ upfront). Like the CSV, the report must not include access tokens.
   `IShareManager::updateShare()`, whose `onlyValid` parameter (needed for a
   disabled owner) is confirmed only on Nextcloud 33 while the app supports 31
   to 35 — worth switching once 31/32 are checked or dropped.
+- **Moving files: what it leaves out.** `OCA\Files\Service\OwnershipTransferService`
+  is internal to the Files app, not public API, and its trailing parameters
+  differ across 31 to 35, so only its first three arguments are passed (as the
+  Files app's own job does) and it is confined to `OwnershipTransferGateway`.
+  Verified against Nextcloud 33 and 35 on MariaDB and PostgreSQL; 31, 32 and 34
+  are not. What moves is decided by the Files app, not by the selection: every
+  share of a moved file goes with it, and a moved account takes all its shares,
+  selected or not — the UI says so. Files in a Team Folder or on an external
+  storage are not in the account's home and are left to the plain transfer
+  (`not_in_home`). A move that dies mid-way leaves its row `running` until it
+  is given up on after six hours; a move that fails leaves the files where they
+  were, but a partial copy of a huge folder is the Files app's to clean up.
 - **Orphans on LDAP/AD.** An account disabled in the directory can still show as
   *enabled* in Nextcloud when the sync doesn't map that state, so its shares
   aren't flagged as orphans (and can't be transferred or revoked from here).

@@ -25,8 +25,9 @@ use Psr\Log\LoggerInterface;
  * resolved through *that* person's file tree, so it keeps working only if the
  * new owner already reaches the same file there: a Team Folder they belong to,
  * an external storage they can see. A file that lives in the departed user's own
- * home is out of their reach — those shares are skipped, with the reason, and
- * the files need `occ files:transfer-ownership` first.
+ * home is out of their reach — those shares are skipped, with the reason. For a
+ * disabled owner, OrphanFileMoveService moves those files (and the shares with
+ * them); for a deleted one they are gone.
  *
  * The checks are the ones IShareManager applies when a share is created
  * (reachable, shareable, no wider permissions than the owner has), and the

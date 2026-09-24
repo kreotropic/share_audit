@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Service\AccessService;
+use OCA\ShareAuditDashboard\Service\OrphanFileMoveService;
 use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\OrphanTransferService;
 use OCP\AppFramework\Http;
@@ -37,6 +38,7 @@ class OrphanShareController extends AdminController {
         IRequest $request,
         private OrphanShareService $orphanService,
         private OrphanTransferService $transferService,
+        private OrphanFileMoveService $fileMoveService,
         AccessService $access,
     ) {
         parent::__construct($appName, $request, $access);
@@ -100,6 +102,46 @@ class OrphanShareController extends AdminController {
         } catch (\InvalidArgumentException $e) {
             return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }
+    }
+
+    /**
+     * POST /api/orphans/move-files — queue moving the files of the selected
+     * orphan shares' disabled owners to another account, so the shares can be
+     * handed over with them. Runs in the background; each share that a move
+     * cannot serve comes back with the reason, see
+     * OrphanFileMoveService::enqueue().
+     *
+     * @param int[] $ids
+     * @param string $scope 'path' (the files behind the selected shares) or
+     *                      'account' (everything the owner has)
+     */
+    public function moveFiles(array $ids = [], string $newOwner = '', string $scope = OrphanFileMoveService::SCOPE_PATH): JSONResponse {
+        if (($guard = $this->requireAdmin()) !== null) {
+            return $guard;
+        }
+        if (count($ids) > self::MAX_IDS) {
+            return new JSONResponse(
+                ['message' => 'Too many ids in one request (max ' . self::MAX_IDS . ').'],
+                Http::STATUS_BAD_REQUEST,
+            );
+        }
+        try {
+            return new JSONResponse($this->fileMoveService->enqueue($ids, trim($newOwner), $scope));
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['message' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+    }
+
+    /**
+     * GET /api/orphans/file-moves — the newest file moves and how each is
+     * going. Read-only, so open to auditors too.
+     */
+    #[NoAdminRequired]
+    public function fileMoves(): JSONResponse {
+        if (($scope = $this->requireViewer()) instanceof JSONResponse) {
+            return $scope;
+        }
+        return new JSONResponse(['items' => $this->fileMoveService->list()]);
     }
 
     /**

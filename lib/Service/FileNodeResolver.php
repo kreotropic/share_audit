@@ -39,4 +39,31 @@ class FileNodeResolver {
         $nodes = $userFolder->getById($fileId);
         return $nodes[0] ?? null;
     }
+
+    /**
+     * Where the file $fileId sits in $uid's own home, relative to their files
+     * folder ("Projects/Plan.docx") — or null when it is not in their home.
+     *
+     * That is what tells a file that can move with its owner from one that
+     * cannot: a Team Folder, an external storage and a folder somebody else
+     * shared with them all show up in the same tree, but belong to another
+     * storage, and moving the owner's account would not carry them along.
+     */
+    public function homeRelativePath(string $uid, int $fileId): ?string {
+        try {
+            $userFolder = $this->rootFolder->getUserFolder($uid);
+            // The same file can be reachable through more than one mount; the
+            // home one is the one that counts.
+            foreach ($userFolder->getById($fileId) as $node) {
+                if (rtrim($node->getMountPoint()->getMountPoint(), '/') !== '/' . $uid) {
+                    continue;
+                }
+                $relative = trim((string)$userFolder->getRelativePath($node->getPath()), '/');
+                return $relative === '' ? null : $relative;
+            }
+        } catch (\Throwable) {
+            // Not resolvable for this account: not something that can move.
+        }
+        return null;
+    }
 }

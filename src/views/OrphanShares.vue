@@ -59,6 +59,22 @@
 							{{ t('share_audit_dashboard', 'Cancel') }}
 						</NcButton>
 					</template>
+					<template v-else-if="pickingOwner && confirmingAccount">
+						<div class="sad-orphan-bar__pick">
+							<span class="sad-orphan-bar__confirm">
+								{{ t('share_audit_dashboard', 'Move all files and shares of {accounts} to {name}?', { accounts: movableOwnerNames, name: newOwner ? newOwner.displayName || newOwner.uid : '' }) }}
+							</span>
+							<span class="sad-orphan-bar__hint">
+								{{ t('share_audit_dashboard', 'This includes shares you have not selected and files no share points to. It runs in the background and cannot be undone from here.') }}
+							</span>
+							<NcButton variant="primary" :disabled="busy" @click="transferSelected">
+								{{ t('share_audit_dashboard', 'Confirm') }}
+							</NcButton>
+							<NcButton variant="tertiary" :disabled="busy" @click="confirmingAccount = false">
+								{{ t('share_audit_dashboard', 'Back') }}
+							</NcButton>
+						</div>
+					</template>
 					<template v-else-if="pickingOwner">
 						<div class="sad-orphan-bar__pick">
 							<span class="sad-orphan-bar__confirm">
@@ -82,12 +98,41 @@
 								:placeholder="t('share_audit_dashboard', 'Search for a user…')"
 								:aria-label-combobox="t('share_audit_dashboard', 'New owner')"
 								@search="searchOwners" />
-							<NcButton variant="primary" :disabled="!newOwner || busy" @click="transferSelected">
-								{{ t('share_audit_dashboard', 'Transfer') }}
+							<NcButton variant="primary" :disabled="!newOwner || busy" @click="startTransfer">
+								{{ transferLabel }}
 							</NcButton>
 							<NcButton variant="tertiary" :disabled="busy" @click="cancelTransfer">
 								{{ t('share_audit_dashboard', 'Cancel') }}
 							</NcButton>
+
+							<fieldset class="sad-orphan-scope" :disabled="busy">
+								<legend class="sad-orphan-scope__legend">
+									{{ t('share_audit_dashboard', 'What to move') }}
+								</legend>
+								<NcCheckboxRadioSwitch v-model="moveScope"
+									type="radio"
+									name="sad-orphan-move-scope"
+									value="shares">
+									{{ t('share_audit_dashboard', 'Only the shares') }}
+								</NcCheckboxRadioSwitch>
+								<NcCheckboxRadioSwitch v-model="moveScope"
+									type="radio"
+									name="sad-orphan-move-scope"
+									value="files"
+									:disabled="!canMoveFiles">
+									{{ t('share_audit_dashboard', 'The shares and the files they point to') }}
+								</NcCheckboxRadioSwitch>
+								<NcCheckboxRadioSwitch v-model="moveScope"
+									type="radio"
+									name="sad-orphan-move-scope"
+									value="account"
+									:disabled="!canMoveFiles">
+									{{ t('share_audit_dashboard', 'Everything the account owns') }}
+								</NcCheckboxRadioSwitch>
+							</fieldset>
+							<span v-if="scopeHint" class="sad-orphan-bar__hint sad-orphan-scope__hint">
+								{{ scopeHint }}
+							</span>
 						</div>
 					</template>
 					<template v-else>
@@ -170,6 +215,10 @@
 					@change="goto" />
 			</div>
 		</template>
+
+		<!-- Always mounted (never inside the branches above): it polls, and must
+		     survive the orphan list reloading each time a move finishes. -->
+		<FileMoves ref="fileMoves" @finished="load" />
 	</div>
 </template>
 
@@ -182,11 +231,12 @@ import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcSelect from '@nextcloud/vue/components/NcSelect'
+import FileMoves from '../components/FileMoves.vue'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
 import RecipientCell from '../components/RecipientCell.vue'
 import { categoryLabel, permissionLabel, formatDate, emptyRecipientLabel } from '../utils/format.js'
-import { fetchOrphans, revokeOrphans, searchTransferTargets, transferOrphans } from '../services/api.js'
+import { fetchOrphans, moveOrphanFiles, revokeOrphans, searchTransferTargets, transferOrphans } from '../services/api.js'
 
 // Must match OrphanShareController::MAX_IDS — larger selections are split
 // into sequential requests instead of one huge revoke call.
@@ -207,6 +257,7 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		NcSelect,
+		FileMoves,
 		PageNavigation,
 		PageSizeSelect,
 		RecipientCell,
@@ -222,6 +273,10 @@ export default {
 			revoking: false,
 			confirming: false,
 				pickingOwner: false,
+				// What a transfer takes along: 'shares' (only the shares), 'files' (the
+				// files behind them too) or 'account' (everything the owner has).
+				moveScope: 'shares',
+				confirmingAccount: false,
 				newOwner: null,
 				ownerOptions: [],
 				ownersLoading: false,
@@ -272,6 +327,46 @@ export default {
 			nonTransferableSelectedCount() {
 				return this.selectedIds.length - this.transferableSelectedIds.length
 			},
+			// Only a disabled account still has files to move (a deleted one's went
+			// with it), and only if the file is still there. Whether it is in the
+			// account's home is for the server to say.
+			movableSelected() {
+				return this.selectedIds
+					.map((id) => this.items.find((s) => s.id === id))
+					.filter((share) => share && share.ownerStatus === 'disabled' && share.sourceExists !== false)
+			},
+			canMoveFiles() {
+				return this.movableSelected.length > 0
+			},
+			// "Ana Silva, Rui Costa" — who the whole-account confirmation is about.
+			movableOwnerNames() {
+				const names = new Map()
+				for (const share of this.movableSelected) {
+					names.set(share.owner, share.ownerDisplayName || share.owner)
+				}
+				return [...names.values()].join(', ')
+			},
+			transferLabel() {
+				if (this.moveScope === 'files') {
+					return t('share_audit_dashboard', 'Transfer and move files')
+				}
+				if (this.moveScope === 'account') {
+					return t('share_audit_dashboard', 'Move files and shares')
+				}
+				return t('share_audit_dashboard', 'Transfer')
+			},
+			scopeHint() {
+				if (this.moveScope === 'files') {
+					return t('share_audit_dashboard', 'Moves the files the selected shares point to, out of the disabled account, and hands them over with every share of those files.')
+				}
+				if (this.moveScope === 'account') {
+					return t('share_audit_dashboard', 'Moves everything the account owns, and all of its shares, to the new owner.')
+				}
+				if (!this.canMoveFiles) {
+					return t('share_audit_dashboard', 'Files can only be moved from a disabled account: the files of a deleted one went with it.')
+				}
+				return ''
+			},
 			allSelected() {
 			return this.items.length > 0 && this.selectedIds.length === this.items.length
 		},
@@ -290,6 +385,13 @@ export default {
 			if (ids.length === 0) {
 				this.confirming = false
 				this.cancelTransfer()
+			}
+		},
+		// A selection with nothing to move cannot keep a "move the files" choice.
+		canMoveFiles(can) {
+			if (!can) {
+				this.moveScope = 'shares'
+				this.confirmingAccount = false
 			}
 		},
 		// A different page size invalidates the current page and selection.
@@ -345,12 +447,25 @@ export default {
 		openTransfer() {
 			this.notice = null
 			this.newOwner = null
+			this.moveScope = 'shares'
+			this.confirmingAccount = false
 			this.pickingOwner = true
 			this.searchOwners('')
 		},
 		cancelTransfer() {
 			this.pickingOwner = false
 			this.newOwner = null
+			this.moveScope = 'shares'
+			this.confirmingAccount = false
+		},
+		// Moving a whole account is heavy and takes everything, so it asks first;
+		// the other choices go straight through.
+		startTransfer() {
+			if (this.moveScope === 'account') {
+				this.confirmingAccount = true
+				return
+			}
+			this.transferSelected()
 		},
 		// Candidates come from the server, enabled accounts only, and the search
 		// runs as the admin types (after a short pause) rather than loading them all.
@@ -382,6 +497,9 @@ export default {
 				unsupported_type: t('share_audit_dashboard', 'This type of share cannot be transferred'),
 				recipient_is_new_owner: t('share_audit_dashboard', 'The new owner is who the share is for'),
 				no_access: t('share_audit_dashboard', 'The new owner cannot access the file'),
+				owner_deleted: t('share_audit_dashboard', 'The account was deleted, so its files are gone'),
+				not_in_home: t('share_audit_dashboard', 'The file is not in the account home (a Team Folder or an external storage), so it cannot move with the account'),
+				already_queued: t('share_audit_dashboard', 'A move of these files is already queued'),
 				not_shareable: t('share_audit_dashboard', 'The new owner may not share the file'),
 				insufficient_permissions: t('share_audit_dashboard', 'The share grants more than the new owner may'),
 			}
@@ -389,11 +507,22 @@ export default {
 		},
 		// What happened to a batch: a success, or a warning that names each reason
 		// a share stayed put — an admin needs to know which ones and why.
-		transferNotice({ transferred, skipped, failed }, owner) {
+		transferNotice({ transferred, queuedMoves, skipped, failed }, owner) {
 			const name = owner.displayName || owner.uid
-			const message = transferred > 0
-				? n('share_audit_dashboard', 'Transferred %n share to {name}.', 'Transferred %n shares to {name}.', transferred, { name })
-				: t('share_audit_dashboard', 'No share was transferred.')
+			const parts = []
+			if (transferred > 0) {
+				parts.push(n('share_audit_dashboard', 'Transferred %n share to {name}.', 'Transferred %n shares to {name}.', transferred, { name }))
+			}
+			if (queuedMoves > 0) {
+				parts.push(n(
+					'share_audit_dashboard',
+					'Queued %n file move to {name}. It runs in the background: follow it under File moves.',
+					'Queued %n file moves to {name}. They run in the background: follow them under File moves.',
+					queuedMoves,
+					{ name },
+				))
+			}
+			const message = parts.length > 0 ? parts.join(' ') : t('share_audit_dashboard', 'No share was transferred.')
 			const left = skipped.length + failed.length
 			if (left === 0) {
 				return { type: 'success', message }
@@ -409,14 +538,24 @@ export default {
 				details.push(`${t('share_audit_dashboard', 'Unexpected error, try again')} (${failed.length})`)
 			}
 			if (counts.no_access) {
-				details.push(t('share_audit_dashboard', 'Move the files first with occ files:transfer-ownership, then transfer the shares.'))
+				details.push(t('share_audit_dashboard', 'To move the files along with the shares, choose "The shares and the files they point to". Or move them first with occ files:transfer-ownership.'))
 			}
 			return {
-				type: transferred === 0 && skipped.length === 0 ? 'error' : 'warning',
+				type: transferred === 0 && queuedMoves === 0 && skipped.length === 0 ? 'error' : 'warning',
 				message,
 				detailsTitle: n('share_audit_dashboard', '%n share was not transferred:', '%n shares were not transferred:', left),
 				details,
 			}
+		},
+		// The moves the server queued, in as many requests as the selection needs.
+		async queueMoves(ids, newOwner, scope) {
+			const total = { queued: [], skipped: [] }
+			for (let i = 0; i < ids.length; i += BULK_CHUNK_SIZE) {
+				const res = await moveOrphanFiles(ids.slice(i, i + BULK_CHUNK_SIZE), newOwner, scope)
+				total.queued.push(...res.queued)
+				total.skipped.push(...res.skipped)
+			}
+			return total
 		},
 		async transferSelected() {
 			if (!this.newOwner) {
@@ -426,15 +565,56 @@ export default {
 			this.notice = null
 			try {
 				const owner = this.newOwner
-				const total = { transferred: 0, skipped: [], failed: [] }
-				const ids = this.transferableSelectedIds
-				for (let i = 0; i < ids.length; i += BULK_CHUNK_SIZE) {
-					const chunk = ids.slice(i, i + BULK_CHUNK_SIZE)
-					const res = await transferOrphans(chunk, owner.uid)
-					total.transferred += res.transferred
-					total.skipped.push(...res.skipped)
-					total.failed.push(...res.failed)
+				const scope = this.moveScope
+				const total = { transferred: 0, queuedMoves: 0, skipped: [], failed: [] }
+
+				if (scope === 'account') {
+					// One share of each disabled account is enough for the server to find
+					// it — sending them all would only have the later requests of a big
+					// selection told that the account is already queued. The shares of a
+					// deleted account are sent as they are and come back as skipped.
+					const movable = new Set(this.movableSelected.map((share) => share.id))
+					const seenOwners = new Set()
+					const ids = this.selectedIds.filter((id) => {
+						if (!movable.has(id)) {
+							return true
+						}
+						const { owner: uid } = this.items.find((share) => share.id === id)
+						if (seenOwners.has(uid)) {
+							return false
+						}
+						seenOwners.add(uid)
+						return true
+					})
+					const moves = await this.queueMoves(ids, owner.uid, 'account')
+					total.queuedMoves = moves.queued.length
+					total.skipped.push(...moves.skipped)
+				} else {
+					const ids = this.transferableSelectedIds
+					const direct = { transferred: 0, skipped: [], failed: [] }
+					for (let i = 0; i < ids.length; i += BULK_CHUNK_SIZE) {
+						const chunk = ids.slice(i, i + BULK_CHUNK_SIZE)
+						const res = await transferOrphans(chunk, owner.uid)
+						direct.transferred += res.transferred
+						direct.skipped.push(...res.skipped)
+						direct.failed.push(...res.failed)
+					}
+					total.transferred = direct.transferred
+					total.failed = direct.failed
+					total.skipped = direct.skipped
+
+					if (scope === 'files') {
+						// What the new owner cannot reach is what a file move is for; the
+						// server decides which of those it can actually move.
+						const unreachable = direct.skipped.filter(({ reason }) => reason === 'no_access').map(({ id }) => id)
+						if (unreachable.length > 0) {
+							const moves = await this.queueMoves(unreachable, owner.uid, 'path')
+							total.queuedMoves = moves.queued.length
+							total.skipped = direct.skipped.filter(({ reason }) => reason !== 'no_access').concat(moves.skipped)
+						}
+					}
 				}
+
 				this.notice = this.transferNotice(total, owner)
 				this.cancelTransfer()
 				this.selectedIds = []
@@ -442,6 +622,9 @@ export default {
 					this.page -= 1
 				}
 				await this.load()
+				if (total.queuedMoves > 0) {
+					this.$refs.fileMoves?.refresh()
+				}
 			} catch (e) {
 				this.notice = {
 					type: 'error',
@@ -558,6 +741,31 @@ export default {
 
 .sad-orphan-bar__select {
 	min-width: 260px;
+}
+
+// The three "what to move" choices sit on a row of their own under the picker.
+.sad-orphan-scope {
+	flex-basis: 100%;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 16px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.sad-orphan-scope__legend {
+	// A fieldset needs a legend to be announced as a group; the row has no room for it.
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+}
+
+.sad-orphan-scope__hint {
+	flex-basis: 100%;
 }
 
 .sad-orphan-notice__title {

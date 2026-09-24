@@ -127,3 +127,17 @@ export function formatDate(seconds) {
 	}
 	return new Date(seconds * 1000).toLocaleDateString(getCanonicalLocale())
 }
+
+/**
+ * Date and time of a unix timestamp in the viewer's locale, for things that
+ * happen more than once a day (a background job).
+ *
+ * @param {number|null} seconds
+ * @return {string}
+ */
+export function formatDateTime(seconds) {
+	if (!seconds) {
+		return '—'
+	}
+	return new Date(seconds * 1000).toLocaleString(getCanonicalLocale())
+}

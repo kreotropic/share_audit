@@ -44,6 +44,7 @@ class ControllerAccessTest extends TestCase {
         'shareApi#alerts',
         'shareApi#export',
         'orphanShare#index',
+        'orphanShare#fileMoves',
         'exposure#overview',
         'recipient#search',
         'recipient#shares',

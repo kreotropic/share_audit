@@ -45,7 +45,11 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
   folder they can reach**, with *revoke all access* (built for audits and
   offboarding suppliers); plus shares still owned by **disabled or deleted
   accounts**, which you can bulk revoke or **transfer to a colleague** who takes
-  the work over — a classic offboarding risk Nextcloud does not surface.
+  the work over — a classic offboarding risk Nextcloud does not surface. For a
+  disabled account you can also **move its files** to the colleague, just the
+  ones the selected shares point to or the whole account: the shares follow the
+  files (a public link keeps its URL), it runs in the background and each move is
+  tracked in a *File moves* list.
 - **Deleted shares** — a recycle bin for revoked shares. Unsharing in Nextcloud
   is normally immediate and irreversible; here a removed share is kept for a
   retention window (30 days by default, configurable) and can be **restored** or

@@ -69,6 +69,15 @@ class OrphanShareService {
     }
 
     /**
+     * Forget the cached owner set, for a change that alters who is an orphan
+     * owner: an account whose shares were all handed over stops being one, and
+     * would otherwise keep showing for up to CACHE_TTL seconds.
+     */
+    public function flushOwnerCache(): void {
+        $this->cache->remove(self::CACHE_KEY);
+    }
+
+    /**
      * @return array<string, string>
      */
     private function computeOrphanOwners(): array {

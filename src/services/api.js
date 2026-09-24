@@ -193,6 +193,31 @@ export async function transferOrphans(ids, newOwner) {
 }
 
 /**
+ * Queue moving the files of the selected orphan shares' disabled owners to
+ * another account, so the shares can go with them. It runs in the background:
+ * the answer only says what was queued and which shares a move cannot serve.
+ * See OrphanFileMoveService::enqueue().
+ *
+ * @param {number[]} ids
+ * @param {string} newOwner user id of the account taking the files over
+ * @param {'path'|'account'} scope the files behind the selected shares, or
+ *   everything the owner has
+ * @return {Promise<{queued: Array<{id: number, owner: string, path: ?string, scope: string, shares: number}>, skipped: Array<{id: number, reason: string}>}>}
+ */
+export async function moveOrphanFiles(ids, newOwner, scope) {
+	const { data } = await axios.post(base('/api/orphans/move-files'), { ids, newOwner, scope })
+	return data
+}
+
+/**
+ * The newest file moves and how each is going (queued, running, done, failed).
+ */
+export async function fetchFileMoves() {
+	const { data } = await axios.get(base('/api/orphans/file-moves'))
+	return data.items
+}
+
+/**
  * Fetch the paginated list of recycled (soft-deleted) shares.
  */
 export async function fetchDeletedShares(params = {}) {

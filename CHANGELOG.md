@@ -10,6 +10,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Move the files of an orphan share's owner, not just the share.** A share
+  whose file sits in a *disabled* account's own home used to be skipped
+  (*The new owner cannot access the file*) with a note to run
+  `occ files:transfer-ownership` by hand. The transfer picker in *Orphan shares*
+  now asks what to move: **only the shares** (as before), **the shares and the
+  files they point to**, or **everything the account owns**. A file move is the
+  Files app's own ownership transfer, so the shares of what moves follow it,
+  keeping their id and — for a link — the same URL. It runs in a background job
+  and a *File moves* list under the table shows each one as queued, running,
+  done or failed (with the reason), visible to auditors too. Moving a whole
+  account asks for confirmation first, and every move is written to the audit
+  log. A deleted account has nothing to move (its files went with it), and the
+  conditions are checked again when the job runs: an account that has been
+  re-enabled in the meantime keeps its files. Two moves to the same account
+  never share a destination folder, since the Files app would otherwise
+  overwrite a file with the same name in it. Needs the database migration that
+  comes with 0.8.0.
+
 ### Security
 Follow-up to the 0.7.0 review, which found the fixes above incomplete:
 - A Talk conversation's token still reached an auditor through the *Access
