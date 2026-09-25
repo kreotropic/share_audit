@@ -9,7 +9,7 @@
     <name>Share Audit Dashboard</name>
     <summary>Visual audit dashboard for all shares across your instance</summary>
     <description><![CDATA[
-See and audit every share on your Nextcloud — in the browser, not the command line.
+See and audit every share on your Nextcloud, in the browser and not the command line.
 
 Share Audit Dashboard gives administrators a single, visual overview of every share on the
 instance (user, group, public link, email, federated, Talk), flags the risky ones, and lets you
@@ -20,7 +20,7 @@ fix them in bulk. Regular users get a personal view to audit and clean up the fi
   donut, top sharers, and attention banners for insecure links and orphaned shares.
 - All shares: a filterable, sortable, server‑side paginated table with per‑column header filters
   and human‑readable permissions. Export the filtered view to CSV.
-- Security alerts: public links with no password, no expiration, or a sensitive file type — fixable
+- Security alerts: public links with no password, no expiration, or a sensitive file type, fixable
   individually or in bulk (add a generated password, set an expiration, revoke). Rules configurable.
 - Orphan shares: shares still owned by disabled or deleted accounts, with bulk revoke or transfer to another account.
 - Exposure map: internal / external / public reach, a 0‑100 exposure score and the top public sharers.

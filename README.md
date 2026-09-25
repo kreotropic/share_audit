@@ -5,7 +5,7 @@
 
 # Share Audit Dashboard for Nextcloud
 
-**See and audit every share on your Nextcloud — in the browser, not the CLI.**
+**See and audit every share on your Nextcloud, in the browser and not the CLI.**
 
 Share Audit Dashboard gives administrators a single, visual overview of every
 share on the instance (user, group, public link, email, federated, Talk), flags
@@ -19,7 +19,7 @@ personal view to audit and clean up the files *they* share.
 ## Problem Solved
 
 Nextcloud can list shares on the command line (`occ sharing:list`), but there is
-no visual, filterable, actionable dashboard — and no easy way to answer
+no visual, filterable, actionable dashboard, and no easy way to answer
 *“who can reach this data?”*, *“which of our public links have no password?”*, or
 *“are we still sharing files owned by people who left?”*. Share Audit Dashboard
 fills that gap with an admin-wide audit surface and a per-user self-service view.
@@ -28,33 +28,33 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
 
 ### For administrators (Settings → Administration → Share Audit)
 
-- **Dashboard** — totals per share type, a 12‑month creation trend, an
+- **Dashboard**: totals per share type, a 12‑month creation trend, an
   *internal vs external* exposure section with a 0–100 exposure score, and top
   sharers. Attention banners flag insecure links and orphaned shares. Click a
   stat card or exposure category to jump straight into the filtered list.
-- **All shares** — a filterable, sortable, server‑side paginated table of every
+- **All shares**: a filterable, sortable, server‑side paginated table of every
   share on the instance. Filters live in the column headers (type, path or share
   name, owner, recipient, password, expiration). Export the filtered view to
   **CSV**. A share made into a **Talk conversation** or a **Deck card** shows that
   conversation's or card's name and how many people it reaches, not its internal
   key, and flags a conversation anyone can join.
-- **Security alerts** — public links with no password, no expiration, or exposing
+- **Security alerts**: public links with no password, no expiration, or exposing
   a sensitive file type. Fix them individually or in **bulk**: add a generated
   password, set an expiration, or revoke. The alert rules are configurable.
-- **Lookup & Orphans** — search a user, group or email and see **every file and
+- **Lookup & Orphans**: search a user, group or email and see **every file and
   folder they can reach**, with *revoke all access* (built for audits and
   offboarding suppliers); plus shares still owned by **disabled or deleted
   accounts**, which you can bulk revoke or **transfer to a colleague** who takes
-  the work over — a classic offboarding risk Nextcloud does not surface. For a
+  the work over (a classic offboarding risk Nextcloud does not surface). For a
   disabled account you can also **move its files** to the colleague, just the
   ones the selected shares point to or the whole account: the shares follow the
   files (a public link keeps its URL), it runs in the background and each move is
   tracked in a *File moves* list.
-- **Deleted shares** — a recycle bin for revoked shares. Unsharing in Nextcloud
+- **Deleted shares**: a recycle bin for revoked shares. Unsharing in Nextcloud
   is normally immediate and irreversible; here a removed share is kept for a
   retention window (30 days by default, configurable) and can be **restored** or
   purged, individually or in bulk. It catches every removal on the instance, not
-  just the ones made through this app — unsharing from the Files app, another
+  just the ones made through this app: unsharing from the Files app, another
   app, `occ` or the sharing API lands in the bin just the same. A daily
   background job clears out anything past its retention date.
 
@@ -62,8 +62,8 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
 
 An admin can name one or more groups, in **Settings → Auditor groups**,
 whose members get a **read-only** copy of the whole instance-wide dashboard
-above — Dashboard, All shares, Security alerts, Lookup & Orphans and Deleted
-shares — through their own page (a "Share Audit Dashboard" icon in the top
+above (Dashboard, All shares, Security alerts, Lookup & Orphans and Deleted
+shares) through their own page (a "Share Audit Dashboard" icon in the top
 app menu), without becoming administrators. They can see every share, its
 owner, initiator and recipient, but can never set a password or expiration,
 revoke, restore or transfer a share, or reach the settings; every one of
@@ -73,7 +73,7 @@ interface, and public-link tokens are never shown to them.
 ### For every user (Settings → Personal → My shares audit)
 
 - Review the files and folders **you** share, and fix your own risky public links
-  (add password / set expiration / revoke) — scoped strictly to your own shares.
+  (add password / set expiration / revoke), scoped strictly to your own shares.
 - A **dashboard widget** highlights your links that need attention right on the
   Nextcloud dashboard.
 - Admins can turn this personal view (and its widget) off instance-wide from
@@ -86,9 +86,9 @@ Click the badge above (or [this
 link](https://ateeducacion.github.io/nextcloud-playground/?blueprint-url=https://raw.githubusercontent.com/kreotropic/share_audit/refs/heads/master/blueprint.json))
 to open a full Nextcloud instance running entirely in your browser (via
 WebAssembly). It boots with Share Audit Dashboard installed, the admin already
-logged in, and a handful of shares already seeded — including a public link
+logged in, and a handful of shares already seeded (including a public link
 without a password or expiration, one exposing a spreadsheet, a group share,
-and a share owned by a disabled account — so the Dashboard, Security alerts
+and a share owned by a disabled account), so the Dashboard, Security alerts
 and Lookup & Orphans views all have something to show the moment it opens.
 
 No local setup or Docker required. The instance is provisioned from
@@ -117,7 +117,7 @@ php occ app:enable share_audit_dashboard
 
 ### Web Interface
 
-- **Admins:** **Settings → Administration → Share Audit** — Dashboard, All shares,
+- **Admins:** **Settings → Administration → Share Audit**: Dashboard, All shares,
   Security alerts, Lookup & Orphans, Deleted shares, and Settings.
 - **Users:** **Settings → Personal → My shares audit**.
 
@@ -127,7 +127,7 @@ Everything is available in the browser; there are no OCC commands to learn.
 
 In **Security alerts** (admin) and **My shares audit** (user) you can act on many
 links at once: generate a password, set an expiration, or revoke. Generated
-passwords are shown **once** — copy them immediately, they are not stored or shown
+passwords are shown **once**, so copy them immediately: they are not stored or shown
 again. Revoking is recoverable: the share goes to **Deleted shares** for the
 retention window rather than disappearing outright.
 
@@ -143,7 +143,7 @@ retention window rather than disappearing outright.
   pick **All**, to act across the whole set at once.
 
 - **Generated passwords are shown once.** When a bulk or single "add password"
-  action creates a password, copy it right away — it is not shown again.
+  action creates a password, copy it right away, as it is not shown again.
 
 - **Restoring a share usually, but not always, keeps its public link URL.** The
   original token and password are put back as they were, so an already-circulated
@@ -156,16 +156,16 @@ retention window rather than disappearing outright.
 - **PHP's JIT can crash Apache/PHP workers when an app is enabled or updated.**
   A regression in PHP's JIT compiler makes workers die with `SIGSEGV` (or spin at
   100% CPU) while they compile newly loaded code, so it shows up right after you
-  enable or update an app. It is not specific to this app — Nextcloud users report
-  it with other apps too — nor to ARM: it has been reproduced on x86_64 and
+  enable or update an app. It is not specific to this app (Nextcloud users report
+  it with other apps too) nor to ARM: it has been reproduced on x86_64 and
   aarch64, under PHP-FPM and under Apache. It was first reported on PHP 8.5.5 and
   was still reproducible on 8.5.10; it is tracked upstream in
   [php/php-src#22558](https://github.com/php/php-src/issues/22558) and
   [#22084](https://github.com/php/php-src/issues/22084). Nextcloud's official
   Docker image turns the tracing JIT on (`opcache.jit=1255`), so it is the default
   there. If workers crash-loop right after you enable or update an app, switch the
-  JIT off — `opcache.jit=0` and `opcache.jit_buffer_size=0` in a `conf.d`
-  override — and restart. That is the only workaround reported to be reliable;
+  JIT off (`opcache.jit=0` and `opcache.jit_buffer_size=0` in a `conf.d`
+  override) and restart. That is the only workaround reported to be reliable;
   lowering the JIT level has been reported to still crash. See
   [issue #3](https://github.com/kreotropic/share_audit/issues/3).
 
@@ -179,14 +179,14 @@ The app interface is available in:
 - **Spanish** / Español
 - **French** / Français
 
-Contributions for additional languages are welcome — add a `l10n/<locale>.json`
+Contributions for additional languages are welcome: add a `l10n/<locale>.json`
 and regenerate the matching `l10n/<locale>.js` with `python3 build/l10n.py`.
 
 ## Requirements
 
 - Nextcloud 31–35
 - PHP 8.1 or later (tested up to PHP 8.5, which Nextcloud 34 and 35 ship with)
-- MySQL/MariaDB or PostgreSQL — both are tested by running the same fixture on
+- MySQL/MariaDB or PostgreSQL. Both are tested by running the same fixture on
   each and diffing the app's output, so the two return identical results
 
 ## License
@@ -207,14 +207,14 @@ vendor/bin/phpunit
 ```
 
 The suite must pass on both supported databases. Sorting is where they part
-company — MySQL places `NULL` before every value and PostgreSQL after it — so any
+company: MySQL places `NULL` before every value and PostgreSQL after it, so any
 new `ORDER BY` over a nullable column needs an explicit "nulls last" key, and any
 `ORDER BY` paired with a `LIMIT` needs a tiebreaker, or the two engines return
 different rows rather than merely a different order. See
 `ShareMapper::NULLABLE_SORT_COLUMNS`.
 
 For an end-to-end check there is a disposable instance per engine and a
-deterministic share fixture to give both — see
+deterministic share fixture to give both. See
 [build/README.md](build/README.md).
 
 ### Frontend build
@@ -266,7 +266,7 @@ showcase the app.*
 Planned features (owner notifications, an email digest and compliance reports,
 and more) are documented in [ROADMAP.md](ROADMAP.md). The recycle bin, accepting
 an alert as an exception and transferring orphan shares, once the top items
-there, have shipped — see **Deleted shares**, **Security alerts** and
+there, have shipped. See **Deleted shares**, **Security alerts** and
 **Lookup & Orphans** above.
 
 ## Changelog

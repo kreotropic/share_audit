@@ -3,13 +3,13 @@
   - SPDX-License-Identifier: AGPL-3.0-or-later
   -->
 
-# Share Audit Dashboard — Roadmap
+# Share Audit Dashboard: Roadmap
 
 ## Current state (v0.8.0, unreleased)
 
 The app is **published on the App Store** (`min-version` 31, `max-version`
 35) and functionally complete: three review rounds (security, pre-submission
-and a line-by-line quality audit) were run and closed before 0.3.0 — see
+and a line-by-line quality audit) were run and closed before 0.3.0. See
 [CHANGELOG.md](CHANGELOG.md) for what each version fixed. 0.4.0 added soft
 delete (recycle bin) for shares and Nextcloud 34 support; 0.5.0 added German
 and Spanish translations and a Nextcloud Playground preview; 0.6.0 added
@@ -17,17 +17,17 @@ accepting alerts as exceptions, transferring orphan shares to another account,
 Talk conversations and Deck cards shown by name, search and sort by name, and
 Nextcloud 35 support; 0.7.0 added read-only auditor access (issue #16), closed
 a self-initiated security review of 0.6.0 (cache/UID isolation, Talk-token
-redaction, restore atomicity, audit-log completeness — see CHANGELOG.md's
+redaction, restore atomicity, audit-log completeness; see CHANGELOG.md's
 0.7.0 *Security* section), and distinguished an orphan share whose file is
 also gone from one that can still be transferred (issue #21). 0.8.0, still
 unreleased, closes a follow-up review of 0.7.0 (Talk-token oracles, atomic
-restore, a real-database integration suite — see the CHANGELOG's *Unreleased*
+restore, a real-database integration suite; see the CHANGELOG's *Unreleased*
 section) and lets an admin **move the files of a disabled owner** from *Orphan
 shares*, not only hand over the share. The app has a test suite (`phpunit`,
 `tests/Unit/`, 465 tests; 215 integration tests in `tests/Integration/`, which
 run inside a real Nextcloud on MariaDB and PostgreSQL; 11 node tests for the
 frontend's selection logic in `tests/js/`) and CI (`.github/workflows/ci.yml`:
-l10n, php, frontend build + node tests — the integration suite is not in CI
+l10n, php, frontend build + node tests; the integration suite is not in CI
 yet, see the backlog). Everything below is already implemented and working:
 
 ### Delivered
@@ -45,15 +45,15 @@ yet, see the backlog). Everything below is already implemented and working:
 - Column-header filters (type, path or share name, owner, recipient,
   password, expiration), sorting and **server-side** pagination. The *Path*
   filter also matches the name a share was given (the label of a public link),
-  and the row shows it under the path — GitHub issue
-  [#14](https://github.com/kreotropic/share_audit/issues/14)
+  and the row shows it under the path (GitHub issue
+  [#14](https://github.com/kreotropic/share_audit/issues/14))
 - **CSV** export of the filtered view (respects active filters), with a *Share
   name* column
 - **Talk conversations and Deck cards by name**: a share made into one shows the
   conversation's name (a private one-to-one, its two people) or the card's title
   and board, how many people it reaches, and a mark on a conversation that is
-  public or open to every user, instead of the token or card number — GitHub
-  issue [#18](https://github.com/kreotropic/share_audit/issues/18). Read from
+  public or open to every user, instead of the token or card number (GitHub
+  issue [#18](https://github.com/kreotropic/share_audit/issues/18)). Read from
   Talk's and Deck's own tables, once per page and fenced, so a missing or changed
   app leaves the raw key (see `RecipientDetailsResolver`). The Recipient filter
   matches those names, and Deck shares have their own label and filter.
@@ -63,25 +63,25 @@ yet, see the backlog). Everything below is already implemented and working:
 - Detects public links with no password, no expiration, exposing a
   sensitive file type, already expired / expiring soon, open to anonymous
   upload without a password (file drop), and group shares with edit/reshare
-  granted to large groups — with **configurable rules** (Settings tab)
+  granted to large groups, with **configurable rules** (Settings tab)
 - Breakdown by category (bar chart)
 - **Search and sort by name**: a search box over the alert list matches the
   file/folder name, the share's own name (the label of a public link), the
-  owner (user id or display name) and, for group shares, the group — every
+  owner (user id or display name) and, for group shares, the group. Every
   word must match somewhere, ignoring case. The list can also be
   sorted by name (A–Z / Z–A, natural order). Both work on top of the category
   filter and paging; the chart follows the search. GitHub issues
   [#12](https://github.com/kreotropic/share_audit/issues/12) and
   [#14](https://github.com/kreotropic/share_audit/issues/14).
 - Individual and **bulk** actions: generate a password, set an expiration
-  (7/30/90d, or your Sharing settings' default — capped where expiration is
+  (7/30/90d, or your Sharing settings' default, capped where expiration is
   enforced), revoke. Generated passwords are shown once.
 - Copy the public link, open it in a new tab, or "Open in Files", from each alert
 - Every revocation and remediation is logged to Nextcloud's audit channel
   (requires the `admin_audit` app enabled)
 - **Acknowledge/exception** (per (share, rule) pair, optionally with a
   note): an intentionally-accepted alert (e.g. a public newsletter link) can
-  be dismissed instead of permanently inflating the count — closes GitHub
+  be dismissed instead of permanently inflating the count. Closes GitHub
   issue [#5](https://github.com/kreotropic/share_audit/issues/5). A "Show
   acknowledged" toggle reviews or undoes any exception. The app's **second**
   database migration (`oc_shareaudit_ack`).
@@ -93,7 +93,7 @@ yet, see the backlog). Everything below is already implemented and working:
   hand them to another account instead of revoking, in bulk, from a user
   picker. A share moves only when the new owner already reaches the file in
   their own file tree (a Team Folder they belong to, an external storage), may
-  share it and holds at least the permissions it grants — the same rule
+  share it and holds at least the permissions it grants, the same rule
   `IShareManager` applies when a share is created; each one that can't move is
   reported with its reason. The creator changes only when it was the departed
   owner (as in `occ files:transfer-ownership`), a group share's per-user rows
@@ -108,11 +108,11 @@ yet, see the backlog). Everything below is already implemented and working:
   (`OrphanFileMoveJob`, one row per move in `oc_shareaudit_filemove`), with a
   *File moves* list showing queued / running / done / failed. The shares of
   what moves follow it with the same id and link token. Only a *disabled*
-  account qualifies — a deleted one's files went with it, which is what the
-  "file no longer exists" badge already says — and everything is re-checked when
+  account qualifies (a deleted one's files went with it, which is what the
+  "file no longer exists" badge already says) and everything is re-checked when
   the job runs, so a re-enabled account keeps its files. Only one move into an
   account runs at a time, whatever the number of background workers, and a
-  running move is never given up on because of how long it has run — see
+  running move is never given up on because of how long it has run; see
   *Moving files: what it leaves out* for why, and for how a dead worker is told
   apart from a slow one. An admin can mark a stuck move as interrupted, and the
   list warns when Nextcloud's background jobs have not run for over an hour
@@ -121,7 +121,7 @@ yet, see the backlog). Everything below is already implemented and working:
   and list **every file/folder that recipient can reach**, with *revoke all
   access* (server-side batches of 500)
 
-**Deleted shares — recycle bin (0.4.0)**
+**Deleted shares (recycle bin, 0.4.0)**
 - Revoking a share (through this app, or natively via Files/`occ`/the
   sharing OCS API) is no longer irreversible: it's kept for a configurable
   retention window (30 days by default, in Settings) in a "Deleted shares"
@@ -143,19 +143,19 @@ yet, see the backlog). Everything below is already implemented and working:
   `--check` runs in CI and as part of `krankerl package`, failing the build
   instead of relying on discipline)
 - README, screenshots, `krankerl.toml` + `.nextcloudignore` for packaging
-- `min-version` 31 (NC 30 is no longer supported — orphan-share revoke
+- `min-version` 31 (NC 30 is no longer supported: orphan-share revoke
   depends on a parameter only available from NC 31 onward), `max-version` 35
 
 ---
 
-## G2 — acknowledge/exception on alerts (delivered)
+## G2: acknowledge/exception on alerts (delivered)
 
 Implemented as designed: `AckController`/`AckService` +
 `oc_shareaudit_ack` (`share_id`, `rule_code`, `acknowledged_by`,
 `acknowledged_at`, optional `note`, unique on `(share_id, rule_code)`,
 migration `Version0006Date20260920160000`). `SecurityAnalyzerService::
 getAlerts()` takes an `$includeAcknowledged` flag: false (every existing
-caller — admin view, personal view, the dashboard widget, `countAlerts()`)
+caller: the admin view, the personal view, the dashboard widget and `countAlerts()`)
 drops an acknowledged issue from its alert and the alert itself once none
 are left, recomputing severity from what remains; true (the alerts view's
 "Show acknowledged" toggle) returns everything, each issue annotated with
@@ -165,25 +165,25 @@ undone (`unacknowledge()`). Covers all current rules, including
 [#5](https://github.com/kreotropic/share_audit/issues/5) ("Mark as already
 reviewed"). Bulk acknowledge (`AckController::bulkAcknowledge()`, `POST
 /api/alerts/bulk-ack`, "Acknowledge all" next to the other bulk actions)
-was added right after first use surfaced the need — each selected alert
+was added right after first use surfaced the need. Each selected alert
 keeps its own issue set (unlike revoke/password/expiration, which apply
 uniformly), so each item in the request names its own `ruleCodes`. See
 CHANGELOG.md for the release this lands in.
 
-**Deliberately left out of this pass** — none block shipping, revisit if
+**Deliberately left out of this pass.** None block shipping; revisit if
 they turn out to matter in practice:
 - **Bulk *un*acknowledge.** The "Show acknowledged" filter still only
   removes an exception one row at a time; a symmetric bulk action would
   reuse the same `BulkActionBar`/`AckController` plumbing bulk-acknowledge
   already added, so it's a small lift whenever it's asked for.
 - **Orphaned `shareaudit_ack` rows.** A share's exceptions aren't cleaned up
-  when it's later revoked/purged — harmless (an id is never reused, so a
+  when it's later revoked/purged. That is harmless (an id is never reused, so a
   stale row can never match a future alert) and, in practice, small in
   number. Same call already made for the missing `share_with`/`path`
   indexes below; revisit with the same "wait for evidence" bar.
 - **DE/ES/FR translations for the 7 new UI strings** were done directly (not
   reviewed by the community translators credited for those languages in
-  CHANGELOG.md) — worth a native-speaker pass before the next release.
+  CHANGELOG.md), so a native-speaker pass is worth doing before the next release.
   The 18 strings of the orphan-transfer UI, the 9 of the Talk/Deck recipient
   (conversation and card names) and the ~40 of the file-move UI (scope choice,
   *File moves* list, cron warning, mark-as-interrupted) are in the same state.
@@ -191,22 +191,22 @@ they turn out to matter in practice:
 
 With G2 done, every remaining backlog item below is explicitly gated on App
 Store traction (or is a GitHub issue awaiting the maintainer's own
-prioritization) — there's no other currently-identified "ungated" item to
+prioritization), and there's no other currently-identified "ungated" item to
 promote here automatically.
 
 ---
 
-## Issue #16 — read-only auditor access (delivered in 0.7.0)
+## Issue #16: read-only auditor access (delivered in 0.7.0)
 
 First increment done, on branch `feature/readonly-viewer-access`: an admin
 names one or more groups (Settings → *Auditor groups*, `IAppConfig` value
 `auditor_groups`) whose members become read-only viewers of the whole
-instance's audit data — `AccessService::getScope()` centralizes the
+instance's audit data. `AccessService::getScope()` centralizes the
 decision (admin / auditor / no access), and `AdminController::
 requireViewer()` is the single guard every read-only endpoint (`stats`,
 `index`/*All shares*, `alerts`, `export`, orphan listing, the exposure map,
 recipient search/lookup, deleted-share listing) calls; every endpoint that
-changes something — including Settings itself — keeps the existing
+changes something (including Settings itself) keeps the existing
 `requireAdmin()` and carries no `#[NoAdminRequired]`, so Nextcloud's own
 `SecurityMiddleware` blocks a non-admin before the controller even runs. A
 new `PageController` (`GET /`) and `templates/viewer.php` give an auditor
@@ -219,14 +219,14 @@ is a structural test (same reflection-based approach as
 `ControllerLimitRangeTest`) that fails if a new route is added without being
 consciously classified as admin-only or viewer-read, or if the matching guard
 call goes missing from its body. Closes the read-only-access half of GitHub
-issue [#16](https://github.com/kreotropic/share_audit/issues/16) — the
+issue [#16](https://github.com/kreotropic/share_audit/issues/16): the
 account starts as a Nextcloud "auditor" who genuinely cannot revoke, restore
 or transfer anything, enforced server-side as the issue asked, not merely
 hidden in the interface. Thanks
 [@McKoy61](https://github.com/McKoy61).
 
-**Deliberately left for a second increment** — the issue's optional
-"manager sees their reports' shares" idea:
+**Deliberately left for a second increment** (the issue's optional
+"manager sees their reports' shares" idea):
 - **No reverse lookup exists for "who manages me".** Nextcloud stores a
   user's own managers (`IUser::getManagerUids()`, JSON in `oc_preferences`)
   but has no built-in index the other way; the plan is
@@ -235,27 +235,27 @@ hidden in the interface. Thanks
   build a per-request "my direct reports" set, no transitivity.
 - **Every read-side query needs a real owner-scope parameter.** The existing
   `owners` filter key's `!empty()` collapse (an *empty* array silently
-  meaning "no filter" instead of "match nothing" — exactly backwards for
+  meaning "no filter" instead of "match nothing", exactly backwards for
   "this manager has zero reports") was fixed in 0.7.0's security pass
   (`ShareMapper::applyFilters()` now short-circuits an empty `owners` array
-  to a never-true condition) — but a manager's scope should still be a
+  to a never-true condition), but a manager's scope should still be a
   distinct `scopeOwners` key rather than reusing `owners`, so a manager
   scope and an orphan-owner scope can never be confused for each other.
   Threads through `ShareCollectorService`,
   `SecurityAnalyzerService`, `ExposureMapService`, `OrphanShareService`,
   `RecipientLookupService` and `SoftDeleteService`/`DeletedShareMapper`.
 - **The manager view stays an explicit, separate Settings toggle**
-  (`manager_view_enabled`, off by default) — it exposes what is arguably HR
+  (`manager_view_enabled`, off by default). It exposes what is arguably HR
   data (who reports to whom, inferred from having *any* access at all), a
   decision the admin should make on purpose, unlike the auditor-group list
   which is opt-in by construction (an empty list already means "nobody").
 - **DE/ES/FR translations for the 6 new UI strings** were done directly
-  (same caveat as G2's own translations above) — EN and PT-PT are the
+  (same caveat as G2's own translations above). EN and PT-PT are the
   maintainer's own and authoritative.
 
 ---
 
-## Post-launch — only if there's traction
+## Post-launch: only if there's traction
 
 These features stay **on hold until the app gets traction on the App
 Store**. Listed by impact. Technical specs are kept here so the thinking
@@ -263,12 +263,12 @@ already done isn't lost.
 
 | # | Feature | Depends on | Effort | Impact |
 |---|---------|-----------|--------|--------|
-| 1 | Notify the owner (alerts and remediations) | — | 1-2 days | Medium |
-| 2 | Exposure history/trend | — | 2-3 days | Medium |
-| 3 | Weekly email digest for admins | — | 2-3 days | Medium |
+| 1 | Notify the owner (alerts and remediations) | none | 1-2 days | Medium |
+| 2 | Exposure history/trend | none | 2-3 days | Medium |
+| 3 | Weekly email digest for admins | none | 2-3 days | Medium |
 | 4 | Compliance reports by email | (2) | 3-4 days | Medium |
-| 5 | Per-group policies | — | 4-5 days | Medium |
-| 6 | Signed PDF/HTML report (external audits) | — | 3-4 days | Medium- |
+| 5 | Per-group policies | none | 4-5 days | Medium |
+| 6 | Signed PDF/HTML report (external audits) | none | 3-4 days | Medium- |
 | 7 | Audit Talk conversations open to guests | a scope decision, and a feature request | not estimated | not known |
 
 ---
@@ -288,7 +288,7 @@ warn whoever shared it instead.
 
 **b) Automatically notify on any admin remediation.** Today, **any**
 remediation the admin performs (`setPassword`, `setExpiration`, `revoke` in
-`ShareActionController`) changes someone else's share with no warning — the
+`ShareActionController`) changes someone else's share with no warning: the
 owner gets a password they don't know, or loses their link with no
 explanation.
 - `INotificationManager::notify()` to `uid_owner` on **every**
@@ -296,7 +296,7 @@ explanation.
   ("The administrator set a password on your share X" /
   "...changed the expiration..." / "...revoked...").
 - An alternative **"ask the owner to fix it"** action instead of the admin
-  fixing it directly — a notification with a deep link to the owner's own
+  fixing it directly: a notification with a deep link to the owner's own
   personal view. This is what turns the app from a "policing tool" into a
   "governance tool".
 
@@ -315,7 +315,7 @@ over time.
 - `ExposureMapService::getExposureTrend(days)` + a line chart in the view
 
 > Can't be reconstructed retroactively from `oc_share`: revoked shares
-> disappear (or, since 0.4.0, go to the recycle bin — but that isn't an
+> disappear (or, since 0.4.0, go to the recycle bin, but that isn't an
 > aggregated time series either). Hence the need for snapshots.
 
 Business case for prioritizing this early: cheap to build, and gives a
@@ -329,7 +329,7 @@ Distinct from #4 (which is more formal/periodic and depends on the history
 from #2). This one is a light, frequent digest: a weekly `TimedJob` +
 `IMailer`, summarizing **new** insecure links, **new** orphans, and score
 movement since the last digest. It's what keeps the app in use past the
-second week, even before the full history (#2) exists — it can start by
+second week, even before the full history (#2) exists. It can start by
 comparing against just the previous week's snapshot, without waiting for
 the full time series.
 
@@ -343,7 +343,7 @@ exception). Implement before or alongside #4, not after.
 
 Scheduled delivery of a periodic summary (insecure links, orphans, exposure
 score) to administrators. The current `ReportService` only generates the
-CSV list — it would be extended to produce the report, plus a `TimedJob` to
+CSV list. It would be extended to produce the report, plus a `TimedJob` to
 send it. Benefits from feature 3's history to show deltas ("+12 public
 links since the last report").
 
@@ -353,7 +353,7 @@ links since the last report").
 
 Alerts today are global rules (`SettingsService::RULES` applies
 instance-wide). The proposal is to let rules/exceptions be tied to specific
-groups — e.g., the `Finance` group can never have passwordless public
+groups, e.g., the `Finance` group can never have passwordless public
 links, regardless of the global rule.
 
 Sketch:
@@ -368,23 +368,23 @@ Sketch:
 
 **Effort:** bigger than the items above (new table + group-vs-global
 precedence resolution + management UI). No native NC tool does this
-visually — a real differentiator, but not a quick win.
+visually, a real differentiator, but not a quick win.
 
 ---
 
 ### 6. Signed PDF/HTML report, for compliance/external audits
 
 The current CSV (`ReportService`) is for the admin to work the data; a
-formatted report — header with instance name, generation date/time, period
-covered, an executive summary (counts, score, top exposures) and a simple
-integrity signature/hash — is for handing to an external auditor.
+formatted report, with a header (instance name, generation date/time, period
+covered), an executive summary (counts, score, top exposures) and a simple
+integrity signature/hash, is for handing to an external auditor.
 
 Minimal sketch: generate HTML server-side (a dedicated template) from the
 aggregates already computed by
 `ShareCollectorService`/`SecurityAnalyzerService`/`ExposureMapService`, and
 convert to PDF (evaluate whether a PDF-rendering dependency is worth
 pulling in, or whether a standalone HTML with a print stylesheet is enough
-for the use case — decide before implementing, don't assume a library
+for the use case; decide before implementing, don't assume a library
 upfront). Like the CSV, the report must not include access tokens.
 
 ---
@@ -398,12 +398,12 @@ its subject, showing Talk and Deck shares by name, is delivered in 0.6.0), and
 the reporter, [@michel-thomas](https://github.com/michel-thomas), agreed it is
 a different use case.
 
-**The ask.** List every Talk conversation that anyone can join — a public link,
-or free join by guests — whether or not a file was ever shared into it, so that
+**The ask.** List every Talk conversation that anyone can join (a public link,
+or free join by guests), whether or not a file was ever shared into it, so that
 an admin can spot an unauthorised room ("visio-squatting"). The app cannot see
 these today: it learns of a conversation only through an `oc_share` row, which
 exists only when a *file* was shared into it, so a room used purely for chat and
-calls never appears, open to anyone or not. Deck has no equivalent to audit —
+calls never appears, open to anyone or not. Deck has no equivalent to audit:
 the reporter checked, and a board's membership (`oc_deck_board_acl`) has no
 "open to anyone" notion.
 
@@ -414,18 +414,18 @@ actually needs from it cannot be judged from this side; the reporter was asked
 to help shape it.
 
 **The open question is one of scope, and both positions are on record:**
-- *A separate app* ("Talk Room Auditor", the maintainer's suggestion) — keeps
+- *A separate app* ("Talk Room Auditor", the maintainer's suggestion): it keeps
   Share Audit about `oc_share`, and lets the Talk side be designed by people who
   use Talk.
 - *One global share-auditing app* (the reporter's preference: "a global share
   auditing rather than multiple specific audit apps", where a Talk resource is
-  still a *share*, only not of a file) — one place, one auditor role, one export
+  still a *share*, only not of a file): one place, one auditor role, one export
   and audit log, and one exposure score for an admin to read. The cost is that
   the app would depend on Talk's schema (it already reads it, fenced, for names
   and openness) and that an auditor would see more than files.
 
 **How it will be decided.** The reporter offered to open a feature request
-that can wait — collecting 👍 — or be cancelled later; that is the agreed route,
+that can wait (collecting 👍) or be cancelled later; that is the agreed route,
 and this is settled only once it exists and shows demand. The requirements below
 are what it should answer.
 
@@ -433,7 +433,7 @@ are what it should answer.
 - Which conversations count: a public link, open to every logged-in user
   (listable), guests allowed, protected by a password or not?
 - What an admin wants to see per conversation: name, type, creator, participants
-  and guests, last activity, whether it has a link — and the link's token is a
+  and guests, last activity, whether it has a link. The link's token is a
   credential, so the redaction already done for shares (an opaque handle for an
   auditor, the token only for an admin) would apply.
 - Read-only, or actions as well (lock the room, close guest access, delete it)?
@@ -453,13 +453,13 @@ unresolvable.
 
 ## Minor backlog
 
-- **List Talk conversations open to guest/free join, directly — not only
+- **List Talk conversations open to guest/free join, directly, not only
   when a file happens to be shared into them.** Moved to *Post-launch #7*, with
   the reporter's use case, the two positions on scope and the questions a feature
   request should answer. Parked until that request exists and shows demand.
 - ~~`RecipientLookupService`/`RecipientController` (the reverse "who has
   access to X" drill-down) still hands a Talk conversation's bare token back
-  to an auditor~~ — done (after 0.7.0, see CHANGELOG.md's *Unreleased*
+  to an auditor~~: done (after 0.7.0, see CHANGELOG.md's *Unreleased*
   section): an auditor identifies a conversation by an opaque handle
   (`RecipientLookupService::roomHandle()`, an HMAC with the instance secret,
   reversed by scanning the conversations that have shares) and finds it by
@@ -467,7 +467,7 @@ unresolvable.
   no longer reach a conversation's token either (`ShareMapper`'s
   `hideRoomTokens`).
 - ~~`SoftDeleteService::restore()` has no protection against two concurrent
-  restores of the same recycle-bin entry~~ — done (after 0.7.0, see
+  restores of the same recycle-bin entry~~: done (after 0.7.0, see
   CHANGELOG.md's *Unreleased* section). The impact had been understated as "a
   duplicate": both requests write the original token onto their link, and
   `oc_share.token` has no unique index, so the result is two or more live links
@@ -481,12 +481,12 @@ unresolvable.
   NULL-sort-order divergence `ShareMapper::NULLABLE_SORT_COLUMNS` exists to work
   around). After 0.7.0 there is a real layer, `tests/Integration/`, which runs
   inside a Nextcloud container against its real database and web server (login,
-  CSRF, admin/auditor roles, concurrent restores, token secrecy) —
-  `build/run-integration.sh`, on MariaDB and PostgreSQL, Nextcloud 35. What is
+  CSRF, admin/auditor roles, concurrent restores, token secrecy),
+  via `build/run-integration.sh`, on MariaDB and PostgreSQL, Nextcloud 35. What is
   left: run it in CI (it needs Docker and the ~1.5 GB Nextcloud image, a few
   minutes per engine), and repeat it on the older Nextcloud versions the app
   declares.
-- ~~Exposure score: Talk conversations are classified too coarsely~~ — done
+- ~~Exposure score: Talk conversations are classified too coarsely~~: done
   (0.7.0, part of the security pass): a Talk conversation open to anyone
   with the link (`Room::TYPE_PUBLIC`) now counts toward *public* instead of
   always *internal* (`ExposureMapService::classifyRoomShares()`, backed by
@@ -498,7 +498,7 @@ unresolvable.
   and the dashboard donut and the "View" buttons read the same classification
   (`ExposureMapService::getCounts()`/`filterFor()`).
 - **Deck still has no dashboard bucket, colour or internal/external call of
-  its own** — its counters keep counting under *other*, which weighs like
+  its own.** Its counters keep counting under *other*, which weighs like
   *external*. Not addressed in 0.7.0.
 - **Access lookup does not see access through a conversation, a circle or a Deck
   board.** `RecipientLookupService` matches `share_with`, so a person who reads a
@@ -506,17 +506,17 @@ unresolvable.
   listed as reaching it, and a conversation is found by its token, not its name.
   The lists show the names now; this is the audit view that would need to expand
   them.
-- ~~Recycle bin and CSV still show the raw key of a Talk or Deck recipient~~ —
+- ~~Recycle bin and CSV still show the raw key of a Talk or Deck recipient~~:
   done (0.7.0), as a side effect of redacting a Talk conversation's bare
   token (a real credential) from the same two places: both now call
   `RecipientDetailsResolver::decorate()` and show the resolved name by
   default. An admin (or an admin's CSV export with *Include link tokens*
   ticked) still sees the raw token in the recycle bin / CSV, same as they
-  already could for a public link's — that part is by design, not a gap.
+  already could for a public link's. That part is by design, not a gap.
 - **Talk participants list.** The recipient shows a headcount and, for a
   one-to-one, the two people; the names of a group conversation's participants (and
   the members of a group or circle inside it) are one query away in
-  `talk_attendees` but are not shown — a tooltip or drawer would need a bounded
+  `talk_attendees` but are not shown; a tooltip or drawer would need a bounded
   read per conversation.
 - **Tell the new owner when a file move finishes.** A finished move drops a
   "Transferred from …" folder into their home and says nothing; the Files app's
@@ -528,7 +528,7 @@ unresolvable.
   the existing daily job (as the recycle bin has) would keep it small; the audit
   log already holds the permanent record.
 - **File moves can only be ordered from the orphan picker.** There is no way to
-  move a disabled account's files with no share involved — the account has to
+  move a disabled account's files with no share involved: the account has to
   own at least one orphan share to be selected. Fine for the offboarding case
   this was built for; an account-level action in the *Owner* column would cover
   the rest.
@@ -545,30 +545,31 @@ unresolvable.
   (`f.name`, already joined and used by the sensitive-extension check), so it
   needs no cross-engine string splitting: add `'name' => 'f.name'` to
   `ShareMapper::SORT_COLUMNS` and `NULLABLE_SORT_COLUMNS` (nulls last, like
-  `path`) and a sort control on the *Path* header. No open issue asks for it —
+  `path`) and a sort control on the *Path* header. No open issue asks for it:
   the alerts list, which [#12](https://github.com/kreotropic/share_audit/issues/12)
   was about, sorts by name already.
 - **Transfer of orphan shares: what it leaves out.** Email, federated, Talk and
   other share types keep their state outside `oc_share`'s owner column (a
-  remote server, a room, a mail token), so a local update wouldn't reach it —
-  they're skipped, with the reason. A share whose *creator* isn't the departed
+  remote server, a room, a mail token), so a local update wouldn't reach it,
+  so they're skipped, with the reason. A share whose *creator* isn't the departed
   owner (a reshare) keeps that creator, as in `occ files:transfer-ownership`;
   if the creator has since lost access to the file, Nextcloud treats the share
-  as invalid and it stays broken after the transfer — checking the creator too
+  as invalid and it stays broken after the transfer; checking the creator too
   would catch it. It also updates `oc_share` directly rather than through
   `IShareManager::updateShare()`, whose `onlyValid` parameter (needed for a
   disabled owner) is confirmed only on Nextcloud 33 while the app supports 31
-  to 35 — worth switching once 31/32 are checked or dropped.
+  to 35, so it is worth switching once 31/32 are checked or dropped.
 - **Moving files: what it leaves out.** `OCA\Files\Service\OwnershipTransferService`
   is internal to the Files app, not public API, and its trailing parameters
   differ across 31 to 35, so only its first three arguments are passed (as the
   Files app's own job does) and it is confined to `OwnershipTransferGateway`.
   Verified against Nextcloud 33 and 35 on MariaDB and PostgreSQL; 31, 32 and 34
   are not, and neither are server-side encryption (the Files app refuses to move
-  encrypted files or into an account that never logged in — surfaced as the
-  move's error, not tested), LDAP accounts, or folders of many gigabytes. What moves is decided by the Files app, not by the selection: every
+  encrypted files or into an account that never logged in; that shows up as the
+  move's error, and is not tested), LDAP accounts, or folders of many gigabytes.
+  What moves is decided by the Files app, not by the selection: every
   share of a moved file goes with it, and a moved account takes all its shares,
-  selected or not — the UI says so. Files in a Team Folder or on an external
+  selected or not, and the UI says so. Files in a Team Folder or on an external
   storage are not in the account's home and are left to the plain transfer
   (`not_in_home`). A move that dies mid-way leaves its row `running`, and that
   row is never given up on by age (no time limit tells a dead worker from one
@@ -580,8 +581,8 @@ unresolvable.
   abandoned and is marked interrupted by the next move that needs its account.
   Where the lock cannot be looked at (workers that do not share the data
   directory, an unwritable directory) the answer is "unknown" and the move stays
-  running until an administrator uses *Mark as interrupted* — refused while the
-  worker is known to be alive, and recorded in the audit log. Only one move to a
+  running until an administrator uses *Mark as interrupted*, which is refused while the
+  worker is known to be alive and is recorded in the audit log. Only one move to a
   given account runs at a time, enforced by a unique `running_target` column
   rather than a lock, so it holds across worker processes and databases; a move
   that finds its account busy reschedules itself a minute later. What no code
@@ -596,28 +597,28 @@ unresolvable.
 - **Orphan detection cost on large instances.** `getOrphanOwners()` needs one
   lookup per distinct owner to tell "deleted" from "active" (cached 90 s). With
   many departed users, a daily job filling an orphan-cache table would spare the
-  request path — same "wait for evidence" bar as the missing indexes below.
-- ~~Screenshots with clean demo data~~ — done (2026-08-02): all 7
+  request path; same "wait for evidence" bar as the missing indexes below.
+- ~~Screenshots with clean demo data~~: done (2026-08-02): all 7
   screenshots retaken against the real dev instance, with realistic share
   data and the current UI (including 0.4.0's "Deleted shares" tab); the
   dashboard widget now shows the full page instead of an isolated crop of
   the card, for consistency with the rest of the set.
-- **`build/l10n.py` only scans `src/` — a regression, not a new gap.** This
+- **`build/l10n.py` only scans `src/`: a regression, not a new gap.** This
   was fixed on 2026-07-11 (extended to `lib/**/*.php` to catch backend
-  `IL10N->t()`/`->n()` calls), but that fix never made it to GitHub — it was
+  `IL10N->t()`/`->n()` calls), but that fix never made it to GitHub. It was
   one of the local-only commits dropped in the 2026-07-15 realignment
   (`git reset --hard origin/master`), and GitHub's parallel history never
   reintroduced it. Confirmed 2026-08-02: `lib/Settings/AdminSection.php`,
   `lib/Settings/PersonalSection.php` and `lib/Dashboard/MyAlertsWidget.php`
   still use `IL10N->t()` with no coverage from the script. Redo the glob
   extension to `lib/**/*.php`.
-- **CSV export streaming** — `ShareCollectorService::getAllForExport()`
+- **CSV export streaming.** `ShareCollectorService::getAllForExport()`
   materializes up to 100k rows in memory before responding
   (`ReportService::buildCsv()`). Swap for a `StreamResponse` (or the
   AppFramework's streaming callback) that iterates in chunks (e.g. 1000
   rows via `findShares($filters, 1000, $offset)` in a loop) and writes
   straight to output. Deferred (2026-07-09): bigger effort, no real
-  evidence yet of instances with tens of thousands of shares — revisit when
+  evidence yet of instances with tens of thousands of shares; revisit when
   that evidence exists.
 - Missing an index on `share_with` (autocomplete/recipient search,
   `ILIKE %...%`) and on `path` (sorting). Tolerable on a ~300-user instance

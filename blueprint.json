@@ -71,17 +71,17 @@
     {
       "step": "writeFile",
       "path": "data/admin/files/Q3 Financials.xlsx",
-      "content": "This stands in for a spreadsheet — Share Audit Dashboard flags it by file extension, not content."
+      "content": "This stands in for a spreadsheet. Share Audit Dashboard flags it by file extension, not content."
     },
     {
       "step": "writeFile",
       "path": "data/alice/files/Team Photos.zip",
-      "content": "This stands in for an archive — Share Audit Dashboard flags it by file extension, not content."
+      "content": "This stands in for an archive. Share Audit Dashboard flags it by file extension, not content."
     },
     {
       "step": "writeFile",
       "path": "data/bob/files/Meeting Notes.txt",
-      "content": "Notes shared privately with a single teammate — nothing here should trigger an alert."
+      "content": "Notes shared privately with a single teammate. Nothing here should trigger an alert."
     },
     {
       "step": "writeFile",

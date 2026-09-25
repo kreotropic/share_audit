@@ -16,12 +16,12 @@ working on the app, not for running it.
 | `docker-compose.mysql.yml` | Disposable MariaDB Nextcloud instance, port 8084. |
 | `seed-fixture.php` | Creates a deterministic set of shares to compare between the two. |
 | `dump-readpaths.php` | Prints every read path over that fixture, normalised so two instances can be diffed. |
-| `run-integration.sh` | Runs `tests/Integration` on those two instances — see *Integration tests* below. |
+| `run-integration.sh` | Runs `tests/Integration` on those two instances (see *Integration tests* below). |
 
 ## Cross-engine checks
 
-The app supports MySQL/MariaDB and PostgreSQL. It contains no raw SQL — every
-query goes through the QueryBuilder — so most of it is portable by
+The app supports MySQL/MariaDB and PostgreSQL. It contains no raw SQL: every
+query goes through the QueryBuilder, so most of it is portable by
 construction. What is *not* portable by construction is **ordering**: MySQL
 sorts `NULL` before every value and PostgreSQL after it, and a `GROUP BY` with
 a `LIMIT` and no tiebreaker returns a different set of rows on each engine
@@ -37,8 +37,8 @@ docker compose -p shareaudit-pg -f build/docker-compose.pgsql.yml up -d
 docker compose -p shareaudit-my -f build/docker-compose.mysql.yml up -d
 ```
 
-Point both at the same Nextcloud version — identical versions are what make the
-two outputs diffable — then enable the app and give each the identical fixture:
+Point both at the same Nextcloud version (identical versions are what make the
+two outputs diffable), then enable the app and give each the identical fixture:
 
 ```bash
 for c in shareaudit-pg-app shareaudit-my-app; do
@@ -51,12 +51,12 @@ done
 `seed-fixture.php` creates three accounts, two groups and eight shares covering
 every share type, links with and without a password and an expiration, a
 `share_with` that is NULL beside real recipients, and creation times spread
-across a year. It is idempotent — re-run it on both instances before a diff
+across a year. It is idempotent, so re-run it on both instances before a diff
 rather than tearing anything down.
 
 Then dump each instance's output and diff the two. `dump-readpaths.php` walks
-every read path — stats, all seven sort columns in both directions, the
-filters, alerts, exposure, orphans and recipient lookup — and normalises the
+every read path (stats, all seven sort columns in both directions, the
+filters, alerts, exposure, orphans and recipient lookup) and normalises the
 identifiers that legitimately differ:
 
 ```bash
@@ -78,7 +78,7 @@ Three things to know before you trust a diff:
   its value.
 - **Re-seed both sides first.** Expirations are relative to now, and anything
   that creates or restores a share (the soft-delete round trip, for instance)
-  shifts creation times on one instance and not the other — which shows up as a
+  shifts creation times on one instance and not the other, which shows up as a
   bogus difference in the trend series.
 
 Tear either instance down with `down -v`. The `-v` matters: without it the
@@ -111,30 +111,30 @@ build/run-integration.sh pgsql --filter RestoreConcurrencyTest
 
 What it covers:
 
-- **`AccessAndCsrfTest`** — every route in `routes.php` as an anonymous
+- **`AccessAndCsrfTest`**: every route in `routes.php` as an anonymous
   visitor, a regular account, an auditor and an admin, and again without the
   CSRF token; plus, by effect, that a refused revoke/restore/settings change
   really changed nothing. The classification of routes (which are for auditors)
   is read from `ControllerAccessTest`, so the two cannot drift apart.
-- **`RestoreConcurrencyTest`** — several restores of one recycle-bin entry sent
+- **`RestoreConcurrencyTest`**: several restores of one recycle-bin entry sent
   at the same moment: exactly one may create a link, and no two links may ever
   share a token (`oc_share.token` has a plain index, so the database will not
   stop it). Also a restore racing a purge, and a token that was taken while the
   entry sat in the bin.
-- **`AuditorTokenSecrecyTest`** — a Talk conversation's token must not reach an
+- **`AuditorTokenSecrecyTest`**: a Talk conversation's token must not reach an
   auditor, directly or by inference: not in any response, not through a search
   that only matches when a guess is right, and not through an order or a cut-off
   that follows the tokens (the same conversations are dealt new tokens and the
   auditor's view must not move). Each check is paired with the admin doing the
-  same, who *does* see the difference — otherwise a clean result could just mean
+  same, who *does* see the difference, since otherwise a clean result could just mean
   the probe was pointed at nothing. Also that every exposure count equals the
   size of the list behind its "View" button.
 
 Things to know:
 
 - **Never point it at an instance you use.** It creates accounts (`sai_*`) and
-  shares, deletes rows, sets the app's auditor groups and — when Talk is not
-  installed, as on these instances — creates the two Talk tables the app reads a
+  shares, deletes rows, sets the app's auditor groups and, when Talk is not
+  installed (as on these instances), creates the two Talk tables the app reads a
   conversation's name from (and drops them again). The bootstrap refuses to run
   unless `SHARE_AUDIT_INTEGRATION=disposable-instance` is set, which the script
   does.
