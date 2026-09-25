@@ -347,6 +347,8 @@ OC.L10N.register(
     "Could not mark the move as interrupted." : "No se pudo marcar el traslado como interrumpido.",
     "Mark as interrupted" : "Marcar como interrumpido",
     "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them." : "¿Marcar este traslado como interrumpido? Hágalo solo si está seguro de que nada sigue moviendo sus archivos: un segundo traslado a la misma cuenta podría sobrescribirlos.",
-    "That move is still running, so it cannot be marked as interrupted." : "Ese traslado sigue en ejecución, así que no se puede marcar como interrumpido."
+    "That move is still running, so it cannot be marked as interrupted." : "Ese traslado sigue en ejecución, así que no se puede marcar como interrumpido.",
+    "This link has already expired, so it can only be revoked." : "Este enlace ya ha caducado, por lo que solo se puede revocar.",
+    "This share no longer exists." : "Este recurso compartido ya no existe."
 },
 "nplurals=2; plural=(n != 1);");

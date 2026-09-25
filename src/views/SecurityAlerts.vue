@@ -164,7 +164,7 @@ import AlertList from '../components/AlertList.vue'
 import HBarChart from '../components/HBarChart.vue'
 import PageNavigation from '../components/PageNavigation.vue'
 import PageSizeSelect from '../components/PageSizeSelect.vue'
-import { issueLabel } from '../utils/format.js'
+import { actionErrorMessage, issueLabel } from '../utils/format.js'
 import { mdiMagnify } from '../utils/icons.js'
 import {
 	fetchAlerts, setSharePassword, setShareExpiration, revokeShare, bulkShareAction,
@@ -445,7 +445,13 @@ export default {
 				}
 				await this.load()
 			} catch (e) {
-				this.notice = { type: 'error', message: t('share_audit_dashboard', 'The action could not be completed.') }
+				// An expired link can only be revoked, and a share that is gone
+				// cannot be changed: say which, and show the list as it now is.
+				const reason = e?.response?.data?.reason
+				this.notice = { type: 'error', message: actionErrorMessage(reason) }
+				if (reason) {
+					await this.load()
+				}
 			} finally {
 				this.busy = false
 			}

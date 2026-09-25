@@ -129,6 +129,24 @@ export function formatDate(seconds) {
 }
 
 /**
+ * What to tell the user when an action on a share was refused.
+ *
+ * @param {string|undefined} reason the `reason` the server sent: 'expired' (an
+ *   expired link can only be revoked), 'not_found' (the share is gone), or
+ *   nothing for any other failure
+ * @return {string}
+ */
+export function actionErrorMessage(reason) {
+	if (reason === 'expired') {
+		return t(APP, 'This link has already expired, so it can only be revoked.')
+	}
+	if (reason === 'not_found') {
+		return t(APP, 'This share no longer exists.')
+	}
+	return t(APP, 'The action could not be completed.')
+}
+
+/**
  * Date and time of a unix timestamp in the viewer's locale, for things that
  * happen more than once a day (a background job).
  *

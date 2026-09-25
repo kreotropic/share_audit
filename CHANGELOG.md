@@ -97,6 +97,21 @@ Follow-up to the 0.7.0 review, which found the fixes above incomplete:
   had a password, refuses and keeps the backup, as before).
 
 ### Fixed
+- **Acting on an expired public link deleted it and reported a failure.** Every
+  action on a share (revoke, add a password, set an expiration, accept an alert,
+  even the check of who owns it in the personal view) loaded the share through
+  Nextcloud's validity check, which for an expired share deletes it and then
+  throws "the requested share does not exist anymore". So "Revoke all" on links
+  that had expired came back as a failure although it had removed them (they sat
+  in *Deleted shares*), the same request repeated said "0 of 10 shares updated"
+  about links that were already gone, and a change to an expired link, or an
+  account that did not own it merely asking, could remove it. Shares are now
+  loaded without that check, so revoking an expired link simply works and a
+  bulk revoke reports every one as done. Revoking a share that is already gone
+  counts as done too. A password or a new expiration on an expired link is
+  refused with a clear message (it can only be revoked) instead of deleting it.
+  The same check also hid links whose owner can no longer create links, which
+  an audit has to be able to revoke.
 - The exposure map's *Other* row now has a *View* button like the others, and
   asking *All shares* for an exposure category the app does not have is
   refused instead of quietly listing everything.

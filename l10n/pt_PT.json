@@ -433,7 +433,9 @@
         "Could not mark the move as interrupted.": "Não foi possível marcar a mudança como interrompida.",
         "Mark as interrupted": "Marcar como interrompida",
         "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.": "Marcar esta mudança como interrompida? Só o faça se tiver a certeza de que nada continua a mover os ficheiros: uma segunda mudança para a mesma conta poderia sobrescrevê-los.",
-        "That move is still running, so it cannot be marked as interrupted.": "Essa mudança ainda está a correr, por isso não pode ser marcada como interrompida."
+        "That move is still running, so it cannot be marked as interrupted.": "Essa mudança ainda está a correr, por isso não pode ser marcada como interrompida.",
+        "This link has already expired, so it can only be revoked.": "Esta hiperligação já expirou, por isso só pode ser revogada.",
+        "This share no longer exists.": "Esta partilha já não existe."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

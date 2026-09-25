@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\ShareAuditDashboard\Service;
 
+use OCP\Share\Exceptions\ShareNotFound;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
 
@@ -34,6 +35,7 @@ class ShareRemediationService {
      */
     public function applyPassword(int $id, string $password = ''): array {
         $share = $this->loadShare($id);
+        $this->refuseIfExpired($share);
         $plain = $password !== '' ? $password : $this->passwordGenerator->generate();
         $share->setPassword($plain);
         $this->shareManager->updateShare($share);
@@ -52,6 +54,7 @@ class ShareRemediationService {
      */
     public function applyExpiration(int $id, int $days = 0): array {
         $share = $this->loadShare($id);
+        $this->refuseIfExpired($share);
         $policy = $this->expiryDefaults->forShareType($share->getShareType());
         $days = $days > 0 ? $days : $policy['days'];
         if ($policy['maxDays'] !== null) {
@@ -65,10 +68,21 @@ class ShareRemediationService {
     }
 
     /**
+     * Revoke a share. Works on an expired one too, which is exactly what an
+     * audit tool is asked to clean up.
+     *
+     * Revoking is idempotent: a share that is already gone (revoked a moment
+     * ago, or removed by Nextcloud's own expiry job) is the state the caller
+     * wanted, so it is reported as done rather than as a failure.
+     *
      * @return array<string, mixed>
      */
     public function revoke(int $id): array {
-        $share = $this->loadShare($id);
+        try {
+            $share = $this->loadShare($id);
+        } catch (ShareNotFound) {
+            return ['id' => $id, 'success' => true, 'action' => 'revoke', 'alreadyGone' => true];
+        }
         $this->shareManager->deleteShare($share);
         $this->auditLogger->logRevoke([[
             'id' => $id,
@@ -93,10 +107,43 @@ class ShareRemediationService {
     /**
      * Load a share by its numeric oc_share id. Alerts only cover public
      * links and native group shares, both always served by the default
-     * provider — see ShareProviderResolver::OCINTERNAL, the shared source
+     * provider; see ShareProviderResolver::OCINTERNAL, the shared source
      * of truth this assumption is pinned against.
+     *
+     * Loaded WITHOUT Nextcloud's validity check ($onlyValid = false). With it,
+     * asking for an expired share makes Nextcloud delete that share and then
+     * throw ShareNotFound, so merely looking at one (to revoke it, to change
+     * it, even to check who owns it) destroyed it and reported a failure.
+     * Expired links are exactly what the "already expired" alert lists, and the
+     * same check also hides a link whose owner may no longer create links.
      */
     public function loadShare(int $id): IShare {
-        return $this->shareManager->getShareById(ShareProviderResolver::OCINTERNAL . ':' . $id);
+        return $this->shareManager->getShareById(ShareProviderResolver::OCINTERNAL . ':' . $id, null, false);
+    }
+
+    /**
+     * A change to an expired share is refused. IShareManager::updateShare() runs
+     * the validity check that deletes an expired share, so letting it through
+     * would destroy the share while reporting an error.
+     *
+     * @throws ShareExpiredException
+     */
+    private function refuseIfExpired(IShare $share): void {
+        if ($share->isExpired()) {
+            throw new ShareExpiredException();
+        }
+    }
+
+    /**
+     * Why an action failed, when the client can act on it: 'expired' (the share
+     * can only be revoked) or 'not_found' (it is gone). Null for anything else,
+     * which is logged and reported generically.
+     */
+    public static function failureReason(\Throwable $e): ?string {
+        return match (true) {
+            $e instanceof ShareExpiredException => 'expired',
+            $e instanceof ShareNotFound => 'not_found',
+            default => null,
+        };
     }
 }

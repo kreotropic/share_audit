@@ -122,8 +122,11 @@ class ShareActionController extends AdminController {
                     default => throw new \InvalidArgumentException('Unknown action: ' . $action),
                 };
             } catch (\Throwable $e) {
-                $this->logger->warning('Bulk share action failed', ['id' => $id, 'action' => $action, 'exception' => $e]);
-                $results[] = ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR];
+                $reason = ShareRemediationService::failureReason($e);
+                if ($reason === null) {
+                    $this->logger->warning('Bulk share action failed', ['id' => $id, 'action' => $action, 'exception' => $e]);
+                }
+                $results[] = ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR] + ($reason !== null ? ['reason' => $reason] : []);
             }
         }
 
@@ -138,6 +141,14 @@ class ShareActionController extends AdminController {
     }
 
     private function fail(int $id, \Throwable $e): JSONResponse {
+        $reason = ShareRemediationService::failureReason($e);
+        if ($reason !== null) {
+            // An expected state (expired, gone), not something to log.
+            return new JSONResponse(
+                ['id' => $id, 'success' => false, 'reason' => $reason, 'error' => self::GENERIC_ERROR],
+                $reason === 'expired' ? Http::STATUS_CONFLICT : Http::STATUS_NOT_FOUND,
+            );
+        }
         $this->logger->warning('Share action failed', ['id' => $id, 'exception' => $e]);
         return new JSONResponse(
             ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR],

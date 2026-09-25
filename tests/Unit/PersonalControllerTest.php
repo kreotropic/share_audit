@@ -14,8 +14,10 @@ use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
+use OCA\ShareAuditDashboard\Service\ShareExpiredException;
 use OCA\ShareAuditDashboard\Service\ShareRemediationService;
 use OCP\AppFramework\Http;
+use OCP\Share\Exceptions\ShareNotFound;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -180,5 +182,58 @@ class PersonalControllerTest extends TestCase {
         $this->remediation->expects($this->never())->method('revoke');
 
         $this->assertSame(Http::STATUS_FORBIDDEN, $this->controller->revoke(1)->getStatus());
+    }
+
+    // -------------------------------------------------------------------
+    // Expired and vanished shares
+    // -------------------------------------------------------------------
+
+    public function testRevokingAShareThatIsAlreadyGoneIsAnAnswerOfDoneNotAnError(): void {
+        $this->stubLoggedIn('alice');
+        $this->settings->method('isPersonalViewEnabled')->willReturn(true);
+        $this->remediation->method('isAccessibleBy')->willThrowException(new ShareNotFound());
+
+        $response = $this->controller->revoke(1);
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertTrue($response->getData()['success']);
+        $this->assertTrue($response->getData()['alreadyGone']);
+    }
+
+    public function testAnExpiredLinkCannotBeChangedAndTheAnswerSaysWhy(): void {
+        $this->stubLoggedIn('alice');
+        $this->settings->method('isPersonalViewEnabled')->willReturn(true);
+        $this->remediation->method('isAccessibleBy')->willReturn(true);
+        $this->remediation->method('applyPassword')->willThrowException(new ShareExpiredException());
+
+        $response = $this->controller->setPassword(1, '');
+
+        $this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
+        $this->assertSame('expired', $response->getData()['reason']);
+        $this->assertFalse($response->getData()['success']);
+    }
+
+    public function testChangingAShareThatIsGoneIsA404WithItsReason(): void {
+        $this->stubLoggedIn('alice');
+        $this->settings->method('isPersonalViewEnabled')->willReturn(true);
+        $this->remediation->method('isAccessibleBy')->willThrowException(new ShareNotFound());
+
+        $response = $this->controller->setExpiration(1, 7);
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+        $this->assertSame('not_found', $response->getData()['reason']);
+    }
+
+    public function testAnUnexpectedFailureStaysAGenericBadRequest(): void {
+        $this->stubLoggedIn('alice');
+        $this->settings->method('isPersonalViewEnabled')->willReturn(true);
+        $this->remediation->method('isAccessibleBy')->willReturn(true);
+        $this->remediation->method('applyPassword')->willThrowException(new \RuntimeException('internal detail'));
+
+        $response = $this->controller->setPassword(1, '');
+
+        $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+        $this->assertArrayNotHasKey('reason', $response->getData());
+        $this->assertStringNotContainsString('internal detail', json_encode($response->getData()));
     }
 }

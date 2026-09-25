@@ -131,13 +131,23 @@ class PersonalController extends Controller {
     #[NoAdminRequired]
     #[UserRateLimit(limit: 20, period: 60)]
     public function revoke(int $id): JSONResponse {
-        return $this->owned($id, fn () => $this->remediation->revoke($id));
+        // A share that is already gone is what a revoke is after, so it is
+        // reported as done, not as an error.
+        return $this->owned(
+            $id,
+            fn () => $this->remediation->revoke($id),
+            ['id' => $id, 'success' => true, 'action' => 'revoke', 'alreadyGone' => true],
+        );
     }
 
     /**
      * Run $action only if the current user owns share $id.
+     *
+     * @param array<string, mixed>|null $ifGone what to answer when the share does
+     *        not exist (any more); null answers 404, which is right for a change
+     *        but not for a revoke
      */
-    private function owned(int $id, callable $action): JSONResponse {
+    private function owned(int $id, callable $action, ?array $ifGone = null): JSONResponse {
         if (($guard = $this->requireEnabled()) !== null) {
             return $guard;
         }
@@ -151,6 +161,17 @@ class PersonalController extends Controller {
             }
             return new JSONResponse($action());
         } catch (\Throwable $e) {
+            $reason = ShareRemediationService::failureReason($e);
+            if ($reason === 'not_found' && $ifGone !== null) {
+                return new JSONResponse($ifGone);
+            }
+            if ($reason !== null) {
+                // An expected state (expired, gone), not something to log.
+                return new JSONResponse(
+                    ['id' => $id, 'success' => false, 'reason' => $reason, 'error' => self::GENERIC_ERROR],
+                    $reason === 'expired' ? Http::STATUS_CONFLICT : Http::STATUS_NOT_FOUND,
+                );
+            }
             $this->logger->warning('Personal share action failed', ['id' => $id, 'exception' => $e]);
             return new JSONResponse(
                 ['id' => $id, 'success' => false, 'error' => self::GENERIC_ERROR],

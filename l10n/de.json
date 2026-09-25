@@ -433,7 +433,9 @@
         "Could not mark the move as interrupted.": "Die Verschiebung konnte nicht als unterbrochen markiert werden.",
         "Mark as interrupted": "Als unterbrochen markieren",
         "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.": "Diese Verschiebung als unterbrochen markieren? Tun Sie das nur, wenn Sie sicher sind, dass nichts mehr Dateien verschiebt: Eine zweite Verschiebung in dasselbe Konto könnte sie überschreiben.",
-        "That move is still running, so it cannot be marked as interrupted.": "Diese Verschiebung läuft noch und kann daher nicht als unterbrochen markiert werden."
+        "That move is still running, so it cannot be marked as interrupted.": "Diese Verschiebung läuft noch und kann daher nicht als unterbrochen markiert werden.",
+        "This link has already expired, so it can only be revoked.": "Dieser Link ist bereits abgelaufen und kann daher nur noch widerrufen werden.",
+        "This share no longer exists.": "Diese Freigabe existiert nicht mehr."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

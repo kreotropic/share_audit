@@ -74,7 +74,7 @@ class AckServiceTest extends TestCase {
 
     public function testAcknowledgeInsertsANewRowPerRuleCodeWhenNoneExistYet(): void {
         $this->stubCurrentUser('admin1');
-        $this->shareManager->method('getShareById')->with('ocinternal:42')->willReturn($this->share());
+        $this->shareManager->method('getShareById')->with('ocinternal:42', null, false)->willReturn($this->share());
         $this->mapper->method('findOneByShareAndRule')->willReturn(null);
 
         $inserted = [];

@@ -106,11 +106,12 @@ class AckService {
     }
 
     /**
-     * @see ShareRemediationService::loadShare() — same convention (alerts
+     * @see ShareRemediationService::loadShare() for the convention (alerts
      * only cover shares served by the default provider; see
-     * ShareProviderResolver::OCINTERNAL).
+     * ShareProviderResolver::OCINTERNAL) and for why the validity check is off:
+     * accepting the alert of an expired link must not delete the link.
      */
     private function loadShare(int $shareId): IShare {
-        return $this->shareManager->getShareById(ShareProviderResolver::OCINTERNAL . ':' . $shareId);
+        return $this->shareManager->getShareById(ShareProviderResolver::OCINTERNAL . ':' . $shareId, null, false);
     }
 }

@@ -433,7 +433,9 @@
         "Could not mark the move as interrupted.": "Could not mark the move as interrupted.",
         "Mark as interrupted": "Mark as interrupted",
         "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.": "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.",
-        "That move is still running, so it cannot be marked as interrupted.": "That move is still running, so it cannot be marked as interrupted."
+        "That move is still running, so it cannot be marked as interrupted.": "That move is still running, so it cannot be marked as interrupted.",
+        "This link has already expired, so it can only be revoked.": "This link has already expired, so it can only be revoked.",
+        "This share no longer exists.": "This share no longer exists."
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

@@ -347,6 +347,8 @@ OC.L10N.register(
     "Could not mark the move as interrupted." : "Impossible de marquer le déplacement comme interrompu.",
     "Mark as interrupted" : "Marquer comme interrompu",
     "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them." : "Marquer ce déplacement comme interrompu ? Ne le faites que si vous êtes certain que plus rien ne déplace ses fichiers : un second déplacement vers le même compte pourrait les écraser.",
-    "That move is still running, so it cannot be marked as interrupted." : "Ce déplacement est toujours en cours ; il ne peut donc pas être marqué comme interrompu."
+    "That move is still running, so it cannot be marked as interrupted." : "Ce déplacement est toujours en cours ; il ne peut donc pas être marqué comme interrompu.",
+    "This link has already expired, so it can only be revoked." : "Ce lien a déjà expiré, il ne peut donc plus qu’être révoqué.",
+    "This share no longer exists." : "Ce partage n’existe plus."
 },
 "nplurals=2; plural=(n > 1);");
