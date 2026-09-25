@@ -12,6 +12,7 @@ namespace OCA\ShareAuditDashboard\Tests\Integration;
 use OCA\ShareAuditDashboard\BackgroundJob\OrphanFileMoveJob;
 use OCA\ShareAuditDashboard\Db\FileMoveMapper;
 use OCA\ShareAuditDashboard\Service\OrphanFileMoveService;
+use OCA\ShareAuditDashboard\Service\WorkerLock;
 use OCP\BackgroundJob\IJobList;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -271,6 +272,147 @@ final class OrphanFileMoveTest extends TestCase {
         $this->assertSame(['from A', 'from B'], $this->takerCopiesOf('report.txt'), 'both files survived');
         $this->assertLinkServes($a->getToken(), 'from A');
         $this->assertLinkServes($b->getToken(), 'from B');
+    }
+
+    // -------------------------------------------------------------------
+    // A worker that dies, and one that is only slow
+    //
+    // A move marked "running" holds its receiving account. If its worker is
+    // gone, something has to free the account; but no length of time tells a
+    // dead worker from one moving a very large folder, and a second move into
+    // the account while the first still writes to it is the data loss the lock
+    // exists to prevent. So a move is only given up on when its worker is known
+    // to be dead — and these use real processes, killed with SIGKILL.
+    // -------------------------------------------------------------------
+
+    /**
+     * Two queued moves into the taker: A/x.txt first, B/y.txt second.
+     *
+     * @return array{0: int, 1: int, 2: IShare, 3: IShare} the two move ids and the two shares
+     */
+    private function twoQueuedMoves(): array {
+        $a = $this->link($this->leaverFile('A/x.txt', 'from A'));
+        $b = $this->link($this->leaverFile('B/y.txt', 'from B'));
+        $this->leaves();
+        $queued = $this->service->enqueue([(int)$a->getId(), (int)$b->getId()], self::TAKER, OrphanFileMoveService::SCOPE_PATH)['queued'];
+        $this->assertCount(2, $queued);
+        return [$queued[0]['id'], $queued[1]['id'], $a, $b];
+    }
+
+    /**
+     * A worker in the middle of a move: it holds the worker's lock and has claimed
+     * the move, and otherwise does nothing.
+     *
+     * @return array{0: resource, 1: array<int, resource>}
+     */
+    private function startHolder(int $moveId): array {
+        $process = proc_open(
+            [PHP_BINARY, __DIR__ . '/move-holder.php', (string)$moveId, self::TAKER],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        $this->assertIsResource($process);
+        stream_set_timeout($pipes[1], 60);
+        $line = trim((string)fgets($pipes[1]));
+        if ($line !== 'held') {
+            proc_terminate($process, 9);
+            $this->fail('the holder did not take the move: ' . $line);
+        }
+        return [$process, $pipes];
+    }
+
+    /** @param array{0: resource, 1: array<int, resource>} $holder */
+    private function kill(array $holder): void {
+        [$process, $pipes] = $holder;
+        proc_terminate($process, 9);   // SIGKILL: nothing runs, nothing is cleaned up
+        foreach ($pipes as $pipe) {
+            fclose($pipe);
+        }
+        proc_close($process);
+    }
+
+    private function dropJob(int $moveId): void {
+        Server::get(IJobList::class)->remove(OrphanFileMoveJob::class, ['id' => $moveId]);
+    }
+
+    public function testAWorkerThatWasKilledIsRecoveredAndTheNextMoveGetsTheAccount(): void {
+        [$first, $second, , ] = $this->twoQueuedMoves();
+        $holder = $this->startHolder($first);
+        $lock = Server::get(WorkerLock::class);
+        $this->assertSame(FileMoveMapper::STATUS_RUNNING, $this->moves->find($first)->getStatus());
+        $this->assertSame(WorkerLock::ALIVE, $lock->state($first), 'while it runs, its lock is held');
+
+        $this->kill($holder);
+
+        $this->assertSame(WorkerLock::DEAD, $lock->state($first), 'killed: the operating system dropped the lock, the file remains');
+        $this->service->run($second);
+
+        $recovered = $this->moves->find($first);
+        $this->assertSame(FileMoveMapper::STATUS_FAILED, $recovered->getStatus());
+        $this->assertSame(OrphanFileMoveService::ERROR_INTERRUPTED, $recovered->getError());
+        $next = $this->moves->find($second);
+        $this->assertSame(FileMoveMapper::STATUS_DONE, $next->getStatus(), (string)$next->getError());
+        $this->assertSame(['from B'], $this->takerCopiesOf('y.txt'));
+        $this->assertSame(WorkerLock::UNKNOWN, $lock->state($first), 'the dead worker\'s file was cleaned up');
+        $this->dropJob($first);
+        $this->dropJob($second);
+    }
+
+    /**
+     * The regression this exists for: the move had been running for three days,
+     * which an age limit would have called dead — but its worker is alive.
+     */
+    public function testAWorkerThatIsStillAliveIsNeverGivenUpOnHoweverLongItHasBeenRunning(): void {
+        [$first, $second] = $this->twoQueuedMoves();
+        $holder = $this->startHolder($first);
+        Server::get(IDBConnection::class)->executeStatement(
+            'UPDATE *PREFIX*shareaudit_filemove SET started_at = ? WHERE id = ?',
+            [time() - 3 * 86400, $first],
+        );
+
+        try {
+            $this->service->run($second);
+
+            $this->assertSame(FileMoveMapper::STATUS_RUNNING, $this->moves->find($first)->getStatus(), 'the running move is untouched');
+            $this->assertSame(FileMoveMapper::STATUS_QUEUED, $this->moves->find($second)->getStatus(), 'the next one waits its turn');
+            $this->assertTrue(Server::get(IJobList::class)->has(OrphanFileMoveJob::class, ['id' => $second]), 'and asks to be run again');
+            $this->assertSame(OrphanFileMoveService::RELEASE_ALIVE, $this->service->release($first), 'not even an administrator can free it while it is alive');
+            $this->assertSame(FileMoveMapper::STATUS_RUNNING, $this->moves->find($first)->getStatus());
+        } finally {
+            $this->kill($holder);
+        }
+
+        // Now it is gone: freed on request, and the waiting move can go.
+        $this->assertSame(OrphanFileMoveService::RELEASE_OK, $this->service->release($first));
+        $this->assertSame(FileMoveMapper::STATUS_FAILED, $this->moves->find($first)->getStatus());
+        $this->service->run($second);
+        $this->assertSame(FileMoveMapper::STATUS_DONE, $this->moves->find($second)->getStatus());
+        $this->dropJob($first);
+        $this->dropJob($second);
+    }
+
+    /**
+     * A worker nothing can be said about — no lock file: it runs on another machine
+     * that does not share the data directory, or the directory was not writable.
+     * It is never freed by itself, only when an administrator says so.
+     */
+    public function testAWorkerNothingCanBeSaidAboutIsFreedOnlyByAnExplicitRelease(): void {
+        [$first, $second] = $this->twoQueuedMoves();
+        $this->assertSame(FileMoveMapper::CLAIM_OK, $this->moves->claim($first, self::TAKER, time() - 5 * 86400));
+        $this->assertSame(WorkerLock::UNKNOWN, Server::get(WorkerLock::class)->state($first));
+
+        $this->service->run($second);
+
+        $this->assertSame(FileMoveMapper::STATUS_RUNNING, $this->moves->find($first)->getStatus(), 'left alone, five days or not');
+        $this->assertSame(FileMoveMapper::STATUS_QUEUED, $this->moves->find($second)->getStatus());
+        $this->dropJob($second);
+
+        $this->assertSame(OrphanFileMoveService::RELEASE_OK, $this->service->release($first));
+        $this->assertSame(OrphanFileMoveService::RELEASE_NOT_RUNNING, $this->service->release($first), 'and only once');
+        $this->service->run($second);
+        $this->assertSame(FileMoveMapper::STATUS_DONE, $this->moves->find($second)->getStatus());
+        $this->dropJob($first);
+        $this->dropJob($second);
     }
 
     public function testAWholeAccountMovesWithAllItsSharesEvenTheUnselectedOnes(): void {

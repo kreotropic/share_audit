@@ -32,7 +32,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
   minute later. That matters because the Files app puts what it moves into a
   folder named after the second and *deletes* what it finds at a name that
   already exists, so two simultaneous moves would erase each other's files of
-  the same name. Needs the two database migrations that come with 0.8.0.
+  the same name. A move that is running is never given up on because of how
+  long it has been running — a very large folder is indistinguishable from a
+  dead worker by age, and freeing the account while it is still writing to it
+  is the data loss all this prevents. Instead a worker holds a lock that the
+  operating system drops the moment the process ends, however it ends: if the
+  next move finds it free, the worker is provably gone and the move is marked
+  interrupted; if the worker cannot be checked (another machine that does not
+  share the data directory), the move stays put until an administrator marks
+  it as interrupted from the list, which is refused while the worker is alive.
+  When Nextcloud's background jobs have not run for over an hour while a move
+  waits — a server without cron, a broken cron entry — the *File moves* list
+  says so, with the date of the last run, instead of leaving a move "queued"
+  for ever. Needs the two database migrations that come with 0.8.0.
 
 ### Security
 Follow-up to the 0.7.0 review, which found the fixes above incomplete:

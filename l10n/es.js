@@ -341,6 +341,12 @@ OC.L10N.register(
     "What to move" : "Qué mover",
     "When" : "Cuándo",
     "_Queued %n file move to {name}. It runs in the background: follow it under File moves._::_Queued %n file moves to {name}. They run in the background: follow them under File moves._" : ["Se puso en cola %n traslado de archivos a {name}. Se ejecuta en segundo plano: sígalo en Traslados de archivos.", "Se pusieron en cola %n traslados de archivos a {name}. Se ejecutan en segundo plano: sígalos en Traslados de archivos."],
-    "_Show %n older move_::_Show %n older moves_" : ["Mostrar %n traslado anterior", "Mostrar %n traslados anteriores"]
+    "_Show %n older move_::_Show %n older moves_" : ["Mostrar %n traslado anterior", "Mostrar %n traslados anteriores"],
+    "Background jobs have never run on this server. A queued move only starts when they do: set up cron under Administration settings → Basic settings → Background jobs." : "Las tareas en segundo plano nunca se han ejecutado en este servidor. Un traslado en cola solo empieza cuando se ejecutan: configure cron en Ajustes de administración → Ajustes básicos → Tareas en segundo plano.",
+    "Background jobs have not run since {date}. A queued move only starts when they do: check that cron is set up under Administration settings → Basic settings → Background jobs." : "Las tareas en segundo plano no se ejecutan desde {date}. Un traslado en cola solo empieza cuando se ejecutan: compruebe que cron está configurado en Ajustes de administración → Ajustes básicos → Tareas en segundo plano.",
+    "Could not mark the move as interrupted." : "No se pudo marcar el traslado como interrumpido.",
+    "Mark as interrupted" : "Marcar como interrumpido",
+    "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them." : "¿Marcar este traslado como interrumpido? Hágalo solo si está seguro de que nada sigue moviendo sus archivos: un segundo traslado a la misma cuenta podría sobrescribirlos.",
+    "That move is still running, so it cannot be marked as interrupted." : "Ese traslado sigue en ejecución, así que no se puede marcar como interrumpido."
 },
 "nplurals=2; plural=(n != 1);");

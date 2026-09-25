@@ -79,4 +79,23 @@ class FileMoveMapperTest extends TestCase {
         $this->expectException(Exception::class);
         $this->mapper->claim(7, 'dana', 1_800_000_000);
     }
+
+    /**
+     * abandon() frees ONE move and only if it is still running, so that racing
+     * with the worker that finishes it — or with another one giving up on it —
+     * frees nothing twice. The answer is whether this call did.
+     */
+    public function testAMoveThatWasStillRunningIsAbandoned(): void {
+        $this->qb->method('andWhere')->willReturnSelf();
+        $this->qb->method('executeStatement')->willReturn(1);
+
+        $this->assertTrue($this->mapper->abandon(7, 'interrupted', 1_800_000_000));
+    }
+
+    public function testAMoveThatIsNoLongerRunningIsNotAbandonedAgain(): void {
+        $this->qb->method('andWhere')->willReturnSelf();
+        $this->qb->method('executeStatement')->willReturn(0);
+
+        $this->assertFalse($this->mapper->abandon(7, 'interrupted', 1_800_000_000));
+    }
 }

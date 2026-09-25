@@ -123,6 +123,26 @@ class ShareAuditLogger {
     }
 
     /**
+     * Records an administrator freeing a file move that was still marked as
+     * running. It lets a second move into the receiving account, so if the
+     * first was in fact still writing there, the files of both are at risk —
+     * who said it was gone belongs on the record.
+     *
+     * @param string|null $path null for the whole account
+     */
+    public function logFileMoveReleased(string $from, string $to, ?string $path): void {
+        $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+            'Share Audit Dashboard: "%s" marked as interrupted the move of %s of "%s" to "%s", which was still running',
+            [
+                'actor' => $this->actor(),
+                'what' => $path === null ? 'all files' : 'the files at "' . $path . '"',
+                'from' => $from,
+                'to' => $to,
+            ],
+        ));
+    }
+
+    /**
      * Records a CSV export by a read-only viewer (auditor, or later a
      * manager — see AccessService): unlike an admin, who already has
      * unaudited access to everything, this is new-since-#16 visibility into

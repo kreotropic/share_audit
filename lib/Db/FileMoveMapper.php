@@ -138,23 +138,43 @@ class FileMoveMapper extends QBMapper {
     }
 
     /**
-     * Give up on moves that have been "running" since before $startedBefore:
-     * the worker that took them died (a fatal error, a killed cron run) and
-     * nothing else will ever change their status, which would otherwise block
-     * any new request for the same account forever — and, since it held the
-     * account's `running_target`, every other move to the account as well.
-     *
-     * @return int how many were marked failed
+     * The move that is running into $target, if any — the holder of its
+     * `running_target`. The unique index means there is at most one.
      */
-    public function failStale(int $startedBefore, string $error, int $now): int {
+    public function findRunningFor(string $target): ?FileMove {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('running_target', $qb->createNamedParameter($target)))
+            ->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_RUNNING)));
+        try {
+            return $this->findEntity($qb);
+        } catch (DoesNotExistException) {
+            return null;
+        }
+    }
+
+    /**
+     * Give up on ONE move that is marked "running", freeing its receiving account
+     * for the next: for a move whose worker is known to be gone (see WorkerLock),
+     * or that an admin has said is. Deliberately not "every move older than X":
+     * no age separates a dead worker from a slow one, and freeing a live one
+     * lets a second move into the account while the first is still writing to it.
+     *
+     * Only acts if the move is still running, so racing with the worker that
+     * finishes it (or with another one giving up on it) does nothing twice.
+     *
+     * @return bool whether this call was the one that freed it
+     */
+    public function abandon(int $id, string $error, int $now): bool {
         $qb = $this->db->getQueryBuilder();
         $qb->update($this->getTableName())
             ->set('status', $qb->createNamedParameter(self::STATUS_FAILED))
             ->set('error', $qb->createNamedParameter($error))
             ->set('finished_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
             ->set('running_target', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
-            ->where($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_RUNNING)))
-            ->andWhere($qb->expr()->lt('started_at', $qb->createNamedParameter($startedBefore, IQueryBuilder::PARAM_INT)));
-        return $qb->executeStatement();
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(self::STATUS_RUNNING)));
+        return $qb->executeStatement() === 1;
     }
 }

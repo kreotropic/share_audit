@@ -66,14 +66,15 @@ class OrphanFileMoveService {
     public const ERROR_INTERRUPTED = 'interrupted';
     public const ERROR_UNEXPECTED = 'unexpected_error';
 
-    /**
-     * A move that has been "running" this long lost its worker. Generous on
-     * purpose: giving up on one that is only slow would free its account for a
-     * second worker while the first is still moving files into it, which is
-     * exactly what the lock exists to prevent. A dead worker costs the account
-     * a delay; a live one mistaken for dead costs files.
-     */
-    private const STALE_AFTER = 24 * 3600;
+    /** release(): the move was freed. */
+    public const RELEASE_OK = 'released';
+    /** release(): there is no such move. */
+    public const RELEASE_NOT_FOUND = 'not_found';
+    /** release(): the move is not running, so there is nothing to free. */
+    public const RELEASE_NOT_RUNNING = 'not_running';
+    /** release(): its worker is alive and still moving files, so it was left alone. */
+    public const RELEASE_ALIVE = 'alive';
+
     /** How long a move that found its account busy waits before trying again. */
     private const RETRY_AFTER = 60;
     private const ERROR_MAX_LENGTH = 1000;
@@ -91,6 +92,8 @@ class OrphanFileMoveService {
         private ITimeFactory $time,
         private ShareAuditLogger $auditLogger,
         private SecurityAnalyzerService $analyzer,
+        private WorkerLock $workerLock,
+        private BackgroundJobsStatus $jobsStatus,
         private LoggerInterface $logger,
     ) {
     }
@@ -124,10 +127,6 @@ class OrphanFileMoveService {
         if ($ids === []) {
             return ['queued' => [], 'skipped' => []];
         }
-
-        $now = $this->time->getTime();
-        // A worker that died would otherwise block its account for good.
-        $this->moves->failStale($now - self::STALE_AFTER, self::ERROR_INTERRUPTED, $now);
 
         $orphanOwners = $this->orphans->getOrphanOwners(true);
         $rows = [];
@@ -221,7 +220,9 @@ class OrphanFileMoveService {
      * Only one move to a given account runs at a time, whatever the number of
      * background workers: see FileMoveMapper::claim(). A move that finds its
      * account busy puts itself back in the queue for a little later instead of
-     * waiting here, and the worker goes on to other jobs.
+     * waiting here, and the worker goes on to other jobs. The move in its way
+     * is only ever given up on when its worker is known to be dead — see
+     * WorkerLock — never because it has been running for a long time.
      */
     public function run(int $id): void {
         try {
@@ -230,6 +231,22 @@ class OrphanFileMoveService {
             return;
         }
 
+        // Held for as long as this worker works on the move, and taken before
+        // claiming it, so that a "running" row always has one to look at.
+        if (!$this->workerLock->acquire($id)) {
+            return;
+        }
+        try {
+            $this->carryOut($move);
+        } finally {
+            // After the row says how it ended: a lock that disappears first would
+            // look like nothing at all, not like a worker that finished.
+            $this->workerLock->release($id);
+        }
+    }
+
+    private function carryOut(FileMove $move): void {
+        $id = (int)$move->getId();
         $from = (string)$move->getSourceUid();
         $to = (string)$move->getTargetUid();
         $path = $move->getPath();
@@ -288,6 +305,40 @@ class OrphanFileMoveService {
     }
 
     /**
+     * Free a move that is marked as running, on an administrator's word — for
+     * the cases the automatic recovery cannot settle: a worker on another
+     * machine that does not share the data directory, a data directory that
+     * cannot be written to.
+     *
+     * Refused while its worker is *known* to be alive: freeing that would let a
+     * second move into the account while the first still writes to it.
+     *
+     * @return string one of the RELEASE_* constants
+     */
+    public function release(int $id): string {
+        try {
+            $move = $this->moves->find($id);
+        } catch (DoesNotExistException) {
+            return self::RELEASE_NOT_FOUND;
+        }
+        if ($move->getStatus() !== FileMoveMapper::STATUS_RUNNING) {
+            return self::RELEASE_NOT_RUNNING;
+        }
+        if ($this->workerLock->state($id) === WorkerLock::ALIVE) {
+            return self::RELEASE_ALIVE;
+        }
+        if ($this->moves->abandon($id, self::ERROR_INTERRUPTED, $this->time->getTime())) {
+            $this->workerLock->forget($id);
+            $this->auditLogger->logFileMoveReleased(
+                (string)$move->getSourceUid(),
+                (string)$move->getTargetUid(),
+                $move->getPath(),
+            );
+        }
+        return self::RELEASE_OK;
+    }
+
+    /**
      * The newest moves, for the dashboard.
      *
      * @return array<int, array<string, mixed>>
@@ -300,19 +351,10 @@ class OrphanFileMoveService {
             $uids[] = $move->getTargetUid();
         }
         $names = $this->displayNames->resolveMany($uids);
-        $now = $this->time->getTime();
 
-        return array_map(function (FileMove $move) use ($names, $now): array {
+        return array_map(function (FileMove $move) use ($names): array {
             $status = (string)$move->getStatus();
             $error = $move->getError();
-            // Shown as failed as soon as it is overdue; enqueue() is what
-            // actually records that, since a read should not write.
-            if ($status === FileMoveMapper::STATUS_RUNNING
-                && $move->getStartedAt() !== null
-                && $move->getStartedAt() < $now - self::STALE_AFTER) {
-                $status = FileMoveMapper::STATUS_FAILED;
-                $error = self::ERROR_INTERRUPTED;
-            }
             $from = (string)$move->getSourceUid();
             $to = (string)$move->getTargetUid();
             return [
@@ -330,24 +372,73 @@ class OrphanFileMoveService {
                 'createdAt' => (int)$move->getCreatedAt(),
                 'startedAt' => $move->getStartedAt(),
                 'finishedAt' => $move->getFinishedAt(),
+                // Only for a move that is running: whether its worker is alive,
+                // dead, or cannot be told — see WorkerLock. Decides whether the
+                // dashboard offers to free it.
+                'workerState' => $status === FileMoveMapper::STATUS_RUNNING
+                    ? $this->workerLock->state((int)$move->getId())
+                    : null,
             ];
         }, $moves);
     }
 
     /**
-     * Claim move $id for the account $to, first freeing the account of a move
-     * whose worker died if that is what is in the way.
+     * What the dashboard shows: the newest moves, and whether Nextcloud's
+     * background jobs are running for them at all (see BackgroundJobsStatus).
+     *
+     * @return array{items: array<int, array<string, mixed>>, backgroundJobs: array{mode: string, lastRun: ?int, stalled: bool}}
+     */
+    public function overview(int $limit = 50): array {
+        $items = $this->list($limit);
+        $waiting = array_filter(
+            $items,
+            static fn (array $m) => in_array($m['status'], [FileMoveMapper::STATUS_QUEUED, FileMoveMapper::STATUS_RUNNING], true),
+        );
+        return ['items' => $items, 'backgroundJobs' => $this->jobsStatus->describe($waiting !== [])];
+    }
+
+    /**
+     * Claim move $id for the account $to. If another move is in the way and its
+     * worker is provably dead, that one is given up on and the claim tried again.
      */
     private function claim(int $id, string $to): string {
         $claim = $this->moves->claim($id, $to, $this->time->getTime());
-        if ($claim !== FileMoveMapper::CLAIM_BUSY) {
-            return $claim;
-        }
-        $now = $this->time->getTime();
-        if ($this->moves->failStale($now - self::STALE_AFTER, self::ERROR_INTERRUPTED, $now) === 0) {
+        if ($claim !== FileMoveMapper::CLAIM_BUSY || !$this->reclaimAbandoned($to)) {
             return $claim;
         }
         return $this->moves->claim($id, $to, $this->time->getTime());
+    }
+
+    /**
+     * Free the account $target of the move running into it, but only when that
+     * move's worker is known to be dead (see WorkerLock). A worker that is
+     * alive, or one nothing can be said about, is left alone however long it has
+     * been running: the account then simply stays busy, and an administrator can
+     * free it with release() if the worker is really gone.
+     *
+     * @return bool whether the account is free to try again
+     */
+    private function reclaimAbandoned(string $target): bool {
+        $holder = $this->moves->findRunningFor($target);
+        if ($holder === null) {
+            // It finished between the refusal and now.
+            return true;
+        }
+        $id = (int)$holder->getId();
+        if ($this->workerLock->state($id) !== WorkerLock::DEAD) {
+            return false;
+        }
+        if ($this->moves->abandon($id, self::ERROR_INTERRUPTED, $this->time->getTime())) {
+            $this->workerLock->forget($id);
+            $this->auditLogger->logFileMoveFinished(
+                (string)$holder->getRequestedBy(),
+                (string)$holder->getSourceUid(),
+                (string)$holder->getTargetUid(),
+                $holder->getPath(),
+                self::ERROR_INTERRUPTED,
+            );
+        }
+        return true;
     }
 
     private function queue(string $owner, string $newOwner, string $scope, ?string $path, int $shares): FileMove {

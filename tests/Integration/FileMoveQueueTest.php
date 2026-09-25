@@ -124,22 +124,6 @@ final class FileMoveQueueTest extends TestCase {
         $this->assertNotNull($queued->getId());
     }
 
-    public function testARunOverdueIsGivenUpOnAndAFreshOneIsNot(): void {
-        $overdue = (int)$this->queue('Old', 'path', 'sai_queue_target_a')->getId();
-        $fresh = (int)$this->queue('New', 'path', 'sai_queue_target_b')->getId();
-        $queued = (int)$this->queue('Waiting')->getId();
-        $this->mapper->claim($overdue, 'sai_queue_target_a', 1_800_000_000);
-        $this->mapper->claim($fresh, 'sai_queue_target_b', 1_800_050_000);
-
-        $failed = $this->mapper->failStale(1_800_020_000, 'interrupted', 1_800_060_000);
-
-        $this->assertGreaterThanOrEqual(1, $failed);
-        $this->assertSame(FileMoveMapper::STATUS_FAILED, $this->mapper->find($overdue)->getStatus());
-        $this->assertSame('interrupted', $this->mapper->find($overdue)->getError());
-        $this->assertSame(FileMoveMapper::STATUS_RUNNING, $this->mapper->find($fresh)->getStatus());
-        $this->assertSame(FileMoveMapper::STATUS_QUEUED, $this->mapper->find($queued)->getStatus(), 'one not started has no worker to lose');
-    }
-
     /**
      * The Files app names the folder it moves into after the second, and a move
      * onto a name that exists deletes what was there, so two moves into one
@@ -170,15 +154,51 @@ final class FileMoveQueueTest extends TestCase {
         $this->assertSame(FileMoveMapper::CLAIM_OK, $this->mapper->claim($second, 'sai_queue_target', 1_800_000_201), 'free once the first is over');
     }
 
-    public function testANeverEndingMoveIsGivenUpOnAndFreesItsAccount(): void {
+    /**
+     * A move whose worker is gone is freed one at a time, by name — never "every
+     * move older than X", which cannot tell a dead worker from a slow one.
+     */
+    public function testAbandoningOneMoveFreesItsAccountForTheNext(): void {
         $dead = (int)$this->queue('Dead')->getId();
         $waiting = (int)$this->queue('Waiting')->getId();
         $this->mapper->claim($dead, 'sai_queue_target', 1_800_000_000);
         $this->assertSame(FileMoveMapper::CLAIM_BUSY, $this->mapper->claim($waiting, 'sai_queue_target', 1_800_090_000));
+        $this->assertSame($dead, $this->mapper->findRunningFor('sai_queue_target')?->getId());
 
-        $this->mapper->failStale(1_800_050_000, 'interrupted', 1_800_090_000);
+        $this->assertTrue($this->mapper->abandon($dead, 'interrupted', 1_800_090_000));
 
+        $abandoned = $this->mapper->find($dead);
+        $this->assertSame(FileMoveMapper::STATUS_FAILED, $abandoned->getStatus());
+        $this->assertSame('interrupted', $abandoned->getError());
+        $this->assertNull($this->mapper->findRunningFor('sai_queue_target'));
         $this->assertSame(FileMoveMapper::CLAIM_OK, $this->mapper->claim($waiting, 'sai_queue_target', 1_800_090_001));
+    }
+
+    public function testAMoveIsAbandonedOnlyWhileItIsRunningAndOnlyOnce(): void {
+        $queued = (int)$this->queue('Queued', 'path', 'sai_queue_target_a')->getId();
+        $running = (int)$this->queue('Running', 'path', 'sai_queue_target_b')->getId();
+        $this->mapper->claim($running, 'sai_queue_target_b', 1_800_000_000);
+
+        $this->assertFalse($this->mapper->abandon($queued, 'interrupted', 1_800_000_100), 'a move that has not started has nothing to give up');
+        $this->assertSame(FileMoveMapper::STATUS_QUEUED, $this->mapper->find($queued)->getStatus());
+        $this->assertTrue($this->mapper->abandon($running, 'interrupted', 1_800_000_100));
+        $this->assertFalse($this->mapper->abandon($running, 'interrupted', 1_800_000_200), 'freed once');
+
+        // And one that has finished on its own is not turned into a failure.
+        $done = (int)$this->queue('Done', 'path', 'sai_queue_target_c')->getId();
+        $this->mapper->claim($done, 'sai_queue_target_c', 1_800_000_000);
+        $this->mapper->finish($done, FileMoveMapper::STATUS_DONE, null, 1_800_000_050);
+        $this->assertFalse($this->mapper->abandon($done, 'interrupted', 1_800_000_100));
+        $this->assertSame(FileMoveMapper::STATUS_DONE, $this->mapper->find($done)->getStatus());
+    }
+
+    /** However old, a running move stays running: nothing in the mapper frees one by age. */
+    public function testARunningMoveStaysRunningWhateverItsAge(): void {
+        $id = (int)$this->queue('Old')->getId();
+        $this->mapper->claim($id, 'sai_queue_target', 1_000_000_000);   // decades ago
+
+        $this->assertSame(FileMoveMapper::STATUS_RUNNING, $this->mapper->find($id)->getStatus());
+        $this->assertSame(FileMoveMapper::CLAIM_BUSY, $this->mapper->claim((int)$this->queue('Next')->getId(), 'sai_queue_target', 1_800_000_000));
     }
 
     public function testTheNewestComeFirst(): void {

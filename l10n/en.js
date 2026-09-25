@@ -341,6 +341,12 @@ OC.L10N.register(
     "What to move" : "What to move",
     "When" : "When",
     "_Queued %n file move to {name}. It runs in the background: follow it under File moves._::_Queued %n file moves to {name}. They run in the background: follow them under File moves._" : ["Queued %n file move to {name}. It runs in the background: follow it under File moves.", "Queued %n file moves to {name}. They run in the background: follow them under File moves."],
-    "_Show %n older move_::_Show %n older moves_" : ["Show %n older move", "Show %n older moves"]
+    "_Show %n older move_::_Show %n older moves_" : ["Show %n older move", "Show %n older moves"],
+    "Background jobs have never run on this server. A queued move only starts when they do: set up cron under Administration settings → Basic settings → Background jobs." : "Background jobs have never run on this server. A queued move only starts when they do: set up cron under Administration settings → Basic settings → Background jobs.",
+    "Background jobs have not run since {date}. A queued move only starts when they do: check that cron is set up under Administration settings → Basic settings → Background jobs." : "Background jobs have not run since {date}. A queued move only starts when they do: check that cron is set up under Administration settings → Basic settings → Background jobs.",
+    "Could not mark the move as interrupted." : "Could not mark the move as interrupted.",
+    "Mark as interrupted" : "Mark as interrupted",
+    "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them." : "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.",
+    "That move is still running, so it cannot be marked as interrupted." : "That move is still running, so it cannot be marked as interrupted."
 },
 "nplurals=2; plural=(n != 1);");

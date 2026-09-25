@@ -51,6 +51,8 @@ return [
         // Move the files of a disabled owner too (background job). Queuing is admin-only; the status list is read-only.
         ['name' => 'orphanShare#moveFiles', 'url' => '/api/orphans/move-files', 'verb' => 'POST'],
         ['name' => 'orphanShare#fileMoves', 'url' => '/api/orphans/file-moves', 'verb' => 'GET'],
+        // Free a move still marked running when its worker is gone. Admin-only.
+        ['name' => 'orphanShare#releaseFileMove', 'url' => '/api/orphans/file-moves/{id}/release', 'verb' => 'POST'],
         // Exposure map (internal / external / public + score). Read-only.
         ['name' => 'exposure#overview', 'url' => '/api/exposure', 'verb' => 'GET'],
         // Personal (per-user) view: audit and fix your own shares.

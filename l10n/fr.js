@@ -341,6 +341,12 @@ OC.L10N.register(
     "What to move" : "Quoi déplacer",
     "When" : "Quand",
     "_Queued %n file move to {name}. It runs in the background: follow it under File moves._::_Queued %n file moves to {name}. They run in the background: follow them under File moves._" : ["%n déplacement de fichiers mis en file d’attente pour {name}. Il s’exécute en arrière-plan : suivez-le sous Déplacements de fichiers.", "%n déplacements de fichiers mis en file d’attente pour {name}. Ils s’exécutent en arrière-plan : suivez-les sous Déplacements de fichiers."],
-    "_Show %n older move_::_Show %n older moves_" : ["Afficher %n déplacement plus ancien", "Afficher %n déplacements plus anciens"]
+    "_Show %n older move_::_Show %n older moves_" : ["Afficher %n déplacement plus ancien", "Afficher %n déplacements plus anciens"],
+    "Background jobs have never run on this server. A queued move only starts when they do: set up cron under Administration settings → Basic settings → Background jobs." : "Les tâches en arrière-plan ne se sont jamais exécutées sur ce serveur. Un déplacement en file d’attente ne démarre que lorsqu’elles s’exécutent : configurez cron sous Paramètres d’administration → Paramètres de base → Tâches en arrière-plan.",
+    "Background jobs have not run since {date}. A queued move only starts when they do: check that cron is set up under Administration settings → Basic settings → Background jobs." : "Les tâches en arrière-plan ne se sont pas exécutées depuis {date}. Un déplacement en file d’attente ne démarre que lorsqu’elles s’exécutent : vérifiez que cron est configuré sous Paramètres d’administration → Paramètres de base → Tâches en arrière-plan.",
+    "Could not mark the move as interrupted." : "Impossible de marquer le déplacement comme interrompu.",
+    "Mark as interrupted" : "Marquer comme interrompu",
+    "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them." : "Marquer ce déplacement comme interrompu ? Ne le faites que si vous êtes certain que plus rien ne déplace ses fichiers : un second déplacement vers le même compte pourrait les écraser.",
+    "That move is still running, so it cannot be marked as interrupted." : "Ce déplacement est toujours en cours ; il ne peut donc pas être marqué comme interrompu."
 },
 "nplurals=2; plural=(n > 1);");

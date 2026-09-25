@@ -487,15 +487,25 @@ upfront). Like the CSV, the report must not include access tokens.
   share of a moved file goes with it, and a moved account takes all its shares,
   selected or not — the UI says so. Files in a Team Folder or on an external
   storage are not in the account's home and are left to the plain transfer
-  (`not_in_home`). A move that dies mid-way leaves its row `running` until it
-  is given up on after a day (deliberately long: freeing the account of a move
-  that is only slow would let a second one in); a move that fails leaves the
-  files where they were, but a partial copy of a huge folder is the Files app's
-  to clean up. Only one move to a given account runs at a time, enforced by a
-  unique `running_target` column rather than a lock, so it holds across worker
-  processes and databases; a move that finds its account busy reschedules itself
-  a minute later. What no code here can prevent is somebody running
-  `occ files:transfer-ownership` to the same account in the same second.
+  (`not_in_home`). A move that dies mid-way leaves its row `running`, and that
+  row is never given up on by age (no time limit tells a dead worker from one
+  moving a huge folder, and freeing the account while it still writes to it is
+  the data loss the lock prevents). A worker instead holds an exclusive `flock()`
+  on a file per move under `<datadir>/.share_audit_dashboard/locks/`, taken before
+  the move is claimed, which the operating system drops when the process ends by
+  any means (`kill -9` included): a move whose lock can be taken is provably
+  abandoned and is marked interrupted by the next move that needs its account.
+  Where the lock cannot be looked at (workers that do not share the data
+  directory, an unwritable directory) the answer is "unknown" and the move stays
+  running until an administrator uses *Mark as interrupted* — refused while the
+  worker is known to be alive, and recorded in the audit log. Only one move to a
+  given account runs at a time, enforced by a unique `running_target` column
+  rather than a lock, so it holds across worker processes and databases; a move
+  that finds its account busy reschedules itself a minute later. What no code
+  here can prevent is somebody running `occ files:transfer-ownership` to the
+  same account in the same second. The list also warns when Nextcloud's
+  background jobs have not run for over an hour (Nextcloud's own threshold) while
+  a move waits.
 - **Orphans on LDAP/AD.** An account disabled in the directory can still show as
   *enabled* in Nextcloud when the sync doesn't map that state, so its shares
   aren't flagged as orphans (and can't be transferred or revoked from here).

@@ -341,6 +341,12 @@ OC.L10N.register(
     "What to move" : "O que mover",
     "When" : "Quando",
     "_Queued %n file move to {name}. It runs in the background: follow it under File moves._::_Queued %n file moves to {name}. They run in the background: follow them under File moves._" : ["%n mudança de ficheiros em fila para {name}. Corre em segundo plano: acompanhe-a em Mudanças de ficheiros.", "%n mudanças de ficheiros em fila para {name}. Correm em segundo plano: acompanhe-as em Mudanças de ficheiros."],
-    "_Show %n older move_::_Show %n older moves_" : ["Mostrar %n mudança mais antiga", "Mostrar %n mudanças mais antigas"]
+    "_Show %n older move_::_Show %n older moves_" : ["Mostrar %n mudança mais antiga", "Mostrar %n mudanças mais antigas"],
+    "Background jobs have never run on this server. A queued move only starts when they do: set up cron under Administration settings → Basic settings → Background jobs." : "As tarefas em segundo plano nunca correram neste servidor. Uma mudança em fila só arranca quando correm: configure o cron em Definições de administração → Definições básicas → Tarefas em segundo plano.",
+    "Background jobs have not run since {date}. A queued move only starts when they do: check that cron is set up under Administration settings → Basic settings → Background jobs." : "As tarefas em segundo plano não correm desde {date}. Uma mudança em fila só arranca quando correm: verifique se o cron está configurado em Definições de administração → Definições básicas → Tarefas em segundo plano.",
+    "Could not mark the move as interrupted." : "Não foi possível marcar a mudança como interrompida.",
+    "Mark as interrupted" : "Marcar como interrompida",
+    "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them." : "Marcar esta mudança como interrompida? Só o faça se tiver a certeza de que nada continua a mover os ficheiros: uma segunda mudança para a mesma conta poderia sobrescrevê-los.",
+    "That move is still running, so it cannot be marked as interrupted." : "Essa mudança ainda está a correr, por isso não pode ser marcada como interrompida."
 },
 "nplurals=2; plural=(n != 1);");

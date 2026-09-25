@@ -14,6 +14,12 @@
 			</p>
 		</div>
 
+		<!-- Queued moves only start when Nextcloud's background jobs run: with
+		     them stopped a move waits for ever and looks like a fresh one. -->
+		<NcNoteCard v-if="backgroundJobs && backgroundJobs.stalled" type="warning" class="sad-filemoves__cron">
+			{{ cronMessage }}
+		</NcNoteCard>
+
 		<div class="sad-filemoves__wrapper">
 			<table class="sad-filemoves__table">
 				<caption class="hidden-visually">
@@ -52,6 +58,32 @@
 							<span v-if="move.status === 'failed' && move.error" class="sad-filemoves__error">
 								{{ errorLabel(move.error) }}
 							</span>
+							<!-- A running move whose worker is not known to be alive keeps its
+							     receiving account busy for ever; an admin can free it. -->
+							<template v-if="canManage && move.status === 'running' && move.workerState !== 'alive'">
+								<template v-if="releasing === move.id">
+									<span class="sad-filemoves__error">
+										{{ t('share_audit_dashboard', 'Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.') }}
+									</span>
+									<span class="sad-filemoves__actions">
+										<NcButton variant="error" :disabled="releaseBusy" @click="release(move.id)">
+											{{ t('share_audit_dashboard', 'Confirm') }}
+										</NcButton>
+										<NcButton variant="tertiary" :disabled="releaseBusy" @click="releasing = null">
+											{{ t('share_audit_dashboard', 'Cancel') }}
+										</NcButton>
+									</span>
+								</template>
+								<NcButton v-else
+									variant="tertiary"
+									class="sad-filemoves__release"
+									@click="askRelease(move.id)">
+									{{ t('share_audit_dashboard', 'Mark as interrupted') }}
+								</NcButton>
+							</template>
+							<span v-if="releaseError && releasing === move.id" class="sad-filemoves__error">
+								{{ releaseError }}
+							</span>
 						</td>
 						<td>{{ formatDateTime(move.finishedAt || move.startedAt || move.createdAt) }}</td>
 					</tr>
@@ -73,10 +105,13 @@
 <script>
 import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import { fetchFileMoves } from '../services/api.js'
+import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import { fetchFileMoves, releaseFileMove } from '../services/api.js'
 import { formatDateTime } from '../utils/format.js'
 
 const POLL_MS = 8000
+// With the background jobs stopped nothing is going to change soon.
+const POLL_STALLED_MS = 30000
 const COLLAPSED_ROWS = 5
 const ACTIVE = ['queued', 'running']
 
@@ -92,12 +127,20 @@ const errorLabels = () => ({
 
 export default {
 	name: 'FileMoves',
-	components: { NcButton },
+	components: { NcButton, NcNoteCard },
 	// A move that finished (well or badly) changes which shares are orphans.
 	emits: ['finished'],
+	inject: {
+		canManage: { default: true },
+	},
 	data() {
 		return {
 			moves: [],
+			backgroundJobs: null,
+			// The move an admin is being asked to confirm freeing, and how that went.
+			releasing: null,
+			releaseBusy: false,
+			releaseError: '',
 			expanded: false,
 			timer: null,
 			activeIds: [],
@@ -107,6 +150,13 @@ export default {
 	computed: {
 		visibleMoves() {
 			return this.expanded ? this.moves : this.moves.slice(0, COLLAPSED_ROWS)
+		},
+		cronMessage() {
+			const lastRun = this.backgroundJobs?.lastRun
+			if (!lastRun) {
+				return t('share_audit_dashboard', 'Background jobs have never run on this server. A queued move only starts when they do: set up cron under Administration settings → Basic settings → Background jobs.')
+			}
+			return t('share_audit_dashboard', 'Background jobs have not run since {date}. A queued move only starts when they do: check that cron is set up under Administration settings → Basic settings → Background jobs.', { date: formatDateTime(lastRun) })
 		},
 	},
 	mounted() {
@@ -136,7 +186,8 @@ export default {
 		async refresh() {
 			clearTimeout(this.timer)
 			try {
-				const moves = await fetchFileMoves()
+				const { items: moves, backgroundJobs } = await fetchFileMoves()
+				this.backgroundJobs = backgroundJobs
 				const nowActive = moves.filter((m) => ACTIVE.includes(m.status)).map((m) => m.id)
 				const finished = this.activeIds.some((id) => !nowActive.includes(id))
 				this.moves = moves
@@ -148,7 +199,26 @@ export default {
 				// A failed poll only leaves the list as it was; the next one may work.
 			}
 			if (this.activeIds.length > 0) {
-				this.timer = setTimeout(() => this.refresh(), POLL_MS)
+				this.timer = setTimeout(() => this.refresh(), this.backgroundJobs?.stalled ? POLL_STALLED_MS : POLL_MS)
+			}
+		},
+		askRelease(id) {
+			this.releaseError = ''
+			this.releasing = id
+		},
+		async release(id) {
+			this.releaseBusy = true
+			this.releaseError = ''
+			try {
+				await releaseFileMove(id)
+				this.releasing = null
+				await this.refresh()
+			} catch (e) {
+				this.releaseError = e?.response?.data?.reason === 'alive'
+					? t('share_audit_dashboard', 'That move is still running, so it cannot be marked as interrupted.')
+					: t('share_audit_dashboard', 'Could not mark the move as interrupted.')
+			} finally {
+				this.releaseBusy = false
 			}
 		},
 	},
@@ -192,6 +262,9 @@ export default {
 	width: 100%;
 	border-collapse: collapse;
 	font-size: 13px;
+	// Nextcloud's own stylesheet makes every table nowrap, which sends a long
+	// path or a confirmation sentence off the right edge of the screen.
+	white-space: normal;
 
 	th,
 	td {
@@ -204,6 +277,11 @@ export default {
 	th {
 		color: var(--color-text-maxcontrast);
 		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	// The date and time stay on one line.
+	td:last-child {
 		white-space: nowrap;
 	}
 }
@@ -257,6 +335,20 @@ export default {
 }
 
 .sad-filemoves__more {
+	margin-top: 6px;
+}
+
+.sad-filemoves__cron {
+	margin-bottom: 10px;
+}
+
+.sad-filemoves__release {
+	margin-top: 4px;
+}
+
+.sad-filemoves__actions {
+	display: flex;
+	gap: 8px;
 	margin-top: 6px;
 }
 </style>

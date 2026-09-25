@@ -12,6 +12,7 @@ namespace OCA\ShareAuditDashboard\Tests\Unit;
 use OCA\ShareAuditDashboard\Db\FileMove;
 use OCA\ShareAuditDashboard\Db\FileMoveMapper;
 use OCA\ShareAuditDashboard\Db\ShareMapper;
+use OCA\ShareAuditDashboard\Service\BackgroundJobsStatus;
 use OCA\ShareAuditDashboard\Service\DisplayNameResolver;
 use OCA\ShareAuditDashboard\Service\FileNodeResolver;
 use OCA\ShareAuditDashboard\Service\OrphanFileMoveService;
@@ -19,6 +20,7 @@ use OCA\ShareAuditDashboard\Service\OrphanShareService;
 use OCA\ShareAuditDashboard\Service\OwnershipTransferGateway;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\ShareAuditLogger;
+use OCA\ShareAuditDashboard\Service\WorkerLock;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -61,6 +63,8 @@ class OrphanFileMoveServiceTest extends TestCase {
     private ITimeFactory&MockObject $time;
     private ShareAuditLogger&MockObject $auditLogger;
     private SecurityAnalyzerService&MockObject $analyzer;
+    private WorkerLock&MockObject $workerLock;
+    private BackgroundJobsStatus&MockObject $jobsStatus;
     private OrphanFileMoveService $service;
 
     /** @var FileMove[] what the mapper was asked to insert */
@@ -78,6 +82,9 @@ class OrphanFileMoveServiceTest extends TestCase {
         $this->jobList = $this->createMock(IJobList::class);
         $this->auditLogger = $this->createMock(ShareAuditLogger::class);
         $this->analyzer = $this->createMock(SecurityAnalyzerService::class);
+        $this->workerLock = $this->createMock(WorkerLock::class);
+        $this->workerLock->method('acquire')->willReturn(true);
+        $this->jobsStatus = $this->createMock(BackgroundJobsStatus::class);
 
         $this->time = $this->createMock(ITimeFactory::class);
         $this->time->method('getTime')->willReturn(self::NOW);
@@ -104,6 +111,8 @@ class OrphanFileMoveServiceTest extends TestCase {
             $this->time,
             $this->auditLogger,
             $this->analyzer,
+            $this->workerLock,
+            $this->jobsStatus,
             $this->createMock(LoggerInterface::class),
         );
 
@@ -472,18 +481,26 @@ class OrphanFileMoveServiceTest extends TestCase {
         $this->service->run(7);
     }
 
+    private function runningMove(int $id, int $startedAt = self::NOW - 60): FileMove {
+        $holder = $this->move($id, 'gone-leaver', 'Other', 'path', 'running');
+        $holder->setStartedAt($startedAt);
+        return $holder;
+    }
+
     /**
-     * Another worker is already moving files into the same account: this one
-     * must not touch the files, must leave the move queued, and must put itself
-     * back in the job list for later instead of being lost.
+     * Another worker is already moving files into the same account and is alive:
+     * this one must not touch the files, must leave the move queued, and must put
+     * itself back in the job list for later instead of being lost.
      */
     public function testAMoveWhoseAccountIsBusyBacksOffAndTriesLater(): void {
         $this->queued();
         $this->accounts(['leaver' => false, 'dana' => true]);
         $this->moves->method('claim')->with(7, 'dana', self::NOW)->willReturn(FileMoveMapper::CLAIM_BUSY);
-        $this->moves->method('failStale')->willReturn(0);
+        $this->moves->method('findRunningFor')->willReturn($this->runningMove(3));
+        $this->workerLock->method('state')->with(3)->willReturn(WorkerLock::ALIVE);
 
         $this->gateway->expects($this->never())->method('move');
+        $this->moves->expects($this->never())->method('abandon');
         $this->moves->expects($this->never())->method('finish');
         $this->jobList->expects($this->once())->method('scheduleAfter')
             ->with(\OCA\ShareAuditDashboard\BackgroundJob\OrphanFileMoveJob::class, self::NOW + 60, ['id' => 7]);
@@ -492,22 +509,217 @@ class OrphanFileMoveServiceTest extends TestCase {
     }
 
     /**
-     * The move in the way may belong to a worker that died: it is given up on,
-     * and the account then goes to this one.
+     * The point of the whole change: however long a move has been running, it is
+     * never given up on for that reason. A live worker moving a huge folder is
+     * indistinguishable from a dead one by age.
      */
-    public function testABusyAccountWhoseMoveWasAbandonedIsTakenOver(): void {
+    public function testAMoveThatHasBeenRunningForDaysIsStillLeftAloneWhileItsWorkerIsAlive(): void {
+        $this->queued();
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_BUSY);
+        $this->moves->method('findRunningFor')->willReturn($this->runningMove(3, self::NOW - 5 * 86400));
+        $this->workerLock->method('state')->willReturn(WorkerLock::ALIVE);
+
+        $this->moves->expects($this->never())->method('abandon');
+        $this->gateway->expects($this->never())->method('move');
+        $this->jobList->expects($this->once())->method('scheduleAfter');
+
+        $this->service->run(7);
+    }
+
+    /** Nothing can be said about the worker (another machine, an unwritable directory): also left alone. */
+    public function testAMoveWhoseWorkerCannotBeToldIsLeftAloneToo(): void {
+        $this->queued();
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_BUSY);
+        $this->moves->method('findRunningFor')->willReturn($this->runningMove(3, self::NOW - 5 * 86400));
+        $this->workerLock->method('state')->willReturn(WorkerLock::UNKNOWN);
+
+        $this->moves->expects($this->never())->method('abandon');
+        $this->jobList->expects($this->once())->method('scheduleAfter');
+
+        $this->service->run(7);
+    }
+
+    /**
+     * The move in the way belongs to a worker that is provably gone: it is given up
+     * on (and that is recorded), and the account then goes to this one.
+     */
+    public function testABusyAccountWhoseWorkerIsDeadIsTakenOver(): void {
         $this->queued();
         $this->accounts(['leaver' => false, 'dana' => true]);
         $this->moves->method('claim')->willReturnOnConsecutiveCalls(FileMoveMapper::CLAIM_BUSY, FileMoveMapper::CLAIM_OK);
-        $this->moves->expects($this->once())->method('failStale')
-            ->with(self::NOW - 24 * 3600, OrphanFileMoveService::ERROR_INTERRUPTED, self::NOW)
-            ->willReturn(1);
+        $this->moves->method('findRunningFor')->willReturn($this->runningMove(3));
+        $this->workerLock->method('state')->with(3)->willReturn(WorkerLock::DEAD);
 
+        $this->moves->expects($this->once())->method('abandon')
+            ->with(3, OrphanFileMoveService::ERROR_INTERRUPTED, self::NOW)
+            ->willReturn(true);
+        $this->workerLock->expects($this->once())->method('forget')->with(3);
+        $this->auditLogger->expects($this->exactly(2))->method('logFileMoveFinished');
         $this->gateway->expects($this->once())->method('move');
         $this->jobList->expects($this->never())->method('scheduleAfter');
         $this->moves->expects($this->once())->method('finish')->with(7, 'done', null, self::NOW);
 
         $this->service->run(7);
+    }
+
+    public function testTheAccountIsTakenIfTheMoveInTheWayFinishedMeanwhile(): void {
+        $this->queued();
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturnOnConsecutiveCalls(FileMoveMapper::CLAIM_BUSY, FileMoveMapper::CLAIM_OK);
+        $this->moves->method('findRunningFor')->willReturn(null);
+
+        $this->moves->expects($this->never())->method('abandon');
+        $this->gateway->expects($this->once())->method('move');
+
+        $this->service->run(7);
+    }
+
+    // -------------------------------------------------------------------
+    // The worker's own lock
+    // -------------------------------------------------------------------
+
+    public function testAMoveThatIsBeingWorkedOnElsewhereIsNotRunHere(): void {
+        $workerLock = $this->createMock(WorkerLock::class);
+        $workerLock->method('acquire')->willReturn(false);
+        $service = $this->serviceWithLock($workerLock);
+        $this->queued();
+
+        $this->moves->expects($this->never())->method('claim');
+        $this->gateway->expects($this->never())->method('move');
+
+        $service->run(7);
+    }
+
+    public function testTheWorkersLockIsTakenBeforeTheMoveIsClaimedAndKeptUntilItIsRecorded(): void {
+        $this->queued();
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $calls = [];
+        $workerLock = $this->createMock(WorkerLock::class);
+        $workerLock->method('acquire')->willReturnCallback(function () use (&$calls): bool {
+            $calls[] = 'acquire';
+            return true;
+        });
+        $workerLock->method('release')->willReturnCallback(function () use (&$calls): void {
+            $calls[] = 'release';
+        });
+        $this->moves->method('claim')->willReturnCallback(function () use (&$calls): string {
+            $calls[] = 'claim';
+            return FileMoveMapper::CLAIM_OK;
+        });
+        $this->moves->method('finish')->willReturnCallback(function () use (&$calls): void {
+            $calls[] = 'finish';
+        });
+
+        $this->serviceWithLock($workerLock)->run(7);
+
+        $this->assertSame(['acquire', 'claim', 'finish', 'release'], $calls);
+    }
+
+    public function testTheLockIsReleasedEvenWhenTheMoveThrows(): void {
+        $this->queued();
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
+        $this->moves->method('finish')->willThrowException(new \RuntimeException('database gone'));
+        $workerLock = $this->createMock(WorkerLock::class);
+        $workerLock->method('acquire')->willReturn(true);
+        $workerLock->expects($this->once())->method('release')->with(7);
+
+        $this->expectException(\RuntimeException::class);
+        $this->serviceWithLock($workerLock)->run(7);
+    }
+
+    private function serviceWithLock(WorkerLock $workerLock): OrphanFileMoveService {
+        return new OrphanFileMoveService(
+            $this->moves,
+            $this->mapper,
+            $this->orphans,
+            $this->userManager,
+            $this->userSession,
+            $this->nodes,
+            $this->gateway,
+            $this->displayNames,
+            $this->jobList,
+            $this->time,
+            $this->auditLogger,
+            $this->analyzer,
+            $workerLock,
+            $this->jobsStatus,
+            $this->createMock(LoggerInterface::class),
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // Freeing a move by hand
+    // -------------------------------------------------------------------
+
+    public function testReleasingAMoveThatDoesNotExistSaysSo(): void {
+        $this->moves->method('find')->willThrowException(new DoesNotExistException(''));
+
+        $this->assertSame(OrphanFileMoveService::RELEASE_NOT_FOUND, $this->service->release(7));
+    }
+
+    public function testOnlyARunningMoveCanBeReleased(): void {
+        foreach (['queued', 'done', 'failed'] as $status) {
+            $moves = $this->createMock(FileMoveMapper::class);
+            $moves->method('find')->willReturn($this->move(7, 'leaver', 'Docs', 'path', $status));
+            $moves->expects($this->never())->method('abandon');
+            $service = $this->serviceWith($moves);
+
+            $this->assertSame(OrphanFileMoveService::RELEASE_NOT_RUNNING, $service->release(7), $status);
+        }
+    }
+
+    public function testAMoveWhoseWorkerIsAliveCannotBeReleased(): void {
+        $this->moves->method('find')->willReturn($this->runningMove(7, self::NOW - 9 * 86400));
+        $this->workerLock->method('state')->with(7)->willReturn(WorkerLock::ALIVE);
+
+        $this->moves->expects($this->never())->method('abandon');
+        $this->auditLogger->expects($this->never())->method('logFileMoveReleased');
+
+        $this->assertSame(OrphanFileMoveService::RELEASE_ALIVE, $this->service->release(7));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function workersThatAreNotKnownToBeAlive(): array {
+        return ['dead' => [WorkerLock::DEAD], 'cannot be told' => [WorkerLock::UNKNOWN]];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('workersThatAreNotKnownToBeAlive')]
+    public function testAMoveWhoseWorkerIsNotKnownToBeAliveCanBeReleasedAndItIsRecorded(string $state): void {
+        $this->moves->method('find')->willReturn($this->runningMove(7));
+        $this->workerLock->method('state')->willReturn($state);
+
+        $this->moves->expects($this->once())->method('abandon')
+            ->with(7, OrphanFileMoveService::ERROR_INTERRUPTED, self::NOW)
+            ->willReturn(true);
+        $this->workerLock->expects($this->once())->method('forget')->with(7);
+        $this->auditLogger->expects($this->once())->method('logFileMoveReleased')->with('gone-leaver', 'dana', 'Other');
+
+        $this->assertSame(OrphanFileMoveService::RELEASE_OK, $this->service->release(7));
+    }
+
+    private function serviceWith(FileMoveMapper $moves): OrphanFileMoveService {
+        return new OrphanFileMoveService(
+            $moves,
+            $this->mapper,
+            $this->orphans,
+            $this->userManager,
+            $this->userSession,
+            $this->nodes,
+            $this->gateway,
+            $this->displayNames,
+            $this->jobList,
+            $this->time,
+            $this->auditLogger,
+            $this->analyzer,
+            $this->workerLock,
+            $this->jobsStatus,
+            $this->createMock(LoggerInterface::class),
+        );
     }
 
     public function testTheFilesMoveAndTheMoveIsRecordedAsDone(): void {
@@ -601,22 +813,50 @@ class OrphanFileMoveServiceTest extends TestCase {
     // The list the dashboard shows
     // -------------------------------------------------------------------
 
-    public function testTheListCarriesNamesAndShowsAnOverdueRunAsFailed(): void {
-        $fresh = $this->move(2, 'leaver', 'Docs', 'path', 'running');
-        $fresh->setStartedAt(self::NOW - 60);
-        $overdue = $this->move(1, 'leaver2', null, 'account', 'running');
-        $overdue->setStartedAt(self::NOW - 25 * 3600);
-        $this->moves->method('findRecent')->willReturn([$fresh, $overdue]);
+    public function testTheListCarriesNamesAndTheWorkersStateOfRunningMoves(): void {
+        $running = $this->move(2, 'leaver', 'Docs', 'path', 'running');
+        $running->setStartedAt(self::NOW - 60);
+        // Running for days: still just "running" — age is not a verdict.
+        $old = $this->move(1, 'leaver2', null, 'account', 'running');
+        $old->setStartedAt(self::NOW - 25 * 3600);
+        $done = $this->move(3, 'leaver', 'x', 'path', 'done');
+        $this->moves->method('findRecent')->willReturn([$running, $old, $done]);
         $this->displayNames->method('resolveMany')->willReturn(['leaver' => 'The Leaver', 'dana' => 'Dana']);
+        $this->workerLock->method('state')->willReturnMap([[2, WorkerLock::ALIVE], [1, WorkerLock::DEAD]]);
 
         $items = $this->service->list();
 
         $this->assertSame('running', $items[0]['status']);
         $this->assertSame('The Leaver', $items[0]['sourceDisplayName']);
         $this->assertSame('Dana', $items[0]['targetDisplayName']);
+        $this->assertSame('alive', $items[0]['workerState']);
         $this->assertSame('leaver2', $items[1]['sourceDisplayName'], 'a name it could not resolve falls back to the uid');
-        $this->assertSame('failed', $items[1]['status']);
-        $this->assertSame(OrphanFileMoveService::ERROR_INTERRUPTED, $items[1]['error']);
+        $this->assertSame('running', $items[1]['status'], 'an old run is not declared failed by age');
+        $this->assertSame('dead', $items[1]['workerState']);
         $this->assertNull($items[1]['path']);
+        $this->assertNull($items[2]['workerState'], 'only a running move has a worker to ask about');
+    }
+
+    public function testTheOverviewSaysWhetherBackgroundJobsAreRunningForWaitingMoves(): void {
+        $queued = $this->move(2, 'leaver', 'Docs', 'path', 'queued');
+        $done = $this->move(1, 'leaver', 'x', 'path', 'done');
+        $this->moves->method('findRecent')->willReturn([$queued, $done]);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+        $this->jobsStatus->expects($this->once())->method('describe')->with(true)
+            ->willReturn(['mode' => 'cron', 'lastRun' => null, 'stalled' => true]);
+
+        $overview = $this->service->overview();
+
+        $this->assertCount(2, $overview['items']);
+        $this->assertTrue($overview['backgroundJobs']['stalled']);
+    }
+
+    public function testNothingWaitingIsNothingToWarnAbout(): void {
+        $this->moves->method('findRecent')->willReturn([$this->move(1, 'leaver', 'x', 'path', 'done')]);
+        $this->displayNames->method('resolveMany')->willReturn([]);
+        $this->jobsStatus->expects($this->once())->method('describe')->with(false)
+            ->willReturn(['mode' => 'cron', 'lastRun' => 1, 'stalled' => false]);
+
+        $this->service->overview();
     }
 }

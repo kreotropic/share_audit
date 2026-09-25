@@ -141,7 +141,25 @@ class OrphanShareController extends AdminController {
         if (($scope = $this->requireViewer()) instanceof JSONResponse) {
             return $scope;
         }
-        return new JSONResponse(['items' => $this->fileMoveService->list()]);
+        return new JSONResponse($this->fileMoveService->overview());
+    }
+
+    /**
+     * POST /api/orphans/file-moves/{id}/release — free a file move that is
+     * still marked as running, for when its worker is gone and nothing else can
+     * tell. Refused (409) while the worker is known to be alive, see
+     * OrphanFileMoveService::release().
+     */
+    public function releaseFileMove(int $id): JSONResponse {
+        if (($guard = $this->requireAdmin()) !== null) {
+            return $guard;
+        }
+        $result = $this->fileMoveService->release($id);
+        return match ($result) {
+            OrphanFileMoveService::RELEASE_OK => new JSONResponse(['released' => true]),
+            OrphanFileMoveService::RELEASE_NOT_FOUND => new JSONResponse(['reason' => $result], Http::STATUS_NOT_FOUND),
+            default => new JSONResponse(['reason' => $result], Http::STATUS_CONFLICT),
+        };
     }
 
     /**

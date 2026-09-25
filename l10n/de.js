@@ -341,6 +341,12 @@ OC.L10N.register(
     "What to move" : "Was verschoben wird",
     "When" : "Wann",
     "_Queued %n file move to {name}. It runs in the background: follow it under File moves._::_Queued %n file moves to {name}. They run in the background: follow them under File moves._" : ["%n Dateiverschiebung für {name} eingeplant. Sie läuft im Hintergrund: Verfolgen Sie sie unter Dateiverschiebungen.", "%n Dateiverschiebungen für {name} eingeplant. Sie laufen im Hintergrund: Verfolgen Sie sie unter Dateiverschiebungen."],
-    "_Show %n older move_::_Show %n older moves_" : ["%n ältere Verschiebung anzeigen", "%n ältere Verschiebungen anzeigen"]
+    "_Show %n older move_::_Show %n older moves_" : ["%n ältere Verschiebung anzeigen", "%n ältere Verschiebungen anzeigen"],
+    "Background jobs have never run on this server. A queued move only starts when they do: set up cron under Administration settings → Basic settings → Background jobs." : "Hintergrundjobs wurden auf diesem Server noch nie ausgeführt. Eine eingeplante Verschiebung startet erst, wenn sie laufen: Richten Sie Cron unter Administrationseinstellungen → Grundeinstellungen → Hintergrundjobs ein.",
+    "Background jobs have not run since {date}. A queued move only starts when they do: check that cron is set up under Administration settings → Basic settings → Background jobs." : "Hintergrundjobs wurden seit {date} nicht mehr ausgeführt. Eine eingeplante Verschiebung startet erst, wenn sie laufen: Prüfen Sie, ob Cron unter Administrationseinstellungen → Grundeinstellungen → Hintergrundjobs eingerichtet ist.",
+    "Could not mark the move as interrupted." : "Die Verschiebung konnte nicht als unterbrochen markiert werden.",
+    "Mark as interrupted" : "Als unterbrochen markieren",
+    "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them." : "Diese Verschiebung als unterbrochen markieren? Tun Sie das nur, wenn Sie sicher sind, dass nichts mehr Dateien verschiebt: Eine zweite Verschiebung in dasselbe Konto könnte sie überschreiben.",
+    "That move is still running, so it cannot be marked as interrupted." : "Diese Verschiebung läuft noch und kann daher nicht als unterbrochen markiert werden."
 },
 "nplurals=2; plural=(n != 1);");

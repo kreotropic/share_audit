@@ -210,11 +210,26 @@ export async function moveOrphanFiles(ids, newOwner, scope) {
 }
 
 /**
- * The newest file moves and how each is going (queued, running, done, failed).
+ * The newest file moves and how each is going (queued, running, done, failed),
+ * with whether Nextcloud's background jobs — which carry a move out — are
+ * running at all.
+ *
+ * @return {Promise<{items: Array<object>, backgroundJobs: {mode: string, lastRun: ?number, stalled: boolean}}>}
  */
 export async function fetchFileMoves() {
 	const { data } = await axios.get(base('/api/orphans/file-moves'))
-	return data.items
+	return data
+}
+
+/**
+ * Free a move that is still marked as running, when its worker is gone. Refused
+ * (HTTP 409, reason "alive") while the worker is known to be alive.
+ *
+ * @param {number} id
+ */
+export async function releaseFileMove(id) {
+	const { data } = await axios.post(base(`/api/orphans/file-moves/${id}/release`))
+	return data
 }
 
 /**
