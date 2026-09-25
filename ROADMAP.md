@@ -5,7 +5,7 @@
 
 # Share Audit Dashboard — Roadmap
 
-## Current state (v0.7.0)
+## Current state (v0.8.0, unreleased)
 
 The app is **published on the App Store** (`min-version` 31, `max-version`
 35) and functionally complete: three review rounds (security, pre-submission
@@ -19,10 +19,16 @@ Nextcloud 35 support; 0.7.0 added read-only auditor access (issue #16), closed
 a self-initiated security review of 0.6.0 (cache/UID isolation, Talk-token
 redaction, restore atomicity, audit-log completeness — see CHANGELOG.md's
 0.7.0 *Security* section), and distinguished an orphan share whose file is
-also gone from one that can still be transferred (issue #21). The app has a
-test suite (`phpunit`, `tests/Unit/`, 393 tests, plus 180 integration tests in `tests/Integration/`) and CI
-(`.github/workflows/ci.yml`: l10n, php, frontend). Everything below is
-already implemented and working:
+also gone from one that can still be transferred (issue #21). 0.8.0, still
+unreleased, closes a follow-up review of 0.7.0 (Talk-token oracles, atomic
+restore, a real-database integration suite — see the CHANGELOG's *Unreleased*
+section) and lets an admin **move the files of a disabled owner** from *Orphan
+shares*, not only hand over the share. The app has a test suite (`phpunit`,
+`tests/Unit/`, 465 tests; 215 integration tests in `tests/Integration/`, which
+run inside a real Nextcloud on MariaDB and PostgreSQL; 11 node tests for the
+frontend's selection logic in `tests/js/`) and CI (`.github/workflows/ci.yml`:
+l10n, php, frontend build + node tests — the integration suite is not in CI
+yet, see the backlog). Everything below is already implemented and working:
 
 ### Delivered
 
@@ -104,10 +110,13 @@ already implemented and working:
   what moves follow it with the same id and link token. Only a *disabled*
   account qualifies — a deleted one's files went with it, which is what the
   "file no longer exists" badge already says — and everything is re-checked when
-  the job runs, so a re-enabled account keeps its files. Two moves to one
-  account are kept at least a second apart: the destination folder is named
-  after the second, and the Files app deletes what it finds at a name that
-  already exists.
+  the job runs, so a re-enabled account keeps its files. Only one move into an
+  account runs at a time, whatever the number of background workers, and a
+  running move is never given up on because of how long it has run — see
+  *Moving files: what it leaves out* for why, and for how a dead worker is told
+  apart from a slow one. An admin can mark a stuck move as interrupted, and the
+  list warns when Nextcloud's background jobs have not run for over an hour
+  (a server without cron would otherwise leave a move "queued" for ever).
 - **Access lookup** (reverse drill-down): search by user, group or email
   and list **every file/folder that recipient can reach**, with *revoke all
   access* (server-side batches of 500)
@@ -175,8 +184,9 @@ they turn out to matter in practice:
 - **DE/ES/FR translations for the 7 new UI strings** were done directly (not
   reviewed by the community translators credited for those languages in
   CHANGELOG.md) — worth a native-speaker pass before the next release.
-  The 18 strings of the orphan-transfer UI and the 9 of the Talk/Deck recipient
-  (conversation and card names) are in the same state.
+  The 18 strings of the orphan-transfer UI, the 9 of the Talk/Deck recipient
+  (conversation and card names) and the ~40 of the file-move UI (scope choice,
+  *File moves* list, cron warning, mark-as-interrupted) are in the same state.
   EN and PT-PT are the maintainer's own and authoritative as always.
 
 With G2 done, every remaining backlog item below is explicitly gated on App
@@ -259,6 +269,7 @@ already done isn't lost.
 | 4 | Compliance reports by email | (2) | 3-4 days | Medium |
 | 5 | Per-group policies | — | 4-5 days | Medium |
 | 6 | Signed PDF/HTML report (external audits) | — | 3-4 days | Medium- |
+| 7 | Audit Talk conversations open to guests | a scope decision, and a feature request | not estimated | not known |
 
 ---
 
@@ -378,25 +389,74 @@ upfront). Like the CSV, the report must not include access tokens.
 
 ---
 
+### 7. Audit Talk conversations that are open to guests
+
+**Status (2026-09-25): parked, waiting for a feature request and for demand.
+Nothing is built and nothing is scheduled.** It came out of issue
+[#18](https://github.com/kreotropic/share_audit/issues/18) (closed as completed:
+its subject, showing Talk and Deck shares by name, is delivered in 0.6.0), and
+the reporter, [@michel-thomas](https://github.com/michel-thomas), agreed it is
+a different use case.
+
+**The ask.** List every Talk conversation that anyone can join — a public link,
+or free join by guests — whether or not a file was ever shared into it, so that
+an admin can spot an unauthorised room ("visio-squatting"). The app cannot see
+these today: it learns of a conversation only through an `oc_share` row, which
+exists only when a *file* was shared into it, so a room used purely for chat and
+calls never appears, open to anyone or not. Deck has no equivalent to audit —
+the reporter checked, and a board's membership (`oc_deck_board_acl`) has no
+"open to anyone" notion.
+
+**Why it is not simply another filter.** Share Audit is built to audit file
+shares, and the data source here is a different one: Talk's own `talk_rooms`
+table rather than `oc_share`. The maintainer does not use Talk, so what an admin
+actually needs from it cannot be judged from this side; the reporter was asked
+to help shape it.
+
+**The open question is one of scope, and both positions are on record:**
+- *A separate app* ("Talk Room Auditor", the maintainer's suggestion) — keeps
+  Share Audit about `oc_share`, and lets the Talk side be designed by people who
+  use Talk.
+- *One global share-auditing app* (the reporter's preference: "a global share
+  auditing rather than multiple specific audit apps", where a Talk resource is
+  still a *share*, only not of a file) — one place, one auditor role, one export
+  and audit log, and one exposure score for an admin to read. The cost is that
+  the app would depend on Talk's schema (it already reads it, fenced, for names
+  and openness) and that an auditor would see more than files.
+
+**How it will be decided.** The reporter offered to open a feature request
+that can wait — collecting 👍 — or be cancelled later; that is the agreed route,
+and this is settled only once it exists and shows demand. The requirements below
+are what it should answer.
+
+**To settle in that request** (none of it is known yet):
+- Which conversations count: a public link, open to every logged-in user
+  (listable), guests allowed, protected by a password or not?
+- What an admin wants to see per conversation: name, type, creator, participants
+  and guests, last activity, whether it has a link — and the link's token is a
+  credential, so the redaction already done for shares (an opaque handle for an
+  auditor, the token only for an admin) would apply.
+- Read-only, or actions as well (lock the room, close guest access, delete it)?
+  Actions would have to go through Talk's own API, never its tables.
+- Who may see it: admins only, or the auditor role from issue #16 as well.
+- Which Talk versions: the schema differs between them, and Talk's tables are
+  not a public API.
+
+**What already exists to build on.** `RecipientDetailsResolver::
+describeRoomOpenness()` (added in 0.7.0 for the exposure score) already resolves
+whether a conversation is open, and to whom; `RecipientLookupService::
+roomHandle()` keeps a conversation's token away from an auditor; and
+`ExposureMapService` already classifies a conversation as internal, public or
+unresolvable.
+
+---
+
 ## Minor backlog
 
 - **List Talk conversations open to guest/free join, directly — not only
-  when a file happens to be shared into them.** Clarified via issue
-  [#18](https://github.com/kreotropic/share_audit/issues/18) (2026-09-23,
-  [@michel-thomas](https://github.com/michel-thomas)): the app only ever
-  learns about a Talk conversation through an `oc_share` row, which only
-  exists when a *file* was shared into it — a room used purely for
-  chat/calls, with no file ever shared into it, has no such row and so
-  never appears, "public and open to anyone" or not. Their actual use case
-  ("share audit could prevent visio-squatting") wants every open/public
-  conversation listed regardless of whether a file was ever shared into it
-  — that needs a new read straight from `talk_rooms`
-  (`RecipientDetailsResolver::describeRoomOpenness()`, added in 0.7.0 for
-  the exposure score above, already resolves a token's openness and is most
-  of the hard part) rather than another `oc_share` filter. Same gap exists
-  for Deck (a board's membership lives in `oc_deck_board_acl`, not
-  `oc_share` at all) — michel-thomas checked and found no equivalent
-  "open/guest" concept on the Deck side to audit.
+  when a file happens to be shared into them.** Moved to *Post-launch #7*, with
+  the reporter's use case, the two positions on scope and the questions a feature
+  request should answer. Parked until that request exists and shows demand.
 - ~~`RecipientLookupService`/`RecipientController` (the reverse "who has
   access to X" drill-down) still hands a Talk conversation's bare token back
   to an auditor~~ — done (after 0.7.0, see CHANGELOG.md's *Unreleased*
@@ -458,6 +518,27 @@ upfront). Like the CSV, the report must not include access tokens.
   the members of a group or circle inside it) are one query away in
   `talk_attendees` but are not shown — a tooltip or drawer would need a bounded
   read per conversation.
+- **Tell the new owner when a file move finishes.** A finished move drops a
+  "Transferred from …" folder into their home and says nothing; the Files app's
+  own asynchronous transfer notifies both accounts. A notification
+  (`INotificationManager`, the same plumbing *Post-launch #1* would add for
+  owner notifications) would close that loop, and could name the folder.
+- **Finished file moves are never purged.** `oc_shareaudit_filemove` keeps every
+  row, and the list shows the newest fifty. A retention window and a purge in
+  the existing daily job (as the recycle bin has) would keep it small; the audit
+  log already holds the permanent record.
+- **File moves can only be ordered from the orphan picker.** There is no way to
+  move a disabled account's files with no share involved — the account has to
+  own at least one orphan share to be selected. Fine for the offboarding case
+  this was built for; an account-level action in the *Owner* column would cover
+  the rest.
+- **A stuck move is only recoverable where workers share the data directory or by
+  hand.** The lock that proves a worker dead is a file under the data directory,
+  so workers on machines that do not share it (or an unwritable directory) give an
+  "unknown" answer and the move waits for an admin's *Mark as interrupted*. A
+  heartbeat column would work everywhere, but the transfer is one blocking call
+  into the Files app with no hook to tick from, so it would report a healthy
+  long move as silent.
 - **Sort *All shares* by file name.** The table sorts by the full path, so two
   files called `notas.txt` in different folders don't sort next to each other.
   `oc_filecache` already holds the basename in its own indexed `name` column
@@ -483,7 +564,9 @@ upfront). Like the CSV, the report must not include access tokens.
   differ across 31 to 35, so only its first three arguments are passed (as the
   Files app's own job does) and it is confined to `OwnershipTransferGateway`.
   Verified against Nextcloud 33 and 35 on MariaDB and PostgreSQL; 31, 32 and 34
-  are not. What moves is decided by the Files app, not by the selection: every
+  are not, and neither are server-side encryption (the Files app refuses to move
+  encrypted files or into an account that never logged in — surfaced as the
+  move's error, not tested), LDAP accounts, or folders of many gigabytes. What moves is decided by the Files app, not by the selection: every
   share of a moved file goes with it, and a moved account takes all its shares,
   selected or not — the UI says so. Files in a Team Folder or on an external
   storage are not in the account's home and are left to the plain transfer
