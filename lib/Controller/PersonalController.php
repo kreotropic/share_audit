@@ -11,6 +11,7 @@ namespace OCA\ShareAuditDashboard\Controller;
 
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
+use OCA\ShareAuditDashboard\Service\FileNodeResolver;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
@@ -45,6 +46,7 @@ class PersonalController extends Controller {
         private SettingsService $settings,
         private IUserSession $userSession,
         private LoggerInterface $logger,
+        private FileNodeResolver $nodes,
     ) {
         parent::__construct($appName, $request);
     }
@@ -85,7 +87,9 @@ class PersonalController extends Controller {
         if ($uid === null) {
             return $this->unauthenticated();
         }
-        return new JSONResponse($this->collector->getShares(['ownerOrInitiator' => $uid], $page, $limit));
+        $result = $this->collector->getShares(['ownerOrInitiator' => $uid], $page, $limit);
+        $result['items'] = $this->asSeenBy($uid, $result['items']);
+        return new JSONResponse($result);
     }
 
     /**
@@ -102,7 +106,7 @@ class PersonalController extends Controller {
             return $this->unauthenticated();
         }
         return new JSONResponse([
-            'items' => $this->security->getAlerts($uid),
+            'items' => $this->asSeenBy($uid, $this->security->getAlerts($uid)),
             'expiryDefaults' => $this->expiryDefaults->forLinks(),
         ]);
     }
@@ -178,6 +182,31 @@ class PersonalController extends Controller {
                 Http::STATUS_BAD_REQUEST,
             );
         }
+    }
+
+    /**
+     * The paths of $items as $uid sees them, not as their owner does.
+     *
+     * A share $uid created on something shared with them (a reshare) belongs
+     * to someone else, and its path in the database is where the file sits in
+     * the owner's files: "/SecretMerger/BoardOnly/public.txt", folders $uid
+     * was never given, not even by name. What they get instead is the path in
+     * their own files, the way the Files app shows it — and only the file name
+     * if it does not reach them any more. Their own files are left as they are.
+     *
+     * @param array<int, array<string, mixed>> $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function asSeenBy(string $uid, array $items): array {
+        foreach ($items as &$item) {
+            if (($item['owner'] ?? $uid) === $uid || ($item['path'] ?? null) === null) {
+                continue;
+            }
+            $visible = isset($item['fileId']) ? $this->nodes->userVisiblePath($uid, (int)$item['fileId']) : null;
+            $item['path'] = $visible ?? '/' . basename((string)$item['path']);
+        }
+        unset($item);
+        return $items;
     }
 
     private function uid(): ?string {

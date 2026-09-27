@@ -11,6 +11,7 @@ namespace OCA\ShareAuditDashboard\Tests\Unit;
 use OCA\ShareAuditDashboard\Controller\PersonalController;
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCA\ShareAuditDashboard\Service\ExpiryDefaultsService;
+use OCA\ShareAuditDashboard\Service\FileNodeResolver;
 use OCA\ShareAuditDashboard\Service\SecurityAnalyzerService;
 use OCA\ShareAuditDashboard\Service\SettingsService;
 use OCA\ShareAuditDashboard\Service\ShareCollectorService;
@@ -44,6 +45,7 @@ class PersonalControllerTest extends TestCase {
     private ShareMapper&MockObject $mapper;
     private SettingsService&MockObject $settings;
     private IUserSession&MockObject $userSession;
+    private FileNodeResolver&MockObject $nodes;
     private PersonalController $controller;
 
     protected function setUp(): void {
@@ -65,6 +67,7 @@ class PersonalControllerTest extends TestCase {
             $this->settings,
             $this->userSession,
             $this->createMock(LoggerInterface::class),
+            $this->nodes = $this->createMock(FileNodeResolver::class),
         );
     }
 
@@ -173,6 +176,24 @@ class PersonalControllerTest extends TestCase {
 
         $this->assertSame(Http::STATUS_OK, $response->getStatus());
         $this->assertSame(3, $response->getData()['total']);
+    }
+
+    public function testAReshareShowsThePathAsTheCallerSeesItNotTheOwnersFolders(): void {
+        $this->stubLoggedIn('bob');
+        $this->settings->method('isPersonalViewEnabled')->willReturn(true);
+        $this->collector->method('getShares')->willReturn(['items' => [
+            ['id' => 1, 'owner' => 'bob', 'fileId' => 10, 'path' => '/Mine/notes.txt'],
+            ['id' => 2, 'owner' => 'alice', 'fileId' => 20, 'path' => '/SecretMerger/BoardOnly/public.txt'],
+            ['id' => 3, 'owner' => 'alice', 'fileId' => 30, 'path' => '/SecretMerger/gone.txt'],
+        ], 'total' => 3, 'page' => 1, 'limit' => 50]);
+        $this->nodes->method('userVisiblePath')->willReturnMap([
+            ['bob', 20, '/public.txt'],
+            ['bob', 30, null],
+        ]);
+
+        $paths = array_column($this->controller->shares()->getData()['items'], 'path');
+
+        $this->assertSame(['/Mine/notes.txt', '/public.txt', '/gone.txt'], $paths);
     }
 
     public function testRevokeRejectsASharesNotOwnedByTheCaller(): void {

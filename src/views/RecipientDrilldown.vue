@@ -12,6 +12,7 @@
 				:label="t('share_audit_dashboard', 'Search user, group or email')"
 				:label-outside="true"
 				:placeholder="t('share_audit_dashboard', 'Search user, group or email to see what they can reach…')"
+				:disabled="revoking"
 				@update:model-value="onSearch">
 				<template #icon>
 					<span class="sad-recipient__search-icon" v-html="magnify" />
@@ -41,14 +42,14 @@
 		<!-- Selected recipient detail -->
 		<template v-if="selected">
 			<div class="sad-recipient__head">
-				<NcButton variant="tertiary" @click="clearSelection">
+				<NcButton variant="tertiary" :disabled="revoking" @click="clearSelection">
 					{{ t('share_audit_dashboard', '← Back') }}
 				</NcButton>
 				<h3 class="sad-recipient__title">
 					<NcChip :text="categoryLabel(selected.category)" :no-close="true" />
 					{{ recipientLabel(selected) }}
 					<span class="sad-recipient__has">
-						{{ n('share_audit_dashboard', 'has access to %n item', 'has access to %n items', total) }}
+						{{ n('share_audit_dashboard', 'has %n direct share', 'has %n direct shares', total) }}
 					</span>
 				</h3>
 				<span class="sad-recipient__spacer" />
@@ -59,12 +60,12 @@
 				<template v-if="canManage && total > 0">
 					<template v-if="!confirming">
 						<NcButton variant="error" :disabled="revoking" @click="confirming = true">
-							{{ t('share_audit_dashboard', 'Revoke all access') }}
+							{{ t('share_audit_dashboard', 'Revoke all direct shares') }}
 						</NcButton>
 					</template>
 					<template v-else>
 						<span class="sad-recipient__confirm">
-							{{ n('share_audit_dashboard', 'Revoke %n share?', 'Revoke %n shares?', total) }}
+							{{ n('share_audit_dashboard', 'Revoke %n direct share?', 'Revoke %n direct shares?', total) }}
 						</span>
 						<NcButton variant="error" :disabled="revoking" @click="revokeAll">
 							{{ t('share_audit_dashboard', 'Confirm') }}
@@ -85,7 +86,7 @@
 			<div v-if="!loading && items.length" class="sad-table-wrapper">
 				<table class="sad-table">
 					<caption class="hidden-visually">
-						{{ t('share_audit_dashboard', 'Every share granting this recipient access.') }}
+						{{ t('share_audit_dashboard', 'Every share made directly to this recipient.') }}
 					</caption>
 					<thead>
 						<tr>
@@ -120,6 +121,28 @@
 			<div v-if="!loading && total > apiLimit" class="sad-pagination">
 				<span class="sad-pagination__info">{{ rangeLabel }}</span>
 				<PageNavigation :page="page" :total-pages="totalPages" :disabled="revoking" @change="goto" />
+			</div>
+
+			<!-- Access through groups: shares to a group this user is in. Not
+				revoked by "Revoke all direct shares"; each group is looked up
+				(and dealt with) on its own. -->
+			<div v-if="!loading && viaGroups.length" class="sad-recipient__groups">
+				<h4 class="sad-recipient__groups-title">
+					{{ t('share_audit_dashboard', 'Also has access through groups') }}
+				</h4>
+				<p class="settings-hint">
+					{{ t('share_audit_dashboard', 'Shares made to a group this account is in. They are not listed above and revoking the direct shares leaves them in place: open a group to see them.') }}
+				</p>
+				<ul class="sad-recipient__group-list">
+					<li v-for="g in viaGroups" :key="g.shareWith">
+						<NcButton variant="tertiary" :disabled="revoking" @click="openGroup(g)">
+							{{ g.label }}
+						</NcButton>
+						<span class="sad-recipient__count">
+							{{ n('share_audit_dashboard', '%n share', '%n shares', g.count) }}
+						</span>
+					</li>
+				</ul>
 			</div>
 		</template>
 	</div>
@@ -167,6 +190,7 @@ export default {
 			selected: null,
 			items: [],
 			total: 0,
+			viaGroups: [],
 			page: 1,
 			pageSizeOptions: [
 				{ id: 5, label: '5' },
@@ -181,6 +205,11 @@ export default {
 			confirming: false,
 			notice: null,
 			searchTimer: null,
+			// Bumped by every search / load, so only the answer to the latest
+			// one is shown: an earlier, slower request that comes back after it
+			// would otherwise overwrite it.
+			searchSeq: 0,
+			loadSeq: 0,
 		}
 	},
 	computed: {
@@ -239,6 +268,8 @@ export default {
 		},
 		onSearch() {
 			clearTimeout(this.searchTimer)
+			this.searchSeq++
+			this.loadSeq++
 			this.selected = null
 			if (this.query.trim().length < 2) {
 				this.results = []
@@ -248,19 +279,29 @@ export default {
 			this.searchTimer = setTimeout(this.runSearch, 350)
 		},
 		async runSearch() {
+			const seq = ++this.searchSeq
 			try {
-				this.results = await searchRecipients(this.query.trim())
-				this.searched = true
+				const results = await searchRecipients(this.query.trim())
+				if (seq === this.searchSeq) {
+					this.results = results
+					this.searched = true
+				}
 			} catch (e) {
-				this.results = []
+				if (seq === this.searchSeq) {
+					this.results = []
+				}
 			}
 		},
 		async select(recipient) {
+			if (this.revoking) {
+				return
+			}
 			this.selected = recipient
 			this.page = 1
 			await this.loadShares()
 		},
 		async loadShares() {
+			const seq = ++this.loadSeq
 			this.confirming = false
 			this.notice = null
 			this.loading = true
@@ -269,30 +310,50 @@ export default {
 					page: this.page,
 					limit: this.apiLimit,
 				})
-				this.items = data.items
-				this.total = data.total
+				if (seq === this.loadSeq) {
+					this.items = data.items
+					this.total = data.total
+					this.viaGroups = data.viaGroups ?? []
+				}
 			} catch (e) {
-				this.notice = { type: 'error', message: t('share_audit_dashboard', 'Could not load access for this recipient.') }
+				if (seq === this.loadSeq) {
+					this.notice = { type: 'error', message: t('share_audit_dashboard', 'Could not load access for this recipient.') }
+				}
 			} finally {
-				this.loading = false
+				if (seq === this.loadSeq) {
+					this.loading = false
+				}
 			}
 		},
 		goto(page) {
-			if (page < 1 || page > this.totalPages || page === this.page) {
+			if (this.revoking || page < 1 || page > this.totalPages || page === this.page) {
 				return
 			}
 			this.page = page
 			this.loadShares()
 		},
+		openGroup(group) {
+			this.select({ shareWith: group.shareWith, shareType: 1, category: 'group', label: group.label, count: group.count })
+		},
 		clearSelection() {
+			if (this.revoking) {
+				return
+			}
+			this.loadSeq++
 			this.selected = null
 			this.items = []
+			this.viaGroups = []
 			this.total = 0
 			this.page = 1
 			this.confirming = false
 			this.notice = null
 		},
 		async revokeAll() {
+			// The recipient that was confirmed, for every batch: the search and
+			// the Back button are disabled meanwhile, but what goes out must not
+			// depend on that — `this.selected` is read again after each await.
+			const target = { shareWith: this.selected.shareWith, shareType: this.selected.shareType }
+			const stillShown = () => this.selected?.shareWith === target.shareWith && this.selected?.shareType === target.shareType
 			this.revoking = true
 			try {
 				// The server resolves and deletes one batch (500) per request
@@ -305,7 +366,7 @@ export default {
 				let batches = 0
 				let everFailed = 0
 				while (remaining > 0 && batches < MAX_BATCHES) {
-					const res = await revokeRecipientAll(this.selected.shareWith, this.selected.shareType)
+					const res = await revokeRecipientAll(target.shareWith, target.shareType)
 					deleted += res.deleted
 					remaining = res.remaining
 					everFailed += (res.failed ?? []).length
@@ -320,9 +381,12 @@ export default {
 						'%n shares still grant this recipient access and could not be revoked.',
 						remaining,
 					))
+					if (stillShown()) {
+						this.page = 1
+						await this.loadShares()
+					}
+					// After the reload, which clears the notice when it starts.
 					this.notice = { type: 'warning', message: parts.join(' ') }
-					this.page = 1
-					await this.loadShares()
 					return
 				}
 				this.notice = {
@@ -452,6 +516,22 @@ export default {
 
 .sad-recipient__confirm {
 	font-weight: 600;
+}
+
+.sad-recipient__groups {
+	margin-top: 20px;
+}
+
+.sad-recipient__groups-title {
+	font-weight: bold;
+	margin-bottom: 4px;
+}
+
+.sad-recipient__group-list li {
+	max-width: 480px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .sad-recipient__notice {

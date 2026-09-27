@@ -103,8 +103,9 @@ class RecipientLookupService {
             return [];
         }
         $like = '%' . $this->db->escapeLikeParameter($query) . '%';
+        $matchingUids = $this->displayNames->searchUids($query, $limit);
         $matchingIds = array_merge(
-            $this->displayNames->searchUids($query, $limit),
+            $matchingUids,
             $this->displayNames->searchGroupIds($query, $limit),
         );
         $roomTokens = $this->recipientDetails->searchRoomTokens($query);
@@ -140,6 +141,26 @@ class RecipientLookupService {
                 }
             }
             $rows[] = $item;
+        }
+
+        // An account that matches but has no share of its own can still reach
+        // files through its groups (see groupAccess()): it is offered too, after
+        // the recipients that have shares, instead of "no recipient matches".
+        $listed = array_column(array_filter($rows, static fn (array $row) => $row['shareType'] === IShare::TYPE_USER), 'shareWith');
+        foreach (array_diff($matchingUids, $listed) as $uid) {
+            if (count($rows) >= $limit) {
+                break;
+            }
+            if ($this->userManager->get((string)$uid) === null) {
+                continue;
+            }
+            $rows[] = [
+                'shareWith' => (string)$uid,
+                'shareType' => IShare::TYPE_USER,
+                'category' => 'user',
+                'label' => $this->displayName((string)$uid, IShare::TYPE_USER),
+                'count' => 0,
+            ];
         }
 
         if (!$canSeeTokens) {
@@ -241,7 +262,7 @@ class RecipientLookupService {
      * or a share type that has no recipient, finds nothing either, instead of
      * quietly meaning "every share of that type".
      *
-     * @return array{recipient: array<string,mixed>, items: array<int, array<string, mixed>>, total: int, page: int, limit: int}
+     * @return array{recipient: array<string,mixed>, items: array<int, array<string, mixed>>, total: int, page: int, limit: int, viaGroups?: list<array{shareWith: string, label: string, count: int}>}
      */
     public function getShares(string $shareWith, int $shareType, int $page = 1, int $limit = 25, bool $canSeeTokens = true): array {
         $page = max(1, $page);
@@ -302,7 +323,34 @@ class RecipientLookupService {
             'total' => $total,
             'page' => $page,
             'limit' => $limit,
+            'viaGroups' => $shareType === IShare::TYPE_USER ? $this->groupAccess($shareWith) : [],
         ];
+    }
+
+    /**
+     * The groups through which $uid reaches files that were shared with the
+     * group, not with them: the lookup lists — and "Revoke all" removes —
+     * only the shares made to the account itself, and a user who is in a
+     * group a folder was shared with still reaches it after that. Shown so
+     * nobody concludes an account has no access left when it does; revoking a
+     * whole group's share to cut one member off is a separate decision, made
+     * on that group.
+     *
+     * @return list<array{shareWith: string, label: string, count: int}>
+     */
+    private function groupAccess(string $uid): array {
+        $user = $this->userManager->get($uid);
+        if ($user === null) {
+            return [];
+        }
+        $counts = $this->mapper->countGroupSharesByGroup($this->groupManager->getUserGroupIds($user));
+        $groups = [];
+        foreach ($counts as $gid => $count) {
+            $gid = (string)$gid;
+            $groups[] = ['shareWith' => $gid, 'label' => $this->displayName($gid, IShare::TYPE_GROUP), 'count' => $count];
+        }
+        usort($groups, static fn (array $a, array $b) => [-$a['count'], mb_strtolower($a['label'])] <=> [-$b['count'], mb_strtolower($b['label'])]);
+        return $groups;
     }
 
     /**
