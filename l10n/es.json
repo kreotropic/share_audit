@@ -175,11 +175,6 @@
         ],
         "No recipient matches “{query}”.": "Ningún destinatario coincide con “{query}”.",
         "← Back": "← Volver",
-        "_has access to %n item_::_has access to %n items_": [
-            "tiene acceso a %n elemento",
-            "tiene acceso a %n elementos"
-        ],
-        "Revoke all access": "Revocar todo el acceso",
         "Shared by": "Compartido por",
         "never": "nunca",
         "Could not load access for this recipient.": "No se pudo cargar el acceso de este destinatario.",
@@ -273,7 +268,6 @@
         "Showing: {label} — clear filter": "Mostrando: {label} — borrar filtro",
         "This file will contain public link tokens — bare credentials that let anyone open the linked file without logging in. Handle it accordingly.": "Este archivo contendrá tokens de enlaces públicos — credenciales sin cifrar que permiten a cualquiera abrir el archivo enlazado sin iniciar sesión. Trátelo en consecuencia.",
         "Every file or folder you share.": "Todos los archivos o carpetas que comparte.",
-        "Every share granting this recipient access.": "Todos los recursos compartidos que dan acceso a este destinatario.",
         "Shares owned by a disabled or deleted account, selectable for bulk revoke.": "Recursos compartidos de una cuenta deshabilitada o eliminada, seleccionables para revocación en lote.",
         "Enable the personal audit view for every user": "Activar la vista de auditoría personal para todos los usuarios",
         "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.": "Permite que cada usuario audite y corrija sus propios recursos compartidos en Ajustes → Personal, y vea un widget en el panel con los enlaces que necesitan atención.",
@@ -435,7 +429,31 @@
         "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.": "¿Marcar este traslado como interrumpido? Hágalo solo si está seguro de que nada sigue moviendo sus archivos: un segundo traslado a la misma cuenta podría sobrescribirlos.",
         "That move is still running, so it cannot be marked as interrupted.": "Ese traslado sigue en ejecución, así que no se puede marcar como interrumpido.",
         "This link has already expired, so it can only be revoked.": "Este enlace ya ha caducado, por lo que solo se puede revocar.",
-        "This share no longer exists.": "Este recurso compartido ya no existe."
+        "This share no longer exists.": "Este recurso compartido ya no existe.",
+        "Also has access through groups": "También tiene acceso a través de grupos",
+        "Another restore of this link is still in progress — nothing was changed. Try again in a moment.": "Otra restauración de este enlace sigue en curso; no se ha cambiado nada. Inténtelo de nuevo en un momento.",
+        "Downloads are hidden on it: this entry was kept before the app saved that setting, so it was restored on the safe side.": "Las descargas están ocultas: esta entrada se guardó antes de que la aplicación registrara ese ajuste, así que se restauró de forma prudente.",
+        "Every share made directly to this recipient.": "Todos los recursos compartidos directamente con este destinatario.",
+        "Partly done": "Parcialmente hecho",
+        "Revoke all direct shares": "Revocar todos los recursos compartidos directos",
+        "Shares made to a group this account is in. They are not listed above and revoking the direct shares leaves them in place: open a group to see them.": "Recursos compartidos con un grupo al que pertenece esta cuenta. No aparecen arriba y revocar los directos no los elimina: abra un grupo para verlos.",
+        "What is at this path is no longer the file or folder that was selected (it was renamed, replaced or removed), so nothing was moved. Queue it again from the orphan shares list.": "En esta ruta ya no está el archivo o la carpeta seleccionados (se renombró, sustituyó o eliminó), así que no se movió nada. Vuelva a ponerlo en cola desde la lista de recursos compartidos huérfanos.",
+        "_%n was restored with downloads hidden (kept before the app saved that setting)._::_%n were restored with downloads hidden (kept before the app saved that setting)._": [
+            "%n se restauró con las descargas ocultas (guardado antes de que la aplicación registrara ese ajuste).",
+            "%n se restauraron con las descargas ocultas (guardados antes de que la aplicación registrara ese ajuste)."
+        ],
+        "_Revoke %n direct share?_::_Revoke %n direct shares?_": [
+            "¿Revocar %n recurso compartido directo?",
+            "¿Revocar %n recursos compartidos directos?"
+        ],
+        "_The files moved, but %n share still belongs to the old account (#{ids}). Hand it over with \"Only the shares\"._::_The files moved, but %n shares still belong to the old account (#{ids}). Hand them over with \"Only the shares\"._": [
+            "Los archivos se movieron, pero %n recurso compartido sigue perteneciendo a la cuenta antigua (#{ids}). Transfiéralo con «Solo los recursos compartidos».",
+            "Los archivos se movieron, pero %n recursos compartidos siguen perteneciendo a la cuenta antigua (#{ids}). Transfiéralos con «Solo los recursos compartidos»."
+        ],
+        "_has %n direct share_::_has %n direct shares_": [
+            "tiene %n recurso compartido directo",
+            "tiene %n recursos compartidos directos"
+        ]
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

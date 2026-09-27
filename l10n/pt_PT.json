@@ -175,11 +175,6 @@
         ],
         "No recipient matches “{query}”.": "Nenhum destinatário corresponde a “{query}”.",
         "← Back": "← Voltar",
-        "_has access to %n item_::_has access to %n items_": [
-            "tem acesso a %n item",
-            "tem acesso a %n itens"
-        ],
-        "Revoke all access": "Revogar todo o acesso",
         "Shared by": "Partilhado por",
         "never": "nunca",
         "Could not load access for this recipient.": "Não foi possível carregar o acesso deste destinatário.",
@@ -273,7 +268,6 @@
         "Showing: {label} — clear filter": "A mostrar: {label} — limpar filtro",
         "This file will contain public link tokens — bare credentials that let anyone open the linked file without logging in. Handle it accordingly.": "Este ficheiro conterá tokens de hiperligações públicas — credenciais em bruto que permitem a qualquer pessoa abrir o ficheiro associado sem iniciar sessão. Trate-o em conformidade.",
         "Every file or folder you share.": "Todos os ficheiros ou pastas que partilha.",
-        "Every share granting this recipient access.": "Todas as partilhas que dão acesso a este destinatário.",
         "Shares owned by a disabled or deleted account, selectable for bulk revoke.": "Partilhas pertencentes a uma conta desativada ou eliminada, selecionáveis para revogação em massa.",
         "Enable the personal audit view for every user": "Ativar a vista de auditoria pessoal para todos os utilizadores",
         "Lets every user audit and fix their own shares under Settings → Personal, and see a dashboard widget for links that need attention.": "Permite que cada utilizador audite e corrija as suas próprias partilhas em Definições → Pessoal, e veja um widget no painel com as hiperligações que precisam de atenção.",
@@ -435,7 +429,31 @@
         "Mark this move as interrupted? Only do so if you are sure nothing is still moving its files: a second move into the same account could overwrite them.": "Marcar esta mudança como interrompida? Só o faça se tiver a certeza de que nada continua a mover os ficheiros: uma segunda mudança para a mesma conta poderia sobrescrevê-los.",
         "That move is still running, so it cannot be marked as interrupted.": "Essa mudança ainda está a correr, por isso não pode ser marcada como interrompida.",
         "This link has already expired, so it can only be revoked.": "Esta hiperligação já expirou, por isso só pode ser revogada.",
-        "This share no longer exists.": "Esta partilha já não existe."
+        "This share no longer exists.": "Esta partilha já não existe.",
+        "Also has access through groups": "Também tem acesso através de grupos",
+        "Another restore of this link is still in progress — nothing was changed. Try again in a moment.": "Outro restauro desta hiperligação ainda está em curso — nada foi alterado. Tente novamente dentro de momentos.",
+        "Downloads are hidden on it: this entry was kept before the app saved that setting, so it was restored on the safe side.": "As transferências ficaram ocultas: esta entrada foi guardada antes de a aplicação registar essa definição, por isso foi restaurada por precaução.",
+        "Every share made directly to this recipient.": "Todas as partilhas feitas diretamente a este destinatário.",
+        "Partly done": "Parcialmente concluído",
+        "Revoke all direct shares": "Revogar todas as partilhas diretas",
+        "Shares made to a group this account is in. They are not listed above and revoking the direct shares leaves them in place: open a group to see them.": "Partilhas feitas a um grupo de que esta conta faz parte. Não aparecem acima e revogar as partilhas diretas mantém-nas: abra um grupo para as ver.",
+        "What is at this path is no longer the file or folder that was selected (it was renamed, replaced or removed), so nothing was moved. Queue it again from the orphan shares list.": "O que está neste caminho já não é o ficheiro ou pasta selecionado (foi renomeado, substituído ou removido), por isso nada foi movido. Volte a colocá-lo na fila a partir da lista de partilhas órfãs.",
+        "_%n was restored with downloads hidden (kept before the app saved that setting)._::_%n were restored with downloads hidden (kept before the app saved that setting)._": [
+            "%n foi restaurada com as transferências ocultas (guardada antes de a aplicação registar essa definição).",
+            "%n foram restauradas com as transferências ocultas (guardadas antes de a aplicação registar essa definição)."
+        ],
+        "_Revoke %n direct share?_::_Revoke %n direct shares?_": [
+            "Revogar %n partilha direta?",
+            "Revogar %n partilhas diretas?"
+        ],
+        "_The files moved, but %n share still belongs to the old account (#{ids}). Hand it over with \"Only the shares\"._::_The files moved, but %n shares still belong to the old account (#{ids}). Hand them over with \"Only the shares\"._": [
+            "Os ficheiros foram movidos, mas %n partilha continua a pertencer à conta antiga (#{ids}). Transfira-a com «Só as partilhas».",
+            "Os ficheiros foram movidos, mas %n partilhas continuam a pertencer à conta antiga (#{ids}). Transfira-as com «Só as partilhas»."
+        ],
+        "_has %n direct share_::_has %n direct shares_": [
+            "tem %n partilha direta",
+            "tem %n partilhas diretas"
+        ]
     },
     "pluralForm": "nplurals=2; plural=(n != 1);"
 }

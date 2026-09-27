@@ -41,9 +41,11 @@ fills that gap with an admin-wide audit surface and a per-user self-service view
 - **Security alerts**: public links with no password, no expiration, or exposing
   a sensitive file type. Fix them individually or in **bulk**: add a generated
   password, set an expiration, or revoke. The alert rules are configurable.
-- **Lookup & Orphans**: search a user, group or email and see **every file and
-  folder they can reach**, with *revoke all access* (built for audits and
-  offboarding suppliers); plus shares still owned by **disabled or deleted
+- **Lookup & Orphans**: search a user, group or email and see **every share
+  made directly to them**, with *revoke all direct shares* (built for audits and
+  offboarding suppliers). For a user, the groups through which they also reach
+  shared files are listed next to it, each one a click away: those group shares
+  are not revoked with the direct ones. Plus shares still owned by **disabled or deleted
   accounts**, which you can bulk revoke or **transfer to a colleague** who takes
   the work over (a classic offboarding risk Nextcloud does not surface). For a
   disabled account you can also **move its files** to the colleague, just the
@@ -150,6 +152,15 @@ retention window rather than disappearing outright.
   link keeps working. The exception is if that token was taken by a link created
   while this one sat in the bin: the share is still restored, but with a fresh
   token and no password, and the result says so rather than failing silently.
+
+- **Access through groups is shown per group, not per file.** A user's lookup
+  lists the shares made to them and, separately, how many shares each of their
+  groups has received. It does not expand folders, nested groups (e.g. from
+  LDAP), Team Folders or circles into a full list of reachable files.
+
+- **Entries kept in the bin before version 0.8.0 do not know a link's download
+  restrictions.** Such a link or mail share is restored with *hide download* on,
+  on the safe side, and the result says so; the owner can switch it back off.
 
 ## Known Issues
 

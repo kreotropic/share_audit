@@ -95,8 +95,57 @@ Follow-up to the 0.7.0 review, which found the fixes above incomplete:
   unique, so the restore relied on a constraint that is not there and quietly
   succeeded; it now checks first, and keeps the link with a new token (or, if it
   had a password, refuses and keeps the backup, as before).
+- **A restored link could come back with more access than it had.** The
+  recycle bin kept a share's permissions, token and password but not *hide
+  download* nor its download-permission attribute, so a restored link served
+  downloads it had been set to refuse, on the URL already handed out. Both are
+  now kept and put back before the share exists. Entries kept before this
+  version cannot say what they had: a link or mail share from one of them comes
+  back with downloads hidden, and the result says so.
+- **Two live links could end up on one token.** Two requests that had each
+  loaded a share before either deleted it left two entries in the bin, and
+  restoring both at the same moment could put the same token on two shares, so
+  revoking one left the URL working through the other. The bin now keeps one
+  entry per share (duplicates already there are dropped when upgrading, keeping
+  the oldest), and a restore holds the link's token until it has committed.
+- **A queued file move could move a different file.** The queue kept a path,
+  and whatever was at that path when the job ran was handed over, even if the
+  selected file had been renamed and something else put in its place. The move
+  now checks that the path still holds the file or folder that was selected,
+  and moves nothing (*no longer the file or folder that was selected*) if not.
+- **The personal view named folders of the owner a user was never given.** For
+  a link a user made on something shared with them, *My shares* and its alerts
+  showed the owner's full path (`/Clients/Merger/BoardOnly/report.pdf`). They
+  now show the path as that user sees it, or only the file name.
 
 ### Fixed
+- **A file move reported "Done" when the Files app could not hand over the
+  shares.** The transfer writes a share it failed to update to an output nobody
+  read here and returns as if all went well. After a move, the shares still
+  naming the old owner while their file is now in the new owner's home are
+  looked up: if there are any, the move is *Partly done* and lists them, to hand
+  over with *Only the shares*.
+- **Access lookup and groups.** It lists, and *Revoke all* removes, the shares
+  made directly to a recipient, and now says so (*direct shares*). For a user it
+  also lists the groups through which they reach shared files (with how many
+  shares each), which revoking the direct shares leaves in place; a user with no
+  share of their own can now be looked up for that too.
+- **A bulk revoke in Access lookup could move on to another recipient.** Each
+  batch read the selected recipient again, so choosing someone else while it
+  ran sent the next batches for them. The recipient confirmed is used for every
+  batch, and search and *Back* wait for it to finish. Likewise a bulk purge in
+  *Deleted shares* sends what was ticked when it was confirmed.
+- The warning that a revoke left shares behind vanished as the list reloaded.
+- A slow answer to an earlier search, filter or page could replace the one
+  asked for last, leaving a list that did not match the filters shown (and an
+  export that did). Only the latest request's answer is shown now.
+- Accepting the reason an alert was critical left it sorted among the critical
+  ones, and in the dashboard widget ahead of alerts still critical.
+- Searching for `0` in a share list's text filters matched every share.
+- Paths in a Team Folder asked Groupfolders for the folder's name once per
+  share; it is now asked once per folder per request.
+- A queued file move and its background job are now written together, so a
+  failure between the two can no longer leave a move that never runs.
 - **Acting on an expired public link deleted it and reported a failure.** Every
   action on a share (revoke, add a password, set an expiration, accept an alert,
   even the check of who owns it in the personal view) loaded the share through
