@@ -304,6 +304,22 @@ class SecurityAnalyzerServiceTest extends TestCase {
         $this->assertSame('info', $alerts[1]['severity']);
     }
 
+    public function testAnAlertDowngradedByAnExceptionSortsBelowOnesStillCritical(): void {
+        $this->stubRules();
+        $soon = (new \DateTimeImmutable('+3 days'))->format('Y-m-d H:i:s');
+        $this->mapper->method('findInsecureLinks')->willReturn([
+            // Critical only for no_password, which is accepted below: info once stripped.
+            $this->row(['id' => 1, 'password' => null, 'expiration' => $soon]),
+            $this->row(['id' => 2, 'password' => null, 'expiration' => $soon]),
+        ]);
+        $this->ackMapper->method('findAll')->willReturn([$this->ack(1, 'no_password')]);
+
+        $alerts = $this->analyzer()->getAlerts();
+
+        $this->assertSame([2, 1], array_column($alerts, 'id'));
+        $this->assertSame(['critical', 'info'], array_column($alerts, 'severity'));
+    }
+
     // -------------------------------------------------------------------
     // Caching + invalidation.
     // -------------------------------------------------------------------

@@ -271,6 +271,9 @@ export default {
 		return {
 			loading: true,
 			error: null,
+			// Bumped by every load(): only the answer to the latest one is shown
+			// (see load()).
+			loadSeq: 0,
 			revoking: false,
 			confirming: false,
 				pickingOwner: false,
@@ -642,18 +645,28 @@ export default {
 			}
 		},
 		async load() {
+			// A slower, earlier request (a previous page, search or filter) must
+			// not overwrite the answer to this one when it comes back after it.
+			const seq = ++this.loadSeq
 			this.loading = true
 			this.error = null
 			try {
 				const data = await fetchOrphans({ page: this.page, limit: this.apiLimit })
+				if (seq !== this.loadSeq) {
+					return
+				}
 				this.items = data.items
 				this.total = data.total
 				this.selectedIds = this.selectedIds.filter((id) => this.items.some((s) => s.id === id))
 				this.$emit('orphan-count', this.total)
 			} catch (e) {
-				this.error = t('share_audit_dashboard', 'Could not load orphan shares.')
+				if (seq === this.loadSeq) {
+					this.error = t('share_audit_dashboard', 'Could not load orphan shares.')
+				}
 			} finally {
-				this.loading = false
+				if (seq === this.loadSeq) {
+					this.loading = false
+				}
 			}
 		},
 		async revokeSelected() {

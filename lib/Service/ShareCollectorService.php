@@ -255,7 +255,7 @@ class ShareCollectorService {
      * @return array<string, mixed>
      */
     private function withOwnerSearchUids(array $filters): array {
-        if (!empty($filters['ownerSearch'])) {
+        if (ShareMapper::hasText($filters, 'ownerSearch')) {
             $filters['ownerSearchUids'] = $this->displayNames->searchUids((string)$filters['ownerSearch']);
         }
         return $filters;
@@ -272,7 +272,7 @@ class ShareCollectorService {
      * @return array<string, mixed>
      */
     private function withRecipientSearchIds(array $filters): array {
-        if (!empty($filters['recipientSearch'])) {
+        if (ShareMapper::hasText($filters, 'recipientSearch')) {
             $term = (string)$filters['recipientSearch'];
             $filters['recipientSearchIds'] = array_merge(
                 $this->displayNames->searchUids($term),

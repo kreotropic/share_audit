@@ -113,6 +113,9 @@ export default {
 		return {
 			loading: true,
 			error: null,
+			// Bumped by every load(): only the answer to the latest one is shown
+			// (see load()).
+			loadSeq: 0,
 			items: [],
 			total: 0,
 			page: 1,
@@ -247,6 +250,9 @@ export default {
 			}
 		},
 		async load() {
+			// A slower, earlier request (a previous page, search or filter) must
+			// not overwrite the answer to this one when it comes back after it.
+			const seq = ++this.loadSeq
 			this.loading = true
 			this.error = null
 			try {
@@ -257,12 +263,19 @@ export default {
 					sortDir: this.sortDir,
 					...this.requestFilters,
 				})
+				if (seq !== this.loadSeq) {
+					return
+				}
 				this.items = data.items
 				this.total = data.total
 			} catch (e) {
-				this.error = t('share_audit_dashboard', 'Could not load shares.')
+				if (seq === this.loadSeq) {
+					this.error = t('share_audit_dashboard', 'Could not load shares.')
+				}
 			} finally {
-				this.loading = false
+				if (seq === this.loadSeq) {
+					this.loading = false
+				}
 			}
 		},
 	},

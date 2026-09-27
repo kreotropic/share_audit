@@ -334,6 +334,13 @@ class SecurityAnalyzerService {
             $alert['severity'] = $this->maxSeverity($activeIssues);
             $result[] = $alert;
         }
+        // Severity can only have dropped, and getAlerts() sorted by the old
+        // one: an alert that was critical only for an accepted reason would
+        // otherwise stay among the critical ones, ahead of alerts that still
+        // are — and ahead of them in the widget, which keeps the first few.
+        // usort() is stable (PHP 8), so equal severities keep their order.
+        $rank = ['critical' => 0, 'warning' => 1, 'info' => 2];
+        usort($result, static fn ($a, $b) => $rank[$a['severity']] <=> $rank[$b['severity']]);
         return $result;
     }
 

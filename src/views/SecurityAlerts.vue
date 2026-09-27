@@ -197,6 +197,9 @@ export default {
 		return {
 			loading: true,
 			error: null,
+			// Bumped by every load(): only the answer to the latest one is shown
+			// (see load()).
+			loadSeq: 0,
 			busy: false,
 			items: [],
 			breakdown: {},
@@ -327,6 +330,9 @@ export default {
 		t,
 		n,
 		async load() {
+			// A slower, earlier request (a previous page, search or filter) must
+			// not overwrite the answer to this one when it comes back after it.
+			const seq = ++this.loadSeq
 			try {
 				const data = await fetchAlerts({
 					page: this.page,
@@ -337,6 +343,9 @@ export default {
 					includeAcknowledged: this.showAcknowledged,
 					search: this.searchText.trim() || undefined,
 				})
+				if (seq !== this.loadSeq) {
+					return
+				}
 				this.items = data.items
 				this.breakdown = data.breakdown ?? {}
 				this.expiryDefaults = data.expiryDefaults ?? this.expiryDefaults
@@ -355,9 +364,13 @@ export default {
 				// the current category filter.
 				this.$emit('alerts-count', data.totalAll ?? this.total)
 			} catch (e) {
-				this.error = t('share_audit_dashboard', 'Could not load security alerts.')
+				if (seq === this.loadSeq) {
+					this.error = t('share_audit_dashboard', 'Could not load security alerts.')
+				}
 			} finally {
-				this.loading = false
+				if (seq === this.loadSeq) {
+					this.loading = false
+				}
 			}
 		},
 		issueLabel,

@@ -20,6 +20,17 @@ use OCP\Server;
 class PathFormatter {
 
     /**
+     * Team folder names already looked up, by folder id — null included, for a
+     * folder that is gone or an app that is off. One request formats a path
+     * per share, and on an instance with a big Team Folder most of them are in
+     * the same one: without this, every row asked Groupfolders (a query each)
+     * for a name it had just given.
+     *
+     * @var array<int, ?string>
+     */
+    private array $groupFolderNames = [];
+
+    /**
      * Strip the internal "files/" storage prefix, or resolve a groupfolders
      * "__groupfolders/<id>/..." path to the team folder's display name.
      */
@@ -55,6 +66,13 @@ class PathFormatter {
      * folder no longer exists — callers fall back to a generic label.
      */
     private function groupFolderName(int $folderId): ?string {
+        if (!array_key_exists($folderId, $this->groupFolderNames)) {
+            $this->groupFolderNames[$folderId] = $this->lookUpGroupFolderName($folderId);
+        }
+        return $this->groupFolderNames[$folderId];
+    }
+
+    private function lookUpGroupFolderName(int $folderId): ?string {
         if (!class_exists(FolderManager::class)) {
             return null;
         }

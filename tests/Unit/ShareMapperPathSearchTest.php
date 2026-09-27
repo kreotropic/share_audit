@@ -102,6 +102,16 @@ class ShareMapperPathSearchTest extends TestCase {
         $this->assertSame([], $this->likes);
     }
 
+    public function testSearchingForZeroIsASearch(): void {
+        // empty('0') is true in PHP: "0" used to drop the condition and match everything.
+        $this->mapper->countShares(['pathSearch' => '0', 'search' => '0', 'ownerSearch' => '0']);
+
+        $this->assertContains('f.path:%0%', $this->likes);
+        $this->assertContains('s.label:%0%', $this->likes);
+        $this->assertContains('s.uid_owner:%0%', $this->likes);
+        $this->assertContains('s.share_with:%0%', $this->likes);
+    }
+
     public function testWildcardsTypedInTheBoxAreLiteral(): void {
         // "100%_done" must find that text, not everything containing "100".
         $this->mapper->countShares(['pathSearch' => '100%_done']);
