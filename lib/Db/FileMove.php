@@ -36,6 +36,10 @@ class FileMove extends Entity {
     // The receiving account while the move is running, NULL otherwise — see
     // Migration\Version0010Date... for what the unique index on it is for.
     protected ?string $runningTarget = null;
+    // The file or folder that was selected, for a move of one path — see
+    // OrphanFileMoveService::carryOut(). NULL for a whole account, and on a
+    // move queued before it was kept.
+    protected ?int $fileId = null;
 
     public function __construct() {
         $this->addType('sourceUid', 'string');
@@ -50,5 +54,6 @@ class FileMove extends Entity {
         $this->addType('startedAt', 'integer');
         $this->addType('finishedAt', 'integer');
         $this->addType('runningTarget', 'string');
+        $this->addType('fileId', 'integer');
     }
 }

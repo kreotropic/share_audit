@@ -331,6 +331,57 @@ class ShareMapper {
     }
 
     /**
+     * How many group shares go to each of $groupIds — the access a user has
+     * through the groups they are in, which no share names them for.
+     *
+     * @param string[] $groupIds
+     * @return array<string, int> gid => shares, groups without any left out
+     */
+    public function countGroupSharesByGroup(array $groupIds): array {
+        $counts = [];
+        foreach (array_chunk(array_values(array_unique($groupIds)), 1000) as $chunk) {
+            $qb = $this->db->getQueryBuilder();
+            $qb->select('share_with')
+                ->selectAlias($qb->func()->count('*'), 'cnt')
+                ->from('share')
+                ->where($qb->expr()->eq('share_type', $qb->createNamedParameter(IShare::TYPE_GROUP, IQueryBuilder::PARAM_INT)))
+                ->andWhere($qb->expr()->in('share_with', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_STR_ARRAY)))
+                ->groupBy('share_with');
+            $result = $qb->executeQuery();
+            while ($row = $result->fetch()) {
+                $counts[(string)$row['share_with']] = (int)$row['cnt'];
+            }
+            $result->closeCursor();
+        }
+        return $counts;
+    }
+
+    /**
+     * The shares that name $owner as theirs while their file sits on the
+     * storage $storageId — after a file move into another account's home,
+     * those are the ones the move did not hand over (see
+     * OrphanFileMoveService::sharesLeftBehind()). Per-user rows of group, Talk
+     * and Deck shares are left out: they follow their parent.
+     *
+     * @return int[]
+     */
+    public function findIdsOwnedOnStorage(string $owner, int $storageId): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('s.id')
+            ->from('share', 's')
+            ->innerJoin('s', 'filecache', 'f', $qb->expr()->eq('f.fileid', 's.file_source'))
+            ->where($qb->expr()->eq('s.uid_owner', $qb->createNamedParameter($owner)))
+            ->andWhere($qb->expr()->eq('f.storage', $qb->createNamedParameter($storageId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->notIn('s.share_type',
+                $qb->createNamedParameter(self::EXCLUDED_TYPES, IQueryBuilder::PARAM_INT_ARRAY)))
+            ->orderBy('s.id');
+        $result = $qb->executeQuery();
+        $ids = array_map('intval', array_column($result->fetchAll(), 'id'));
+        $result->closeCursor();
+        return $ids;
+    }
+
+    /**
      * What a transfer needs to decide whether a share can be handed to another
      * owner: who owns and who created it, who it goes to, what it grants and
      * which file it points at — plus source_exists (see findShares()), so
@@ -595,6 +646,17 @@ class ShareMapper {
      *                  order by it. Rooms stay findable by name, through
      *                  recipientSearchRooms.
      */
+    /**
+     * Whether $filters[$key] is a search term to apply: set and not an empty
+     * string. Not empty(), for which "0" is empty — searching for "0" would
+     * drop the condition and match everything.
+     *
+     * @param array<string, mixed> $filters
+     */
+    public static function hasText(array $filters, string $key): bool {
+        return isset($filters[$key]) && (string)$filters[$key] !== '';
+    }
+
     private function applyFilters(IQueryBuilder $qb, array $filters): void {
         // Always exclude the internal per-recipient child rows.
         $qb->andWhere($qb->expr()->notIn('s.share_type',
@@ -679,7 +741,7 @@ class ShareMapper {
                 $qb->createNamedParameter((int)$filters['shareType'], IQueryBuilder::PARAM_INT)));
         }
 
-        if (!empty($filters['search'])) {
+        if (self::hasText($filters, 'search')) {
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['search']) . '%';
             $qb->andWhere($qb->expr()->orX(
                 $qb->expr()->iLike('f.path', $qb->createNamedParameter($like)),
@@ -689,7 +751,7 @@ class ShareMapper {
         }
 
         // Per-column search (from the table-header filters).
-        if (!empty($filters['pathSearch'])) {
+        if (self::hasText($filters, 'pathSearch')) {
             // The name a public link was given (`label`, NULL when it has none)
             // is otherwise unreachable: nothing on the row says where the file is.
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['pathSearch']) . '%';
@@ -702,7 +764,7 @@ class ShareMapper {
         // Owner column search: the table shows the resolved display name,
         // not the raw uid, so match against either — see
         // ShareCollectorService::withOwnerSearchUids().
-        if (!empty($filters['ownerSearch'])) {
+        if (self::hasText($filters, 'ownerSearch')) {
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['ownerSearch']) . '%';
             $ownerConditions = [$qb->expr()->iLike('s.uid_owner', $qb->createNamedParameter($like))];
             if (!empty($filters['ownerSearchUids'])) {
@@ -714,7 +776,7 @@ class ShareMapper {
 
         // Recipient column search: same reasoning as ownerSearch above — a
         // user/group recipient is shown by display name, not raw uid/gid.
-        if (!empty($filters['recipientSearch'])) {
+        if (self::hasText($filters, 'recipientSearch')) {
             $like = '%' . $this->db->escapeLikeParameter((string)$filters['recipientSearch']) . '%';
             $recipientConditions = [$onRecipient($qb->expr()->iLike('s.share_with', $qb->createNamedParameter($like)))];
             if (!empty($filters['recipientSearchIds'])) {

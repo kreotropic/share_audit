@@ -116,6 +116,14 @@ class ShareAuditLogger {
             ));
             return;
         }
+        if (str_starts_with($error, OrphanFileMoveService::ERROR_SHARES_NOT_MOVED . ':')) {
+            $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
+                'Share Audit Dashboard: moved %s of "%s" to "%s", as requested by "%s", but these shares still belong to "%s": %s',
+                ['what' => $what, 'from' => $from, 'to' => $to, 'actor' => $requestedBy, 'owner' => $from,
+                    'shares' => substr($error, strlen(OrphanFileMoveService::ERROR_SHARES_NOT_MOVED) + 1)],
+            ));
+            return;
+        }
         $this->eventDispatcher->dispatchTyped(new CriticalActionPerformedEvent(
             'Share Audit Dashboard: could not move %s of "%s" to "%s", as requested by "%s": %s',
             ['what' => $what, 'from' => $from, 'to' => $to, 'actor' => $requestedBy, 'error' => $error],

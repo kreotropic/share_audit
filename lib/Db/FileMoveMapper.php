@@ -25,6 +25,8 @@ class FileMoveMapper extends QBMapper {
     public const STATUS_RUNNING = 'running';
     public const STATUS_DONE = 'done';
     public const STATUS_FAILED = 'failed';
+    /** The files moved, but some of their shares stayed with the old owner — see OrphanFileMoveService::sharesLeftBehind(). */
+    public const STATUS_PARTIAL = 'partial';
 
     /** claim(): this call took the move. */
     public const CLAIM_OK = 'claimed';

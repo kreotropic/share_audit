@@ -66,4 +66,52 @@ class FileNodeResolver {
         }
         return null;
     }
+
+    /**
+     * The id of what is at $path in $uid's own home — the reverse of
+     * homeRelativePath(), and null on the same terms: nothing there, or
+     * something from another storage (a Team Folder, a share, an external
+     * storage) mounted at that name.
+     */
+    public function homeFileId(string $uid, string $path): ?int {
+        try {
+            $node = $this->rootFolder->getUserFolder($uid)->get($path);
+            if (rtrim($node->getMountPoint()->getMountPoint(), '/') !== '/' . $uid) {
+                return null;
+            }
+            return $node->getId();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The numeric storage id of $uid's own home, or null if it cannot be set up.
+     */
+    public function homeStorageId(string $uid): ?int {
+        try {
+            return $this->rootFolder->getUserFolder($uid)->getMountPoint()->getNumericStorageId();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Where $uid sees the file $fileId, as a path from the root of their own
+     * files ("/Shared/report.pdf"), whatever mount it reaches them through —
+     * or null if it does not reach them at all.
+     */
+    public function userVisiblePath(string $uid, int $fileId): ?string {
+        try {
+            $userFolder = $this->rootFolder->getUserFolder($uid);
+            $node = $userFolder->getById($fileId)[0] ?? null;
+            if ($node === null) {
+                return null;
+            }
+            $relative = $userFolder->getRelativePath($node->getPath());
+            return $relative === null ? null : '/' . ltrim($relative, '/');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 }

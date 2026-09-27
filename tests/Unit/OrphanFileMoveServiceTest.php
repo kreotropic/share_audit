@@ -24,6 +24,7 @@ use OCA\ShareAuditDashboard\Service\WorkerLock;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
+use OCP\IDBConnection;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -114,6 +115,7 @@ class OrphanFileMoveServiceTest extends TestCase {
             $this->workerLock,
             $this->jobsStatus,
             $this->createMock(LoggerInterface::class),
+            $this->createMock(IDBConnection::class),
         );
 
         // "leaver" and "leaver2" are disabled, "gone" is deleted, "carol" is active.
@@ -282,6 +284,7 @@ class OrphanFileMoveServiceTest extends TestCase {
         $this->danaCanTakeOver();
         $this->candidates([$this->row(1), $this->row(2)]);
         $this->homePaths([101 => 'Docs/a.txt', 102 => 'Other/b.txt']);
+        $this->nodes->method('homeFileId')->willReturnMap([['leaver', 'Docs/a.txt', 1001], ['leaver', 'Other/b.txt', 1002]]);
 
         $this->jobList->expects($this->exactly(2))->method('add');
         $this->auditLogger->expects($this->exactly(2))->method('logFileMoveQueued');
@@ -293,6 +296,7 @@ class OrphanFileMoveServiceTest extends TestCase {
         $this->assertSame(['Docs/a.txt', 'Other/b.txt'], array_column($result['queued'], 'path'));
 
         $move = $this->inserted[0];
+        $this->assertSame(1001, $move->getFileId(), 'what was selected, to check against when it runs');
         $this->assertSame('leaver', $move->getSourceUid());
         $this->assertSame('dana', $move->getTargetUid());
         $this->assertSame('path', $move->getScope());
@@ -647,6 +651,7 @@ class OrphanFileMoveServiceTest extends TestCase {
             $workerLock,
             $this->jobsStatus,
             $this->createMock(LoggerInterface::class),
+            $this->createMock(IDBConnection::class),
         );
     }
 
@@ -719,6 +724,7 @@ class OrphanFileMoveServiceTest extends TestCase {
             $this->workerLock,
             $this->jobsStatus,
             $this->createMock(LoggerInterface::class),
+            $this->createMock(IDBConnection::class),
         );
     }
 
@@ -731,6 +737,63 @@ class OrphanFileMoveServiceTest extends TestCase {
             ->with($this->callback(fn (IUser $u) => $u->getUID() === 'leaver'), $this->callback(fn (IUser $u) => $u->getUID() === 'dana'), 'Docs');
         $this->moves->expects($this->once())->method('finish')->with(7, 'done', null, self::NOW);
         $this->auditLogger->expects($this->once())->method('logFileMoveFinished')->with('root', 'leaver', 'dana', 'Docs', null);
+        $this->orphans->expects($this->once())->method('flushOwnerCache');
+
+        $this->service->run(7);
+    }
+
+    public function testAMoveWhosePathNowHoldsSomethingElseMovesNothing(): void {
+        $this->queued('Docs')->setFileId(555);
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
+        // Renamed away, and something else put at its name.
+        $this->nodes->method('homeFileId')->with('leaver', 'Docs')->willReturn(999);
+
+        $this->gateway->expects($this->never())->method('move');
+        $this->moves->expects($this->once())->method('finish')->with(7, 'failed', OrphanFileMoveService::ERROR_SOURCE_CHANGED, self::NOW);
+
+        $this->service->run(7);
+    }
+
+    public function testAMoveWhosePathIsGoneMovesNothing(): void {
+        $this->queued('Docs')->setFileId(555);
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
+        $this->nodes->method('homeFileId')->willReturn(null);
+
+        $this->gateway->expects($this->never())->method('move');
+        $this->moves->expects($this->once())->method('finish')->with(7, 'failed', OrphanFileMoveService::ERROR_SOURCE_CHANGED, self::NOW);
+
+        $this->service->run(7);
+    }
+
+    public function testAMoveWhosePathStillHoldsWhatWasSelectedGoesAhead(): void {
+        $this->queued('Docs')->setFileId(555);
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
+        $this->nodes->method('homeFileId')->with('leaver', 'Docs')->willReturn(555);
+
+        $this->gateway->expects($this->once())->method('move');
+        $this->moves->expects($this->once())->method('finish')->with(7, 'done', null, self::NOW);
+
+        $this->service->run(7);
+    }
+
+    /**
+     * The Files app only writes a share it could not hand over to its output
+     * and returns as if all went well: what is in the database says otherwise.
+     */
+    public function testAMoveThatLeftSharesWithTheOldOwnerIsPartlyDoneAndSaysWhich(): void {
+        $this->queued('Docs');
+        $this->accounts(['leaver' => false, 'dana' => true]);
+        $this->moves->method('claim')->willReturn(FileMoveMapper::CLAIM_OK);
+        $this->nodes->method('homeStorageId')->with('dana')->willReturn(3);
+        $this->mapper->method('findIdsOwnedOnStorage')->with('leaver', 3)->willReturn([12, 34]);
+
+        $this->gateway->expects($this->once())->method('move');
+        $this->moves->expects($this->once())->method('finish')->with(7, 'partial', 'shares_not_moved:12,34', self::NOW);
+        $this->auditLogger->expects($this->once())->method('logFileMoveFinished')->with('root', 'leaver', 'dana', 'Docs', 'shares_not_moved:12,34');
+        // The files did move: what is orphan has changed.
         $this->orphans->expects($this->once())->method('flushOwnerCache');
 
         $this->service->run(7);

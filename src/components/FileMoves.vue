@@ -55,7 +55,7 @@
 							<span class="sad-filemoves__status" :class="'sad-filemoves__status--' + move.status">
 								{{ statusLabel(move.status) }}
 							</span>
-							<span v-if="move.status === 'failed' && move.error" class="sad-filemoves__error">
+							<span v-if="(move.status === 'failed' || move.status === 'partial') && move.error" class="sad-filemoves__error">
 								{{ errorLabel(move.error) }}
 							</span>
 							<!-- A running move whose worker is not known to be alive keeps its
@@ -123,6 +123,7 @@ const errorLabels = () => ({
 	target_not_enabled: t('share_audit_dashboard', 'The new owner is no longer an enabled account.'),
 	interrupted: t('share_audit_dashboard', 'The move was interrupted before it finished.'),
 	unexpected_error: t('share_audit_dashboard', 'Unexpected error. The Nextcloud log has the details.'),
+	source_changed: t('share_audit_dashboard', 'What is at this path is no longer the file or folder that was selected (it was renamed, replaced or removed), so nothing was moved. Queue it again from the orphan shares list.'),
 })
 
 export default {
@@ -175,10 +176,19 @@ export default {
 				running: t('share_audit_dashboard', 'Moving…'),
 				done: t('share_audit_dashboard', 'Done'),
 				failed: t('share_audit_dashboard', 'Failed'),
+				partial: t('share_audit_dashboard', 'Partly done'),
 			}
 			return labels[status] ?? status
 		},
 		errorLabel(error) {
+			// "shares_not_moved:12,34" — see OrphanFileMoveService::sharesNotMovedError().
+			if (error.startsWith('shares_not_moved:')) {
+				const ids = error.slice('shares_not_moved:'.length).split(',').filter(Boolean)
+				return n('share_audit_dashboard',
+					'The files moved, but %n share still belongs to the old account (#{ids}). Hand it over with "Only the shares".',
+					'The files moved, but %n shares still belong to the old account (#{ids}). Hand them over with "Only the shares".',
+					ids.length, { ids: ids.join(', #') })
+			}
 			return errorLabels()[error] ?? error
 		},
 		// Called by the parent right after it queues something. Polls by itself
@@ -319,6 +329,11 @@ export default {
 .sad-filemoves__status--done {
 	border: 1px solid var(--color-success);
 	color: var(--color-success-text);
+}
+
+.sad-filemoves__status--partial {
+	background-color: var(--sad-warning);
+	color: var(--sad-warning-on);
 }
 
 .sad-filemoves__status--failed {

@@ -14,8 +14,10 @@ use OCA\ShareAuditDashboard\Db\FileMove;
 use OCA\ShareAuditDashboard\Db\FileMoveMapper;
 use OCA\ShareAuditDashboard\Db\ShareMapper;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Db\TTransactional;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
+use OCP\IDBConnection;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -44,6 +46,7 @@ use Psr\Log\LoggerInterface;
  * its shares.
  */
 class OrphanFileMoveService {
+    use TTransactional;
 
     public const SCOPE_PATH = 'path';
     public const SCOPE_ACCOUNT = 'account';
@@ -65,6 +68,10 @@ class OrphanFileMoveService {
     public const ERROR_TARGET_UNAVAILABLE = 'target_not_enabled';
     public const ERROR_INTERRUPTED = 'interrupted';
     public const ERROR_UNEXPECTED = 'unexpected_error';
+    /** What is at the queued path now is not the file or folder that was selected. */
+    public const ERROR_SOURCE_CHANGED = 'source_changed';
+    /** Prefix of a partial move's error, followed by the ids of the shares left behind: "shares_not_moved:12,34". */
+    public const ERROR_SHARES_NOT_MOVED = 'shares_not_moved';
 
     /** release(): the move was freed. */
     public const RELEASE_OK = 'released';
@@ -95,6 +102,7 @@ class OrphanFileMoveService {
         private WorkerLock $workerLock,
         private BackgroundJobsStatus $jobsStatus,
         private LoggerInterface $logger,
+        private IDBConnection $db,
     ) {
     }
 
@@ -270,6 +278,7 @@ class OrphanFileMoveService {
             $source === null => self::ERROR_OWNER_MISSING,
             $source->isEnabled() => self::ERROR_OWNER_ACTIVE,
             $target === null || !$target->isEnabled() => self::ERROR_TARGET_UNAVAILABLE,
+            !$this->stillTheSelectedNode($move) => self::ERROR_SOURCE_CHANGED,
             default => null,
         };
 
@@ -290,15 +299,19 @@ class OrphanFileMoveService {
             }
         }
 
-        $this->moves->finish(
-            $id,
-            $error === null ? FileMoveMapper::STATUS_DONE : FileMoveMapper::STATUS_FAILED,
-            $error,
-            $this->time->getTime(),
-        );
+        $status = $error === null ? FileMoveMapper::STATUS_DONE : FileMoveMapper::STATUS_FAILED;
+        if ($error === null) {
+            $left = $this->sharesLeftBehind($from, $to);
+            if ($left !== []) {
+                $status = FileMoveMapper::STATUS_PARTIAL;
+                $error = $this->sharesNotMovedError($left);
+            }
+        }
+
+        $this->moves->finish($id, $status, $error, $this->time->getTime());
         $this->auditLogger->logFileMoveFinished((string)$move->getRequestedBy(), $from, $to, $path, $error);
 
-        if ($error === null) {
+        if ($status !== FileMoveMapper::STATUS_FAILED) {
             $this->analyzer->invalidate($from, $to);
             $this->orphans->flushOwnerCache();
         }
@@ -441,19 +454,88 @@ class OrphanFileMoveService {
         return true;
     }
 
+    /**
+     * The shares whose file is now in the new owner's home but that still name
+     * the old owner as theirs: what the move was meant to hand over and did not.
+     *
+     * The Files app hands every share over one at a time and, when one fails,
+     * only writes that to its output — which nobody reads here — and carries
+     * on. The transfer then returns as if all went well: the file has moved,
+     * but the share still points at an owner who no longer has it. Checking
+     * what is actually in the database afterwards is the one answer that does
+     * not depend on the Nextcloud version's output format.
+     *
+     * @return int[]
+     */
+    private function sharesLeftBehind(string $from, string $to): array {
+        $storage = $this->nodes->homeStorageId($to);
+        if ($storage === null) {
+            return [];
+        }
+        try {
+            return $this->mapper->findIdsOwnedOnStorage($from, $storage);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Could not check the shares of a finished file move: {exception}', ['exception' => $e]);
+            return [];
+        }
+    }
+
+    /**
+     * @param int[] $ids
+     */
+    private function sharesNotMovedError(array $ids): string {
+        $error = self::ERROR_SHARES_NOT_MOVED . ':';
+        foreach ($ids as $i => $id) {
+            $next = ($i === 0 ? '' : ',') . $id;
+            if (strlen($error) + strlen($next) > self::ERROR_MAX_LENGTH) {
+                break;
+            }
+            $error .= $next;
+        }
+        return $error;
+    }
+
+    /**
+     * Whether the path of $move still holds what was selected when it was
+     * queued. The queue keeps a path, and a path is only a name: between the
+     * two, the file can be renamed and something else put at its old name (an
+     * admin, a sync client of an account re-enabled for a while), and moving
+     * "whatever is there now" would hand the new owner files nobody chose
+     * while the selected ones stay behind. A rename is not followed either —
+     * the move is refused, for the admin to queue again from what is there.
+     *
+     * A whole-account move has no single node to compare, and a move queued
+     * before the id was kept has nothing to compare against.
+     */
+    private function stillTheSelectedNode(FileMove $move): bool {
+        $path = $move->getPath();
+        if ($path === null || $move->getFileId() === null) {
+            return true;
+        }
+        return $this->nodes->homeFileId((string)$move->getSourceUid(), $path) === $move->getFileId();
+    }
+
     private function queue(string $owner, string $newOwner, string $scope, ?string $path, int $shares): FileMove {
         $move = new FileMove();
         $move->setSourceUid($owner);
         $move->setTargetUid($newOwner);
         $move->setScope($scope);
         $move->setPath($path);
+        if ($path !== null) {
+            $move->setFileId($this->nodes->homeFileId($owner, $path));
+        }
         $move->setStatus(FileMoveMapper::STATUS_QUEUED);
         $move->setShareCount($shares);
         $move->setRequestedBy($this->userSession->getUser()?->getUID());
         $move->setCreatedAt($this->time->getTime());
-        $move = $this->moves->insert($move);
-
-        $this->jobList->add(OrphanFileMoveJob::class, ['id' => (int)$move->getId()]);
+        // The row and its job together or not at all: a "queued" row with no
+        // job would never run, and would keep its path from being queued again
+        // (see coveredByActiveMove()).
+        $move = $this->atomic(function () use ($move) {
+            $move = $this->moves->insert($move);
+            $this->jobList->add(OrphanFileMoveJob::class, ['id' => (int)$move->getId()]);
+            return $move;
+        }, $this->db);
         $this->auditLogger->logFileMoveQueued($owner, $newOwner, $path, $shares);
 
         return $move;
