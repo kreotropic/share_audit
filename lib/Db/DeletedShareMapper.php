@@ -12,6 +12,7 @@ namespace OCA\ShareAuditDashboard\Db;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\MultipleObjectsReturnedException;
 use OCP\AppFramework\Db\QBMapper;
+use OCP\DB\Exception;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -52,6 +53,47 @@ class DeletedShareMapper extends QBMapper {
         $qb->delete($this->getTableName())
             ->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
         return $qb->executeStatement() === 1;
+    }
+
+    /**
+     * Put a captured share in the bin unless it is there already, saying
+     * whether this call is the one that did.
+     *
+     * One deletion can be captured twice: two requests that each loaded the
+     * share before either deleted it both fire BeforeShareDeletedEvent, and
+     * ShareDeletionService's raw fallback can follow a manager delete that got
+     * as far as the event. Two entries for one share could both be restored,
+     * as two live links on one token. The look-first keeps the common,
+     * one-after-the-other case from ever hitting the database's refusal (which
+     * would abort an enclosing transaction on PostgreSQL); the UNIQUE index
+     * (see Migration\Version0011Date...) settles two captures at once.
+     */
+    public function insertOnce(DeletedShare $entity): bool {
+        if ($this->exists((int)$entity->getOriginalShareId(), (int)$entity->getShareType())) {
+            return false;
+        }
+        try {
+            $this->insert($entity);
+            return true;
+        } catch (Exception $e) {
+            if ($e->getReason() === Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+                return false;
+            }
+            throw $e;
+        }
+    }
+
+    private function exists(int $originalShareId, int $shareType): bool {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('id')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('original_share_id', $qb->createNamedParameter($originalShareId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('share_type', $qb->createNamedParameter($shareType, IQueryBuilder::PARAM_INT)))
+            ->setMaxResults(1);
+        $result = $qb->executeQuery();
+        $exists = $result->fetchOne() !== false;
+        $result->closeCursor();
+        return $exists;
     }
 
     /**

@@ -18,6 +18,8 @@ use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\IDBConnection;
 use OCP\IUserSession;
+use OCP\Lock\ILockingProvider;
+use OCP\Lock\LockedException;
 use OCP\Share\IManager;
 use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
@@ -60,6 +62,7 @@ class SoftDeleteService {
         private ShareAuditLogger $auditLogger,
         private PasswordGeneratorService $passwords,
         private LoggerInterface $logger,
+        private ILockingProvider $locking,
     ) {
     }
 
@@ -85,6 +88,8 @@ class SoftDeleteService {
         $entity->setExpiration($share->getExpirationDate()?->format('Y-m-d H:i:s'));
         $entity->setStime($share->getShareTime()?->getTimestamp());
         $entity->setSourceExistsAtDeletion($this->nodeStillExists($share));
+        $entity->setHideDownload($share->getHideDownload());
+        $entity->setAttributes(json_encode($share->getAttributes()?->toArray() ?? []));
         $this->finishCapture($entity);
     }
 
@@ -137,6 +142,12 @@ class SoftDeleteService {
         $entity->setSourceExistsAtDeletion(
             $this->fileExistsInCache(isset($row['file_source']) ? (int)$row['file_source'] : null),
         );
+        if (array_key_exists('hide_download', $row)) {
+            $entity->setHideDownload((int)$row['hide_download'] === 1);
+        }
+        if (array_key_exists('attributes', $row)) {
+            $entity->setAttributes(json_encode($this->attributesFromColumn($row['attributes'])));
+        }
         $this->finishCapture($entity);
     }
 
@@ -160,12 +171,35 @@ class SoftDeleteService {
         return $exists;
     }
 
+    /**
+     * oc_share.attributes is `[[scope, key, value], ...]` (the share
+     * provider's compact form); what is kept is IAttributes::toArray()'s
+     * `[{scope, key, value}, ...]`, the same as captureShare() gets.
+     *
+     * @return list<array{scope: string, key: string, value: mixed}>
+     */
+    private function attributesFromColumn(mixed $column): array {
+        $decoded = is_string($column) && $column !== '' ? json_decode($column, true) : null;
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $attributes = [];
+        foreach ($decoded as $attribute) {
+            if (is_array($attribute) && count($attribute) >= 3) {
+                $attributes[] = ['scope' => (string)$attribute[0], 'key' => (string)$attribute[1], 'value' => $attribute[2]];
+            }
+        }
+        return $attributes;
+    }
+
     private function finishCapture(DeletedShare $entity): void {
         $now = $this->time->getTime();
         $entity->setDeletedAt($now);
         $entity->setDeletedBy($this->userSession->getUser()?->getUID());
         $entity->setPurgeAfter($now + $this->settings->getRetentionDays() * 86400);
-        $this->mapper->insert($entity);
+        // A second capture of the same deletion is not a second share — see
+        // DeletedShareMapper::insertOnce().
+        $this->mapper->insertOnce($entity);
     }
 
     /**
@@ -254,11 +288,11 @@ class SoftDeleteService {
      *
      * $reason on failure is a stable code (not the human-readable $message,
      * which is English-only and meant for logs) — 'not_found' | 'file_missing'
-     * | 'create_failed' | 'password_lost' — so the frontend can show its own
+     * | 'create_failed' | 'password_lost' | 'busy' — so the frontend can show its own
      * translated, specific message instead of one generic string regardless
      * of cause.
      *
-     * @return array{success: bool, id?: int, tokenChanged?: bool, expirationCleared?: bool, reason?: string, message?: string}
+     * @return array{success: bool, id?: int, tokenChanged?: bool, expirationCleared?: bool, downloadHiddenAssumed?: bool, reason?: string, message?: string}
      */
     public function restore(int $id): array {
         try {
@@ -289,6 +323,7 @@ class SoftDeleteService {
         if ($entity->getPassword() !== null) {
             $share->setPassword($this->passwords->generate());
         }
+        $downloadHiddenAssumed = $this->applyDownloadRestrictions($share, $entity);
 
         // A stored expiration already in the past — easily possible: the
         // retention window (30 days by default) can outlast a short original
@@ -311,6 +346,87 @@ class SoftDeleteService {
             }
         }
 
+        // Two bin entries can carry the same token (two captures of one
+        // deletion made before there was one entry per share, or a link
+        // restored, revoked again and its old entry restored from a backup):
+        // each restore's claim() only guards its own entry, and
+        // restoreRawColumns() looks for the token before writing it — a look
+        // that cannot see the other restore's uncommitted share. Holding the
+        // token for the whole transaction makes the second restore look only
+        // after the first has committed. Taken outside the transaction: the
+        // database locking provider writes its lock through this same
+        // connection, where nobody else could see it before the commit.
+        $tokenLock = ($entity->getToken() ?? '') !== '' ? 'share_audit_dashboard/restore-token/' . $entity->getToken() : null;
+        if ($tokenLock !== null && !$this->acquireTokenLock($tokenLock)) {
+            return ['success' => false, 'reason' => 'busy', 'message' => 'Another restore of this link is in progress.'];
+        }
+        try {
+            $result = $this->createInTransaction($id, $entity, $share);
+        } finally {
+            if ($tokenLock !== null) {
+                $this->locking->releaseLock($tokenLock, ILockingProvider::LOCK_EXCLUSIVE);
+            }
+        }
+        if ($result['success']) {
+            $result['expirationCleared'] = $expirationCleared;
+            $result['downloadHiddenAssumed'] = $downloadHiddenAssumed;
+        }
+        return $result;
+    }
+
+    /**
+     * The download restrictions go back on before the share exists, so there
+     * is no moment it serves more than it did.
+     *
+     * An entry captured before they were kept (both columns NULL) cannot say
+     * whether the link hid downloads. A link or mail share then comes back
+     * with downloads hidden — giving it less than it had is fixable by its
+     * owner, giving it more is not undoable once someone downloaded — and the
+     * caller is told (the returned true) so the admin can say so.
+     */
+    private function applyDownloadRestrictions(IShare $share, DeletedShare $entity): bool {
+        $isLink = in_array($entity->getShareType(), [IShare::TYPE_LINK, IShare::TYPE_EMAIL], true);
+        $assumed = false;
+        if ($entity->getHideDownload() !== null) {
+            $share->setHideDownload($entity->getHideDownload());
+        } elseif ($isLink && $entity->getAttributes() === null) {
+            $share->setHideDownload(true);
+            $assumed = true;
+        }
+
+        $stored = $entity->getAttributes() !== null ? json_decode($entity->getAttributes(), true) : null;
+        if (is_array($stored) && $stored !== []) {
+            $attributes = $share->newAttributes();
+            foreach ($stored as $attribute) {
+                if (isset($attribute['scope'], $attribute['key']) && array_key_exists('value', $attribute)) {
+                    $attributes->setAttribute((string)$attribute['scope'], (string)$attribute['key'], $attribute['value']);
+                }
+            }
+            $share->setAttributes($attributes);
+        }
+        return $assumed;
+    }
+
+    /**
+     * Waits a little for a restore of the same token to finish rather than
+     * failing a double click outright.
+     */
+    private function acquireTokenLock(string $key): bool {
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            try {
+                $this->locking->acquireLock($key, ILockingProvider::LOCK_EXCLUSIVE);
+                return true;
+            } catch (LockedException) {
+                usleep(100_000);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return array{success: bool, id?: int, tokenChanged?: bool, reason?: string, message?: string}
+     */
+    private function createInTransaction(int $id, DeletedShare $entity, IShare $share): array {
         $this->db->beginTransaction();
         try {
             if (!$this->mapper->claim($id)) {
@@ -379,7 +495,6 @@ class SoftDeleteService {
             'success' => true,
             'id' => (int)$created->getId(),
             'tokenChanged' => !$tokenRestored,
-            'expirationCleared' => $expirationCleared,
         ];
     }
 

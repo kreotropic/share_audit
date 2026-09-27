@@ -32,7 +32,10 @@
 			</NcNoteCard>
 
 			<div class="sad-deleted-bar">
-				<NcCheckboxRadioSwitch v-if="canManage" :model-value="allSelected" @update:model-value="toggleAll">
+				<NcCheckboxRadioSwitch v-if="canManage"
+					:model-value="allSelected"
+					:disabled="busy"
+					@update:model-value="toggleAll">
 					{{ t('share_audit_dashboard', 'Select all') }}
 				</NcCheckboxRadioSwitch>
 				<span v-if="selectedIds.length" class="sad-deleted-bar__count">
@@ -96,6 +99,7 @@
 						<tr v-for="share in items" :key="share.id">
 							<td v-if="canManage" class="sad-table__check">
 								<NcCheckboxRadioSwitch :model-value="selectedIds.includes(share.id)"
+									:disabled="busy"
 									@update:model-value="toggleSelect(share.id, $event)" />
 							</td>
 							<td><NcChip :text="categoryLabel(share.category)" :no-close="true" /></td>
@@ -185,6 +189,9 @@ export default {
 		return {
 			loading: true,
 			error: null,
+			// Bumped by every load(): only the answer to the latest one is shown
+			// (see load()).
+			loadSeq: 0,
 			busy: false,
 			confirmingPurge: false,
 			items: [],
@@ -290,24 +297,42 @@ export default {
 			this.load()
 		},
 		async load() {
+			// A slower, earlier request (a previous page, search or filter) must
+			// not overwrite the answer to this one when it comes back after it.
+			const seq = ++this.loadSeq
 			this.loading = true
 			this.error = null
 			try {
 				const data = await fetchDeletedShares({ page: this.page, limit: this.apiLimit })
+				if (seq !== this.loadSeq) {
+					return
+				}
 				this.items = data.items
 				this.total = data.total
 				this.selectedIds = this.selectedIds.filter((id) => this.items.some((s) => s.id === id))
 				this.$emit('deleted-count', this.total)
 			} catch (e) {
-				this.error = t('share_audit_dashboard', 'Could not load deleted shares.')
+				if (seq === this.loadSeq) {
+					this.error = t('share_audit_dashboard', 'Could not load deleted shares.')
+				}
 			} finally {
-				this.loading = false
+				if (seq === this.loadSeq) {
+					this.loading = false
+				}
 			}
 		},
 		// Maps restoreDeletedShare()'s success flags (tokenChanged,
 		// expirationCleared) to a translated notice — reused by restoreOne()
 		// and (via its plural counters) restoreSelected().
 		restoreSuccessNotice(res) {
+			const notice = this.restoreFlagsNotice(res)
+			if (res.downloadHiddenAssumed) {
+				notice.type = 'warning'
+				notice.message += ' ' + t('share_audit_dashboard', 'Downloads are hidden on it: this entry was kept before the app saved that setting, so it was restored on the safe side.')
+			}
+			return notice
+		},
+		restoreFlagsNotice(res) {
 			if (res.tokenChanged && res.expirationCleared) {
 				return { type: 'warning', message: t('share_audit_dashboard', 'Restored, but with a new link URL and no expiration (the original had already passed).') }
 			}
@@ -329,6 +354,7 @@ export default {
 				file_missing: t('share_audit_dashboard', 'Could not restore this share — the original file may no longer exist.'),
 				create_failed: t('share_audit_dashboard', 'Could not restore this share — the recipient or permissions may no longer be valid.'),
 				password_lost: t('share_audit_dashboard', 'Could not restore the password on this share — nothing was changed. Its original link token is likely still in use by another share; try again once that one is gone.'),
+				busy: t('share_audit_dashboard', 'Another restore of this link is still in progress — nothing was changed. Try again in a moment.'),
 			}
 			return messages[e.response?.data?.reason] ?? t('share_audit_dashboard', 'Could not restore this share.')
 		},
@@ -353,6 +379,7 @@ export default {
 				let restored = 0
 				let changed = 0
 				let expirationCleared = 0
+				let downloadHidden = 0
 				let failed = this.selectedIds.length - this.restorableSelectedIds.length
 				for (const id of [...this.restorableSelectedIds]) {
 					try {
@@ -363,6 +390,9 @@ export default {
 						}
 						if (res.expirationCleared) {
 							expirationCleared++
+						}
+						if (res.downloadHiddenAssumed) {
+							downloadHidden++
 						}
 					} catch (e) {
 						failed++
@@ -375,10 +405,13 @@ export default {
 				if (expirationCleared > 0) {
 					parts.push(n('share_audit_dashboard', '%n lost an already-passed expiration date.', '%n lost an already-passed expiration date.', expirationCleared))
 				}
+				if (downloadHidden > 0) {
+					parts.push(n('share_audit_dashboard', '%n was restored with downloads hidden (kept before the app saved that setting).', '%n were restored with downloads hidden (kept before the app saved that setting).', downloadHidden))
+				}
 				if (failed > 0) {
 					parts.push(n('share_audit_dashboard', '%n could not be restored.', '%n could not be restored.', failed))
 				}
-				this.notice = { type: failed > 0 ? 'warning' : 'success', message: parts.join(' ') }
+				this.notice = { type: failed > 0 || downloadHidden > 0 ? 'warning' : 'success', message: parts.join(' ') }
 				this.selectedIds = []
 				await this.load()
 			} finally {
@@ -390,8 +423,11 @@ export default {
 			this.notice = null
 			try {
 				let purged = 0
-				for (let i = 0; i < this.selectedIds.length; i += BULK_CHUNK_SIZE) {
-					const chunk = this.selectedIds.slice(i, i + BULK_CHUNK_SIZE)
+				// What was confirmed, not whatever is ticked by the time a chunk
+				// goes out: the checkboxes stay live while one is in flight.
+				const ids = [...this.selectedIds]
+				for (let i = 0; i < ids.length; i += BULK_CHUNK_SIZE) {
+					const chunk = ids.slice(i, i + BULK_CHUNK_SIZE)
 					const res = await purgeDeletedShares(chunk)
 					purged += res.purged
 				}

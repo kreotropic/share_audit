@@ -26,7 +26,9 @@ use OCP\Files\Node;
 use OCP\IDBConnection;
 use OCP\IUser;
 use OCP\IUserSession;
+use OCP\Lock\ILockingProvider;
 use OCP\Share\IManager;
+use OCP\Share\IAttributes;
 use OCP\Share\IShare;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -55,6 +57,9 @@ class SoftDeleteServiceTest extends TestCase {
     private ShareAuditLogger&MockObject $auditLogger;
     private PasswordGeneratorService&MockObject $passwords;
     private LoggerInterface&MockObject $logger;
+    private ILockingProvider&MockObject $locking;
+    /** @var list<string> acquire:/release: calls on the token lock */
+    private array $locks = [];
     private SoftDeleteService $service;
 
     protected function setUp(): void {
@@ -72,6 +77,14 @@ class SoftDeleteServiceTest extends TestCase {
         $this->passwords = $this->createMock(PasswordGeneratorService::class);
         $this->passwords->method('generate')->willReturn('Temp-Passw0rd!');
         $this->logger = $this->createMock(LoggerInterface::class);
+        $this->locking = $this->createMock(ILockingProvider::class);
+        $this->locking->method('acquireLock')->willReturnCallback(function (string $key) {
+            // With how far restore() had got, to tell "around the transaction" from "inside it".
+            $this->locks[] = 'acquire:' . $key . '@' . implode(',', $this->steps);
+        });
+        $this->locking->method('releaseLock')->willReturnCallback(function (string $key) {
+            $this->locks[] = 'release:' . $key . '@' . implode(',', $this->steps);
+        });
 
         $this->service = new SoftDeleteService(
             $this->mapper,
@@ -87,6 +100,7 @@ class SoftDeleteServiceTest extends TestCase {
             $this->auditLogger,
             $this->passwords,
             $this->logger,
+            $this->locking,
         );
     }
 
@@ -123,7 +137,7 @@ class SoftDeleteServiceTest extends TestCase {
         $share->method('getShareTime')->willReturn(null);
 
         $captured = null;
-        $this->mapper->expects($this->once())->method('insert')
+        $this->mapper->expects($this->once())->method('insertOnce')
             ->with($this->callback(function (DeletedShare $e) use (&$captured) {
                 $captured = $e;
                 return true;
@@ -137,6 +151,37 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertSame(1000, $captured->getDeletedAt());
         $this->assertSame(1000 + 30 * 86400, $captured->getPurgeAfter());
         $this->assertTrue($captured->getSourceExistsAtDeletion());
+        $this->assertFalse($captured->getHideDownload());
+        $this->assertSame('[]', $captured->getAttributes(), 'no restrictions is known, not unknown');
+    }
+
+    public function testCaptureShareKeepsTheDownloadRestrictions(): void {
+        $this->time->method('getTime')->willReturn(1000);
+        $this->settings->method('getRetentionDays')->willReturn(30);
+        $this->userSession->method('getUser')->willReturn(null);
+
+        $attributes = $this->createMock(IAttributes::class);
+        $attributes->method('toArray')->willReturn([['scope' => 'permissions', 'key' => 'download', 'value' => false]]);
+        $share = $this->createMock(IShare::class);
+        $share->method('getId')->willReturn('42');
+        $share->method('getShareType')->willReturn(IShare::TYPE_LINK);
+        $share->method('getSharedWith')->willReturn('');
+        $share->method('getShareOwner')->willReturn('bob');
+        $share->method('getNodeType')->willReturn('file');
+        $share->method('getNodeId')->willReturn(99);
+        $share->method('getHideDownload')->willReturn(true);
+        $share->method('getAttributes')->willReturn($attributes);
+
+        $captured = null;
+        $this->mapper->method('insertOnce')->with($this->callback(function (DeletedShare $e) use (&$captured) {
+            $captured = $e;
+            return true;
+        }));
+
+        $this->service->captureShare($share);
+
+        $this->assertTrue($captured->getHideDownload());
+        $this->assertSame([['scope' => 'permissions', 'key' => 'download', 'value' => false]], json_decode($captured->getAttributes(), true));
     }
 
     /**
@@ -167,7 +212,7 @@ class SoftDeleteServiceTest extends TestCase {
         $share->method('getNode')->willThrowException(new \OCP\Files\NotFoundException());
 
         $captured = null;
-        $this->mapper->method('insert')->with($this->callback(function (DeletedShare $e) use (&$captured) {
+        $this->mapper->method('insertOnce')->with($this->callback(function (DeletedShare $e) use (&$captured) {
             $captured = $e;
             return true;
         }));
@@ -184,7 +229,7 @@ class SoftDeleteServiceTest extends TestCase {
         $this->stubFileExistsQuery(true);
 
         $captured = null;
-        $this->mapper->expects($this->once())->method('insert')
+        $this->mapper->expects($this->once())->method('insertOnce')
             ->with($this->callback(function (DeletedShare $e) use (&$captured) {
                 $captured = $e;
                 return true;
@@ -217,6 +262,34 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertTrue($captured->getSourceExistsAtDeletion());
     }
 
+    public function testCaptureRowKeepsTheDownloadRestrictions(): void {
+        $this->time->method('getTime')->willReturn(500);
+        $this->settings->method('getRetentionDays')->willReturn(7);
+        $this->userSession->method('getUser')->willReturn(null);
+        $this->stubFileExistsQuery(true);
+
+        $captured = null;
+        $this->mapper->method('insertOnce')->with($this->callback(function (DeletedShare $e) use (&$captured) {
+            $captured = $e;
+            return true;
+        }));
+
+        $this->service->captureRow([
+            'id' => 8,
+            'share_type' => IShare::TYPE_LINK,
+            'uid_owner' => 'dave',
+            'item_type' => 'file',
+            'file_source' => 55,
+            'permissions' => 1,
+            'hide_download' => 1,
+            // oc_share's compact form.
+            'attributes' => '[["permissions","download",false]]',
+        ]);
+
+        $this->assertTrue($captured->getHideDownload());
+        $this->assertSame([['scope' => 'permissions', 'key' => 'download', 'value' => false]], json_decode($captured->getAttributes(), true));
+    }
+
     public function testCaptureRowTreatsEmptyLabelAsNoName(): void {
         $this->time->method('getTime')->willReturn(500);
         $this->settings->method('getRetentionDays')->willReturn(7);
@@ -224,7 +297,7 @@ class SoftDeleteServiceTest extends TestCase {
         $this->stubFileExistsQuery(true);
 
         $captured = null;
-        $this->mapper->expects($this->once())->method('insert')
+        $this->mapper->expects($this->once())->method('insertOnce')
             ->with($this->callback(function (DeletedShare $e) use (&$captured) {
                 $captured = $e;
                 return true;
@@ -251,7 +324,7 @@ class SoftDeleteServiceTest extends TestCase {
         $this->stubFileExistsQuery(false);
 
         $captured = null;
-        $this->mapper->method('insert')->with($this->callback(function (DeletedShare $e) use (&$captured) {
+        $this->mapper->method('insertOnce')->with($this->callback(function (DeletedShare $e) use (&$captured) {
             $captured = $e;
             return true;
         }));
@@ -293,6 +366,8 @@ class SoftDeleteServiceTest extends TestCase {
         $e->setDeletedAt(1000);
         $e->setDeletedBy('alice');
         $e->setPurgeAfter(1000 + 30 * 86400);
+        $e->setHideDownload(false);
+        $e->setAttributes('[]');
         return $e;
     }
 
@@ -417,6 +492,101 @@ class SoftDeleteServiceTest extends TestCase {
         $this->assertSame(777, $result['id']);
         $this->assertFalse($result['tokenChanged']);
         $this->assertSame(['begin', 'claim', 'createShare', 'commit'], $this->steps, 'claimed before anything is created, and nothing is final until the end');
+    }
+
+    /**
+     * Two bin entries with one token each only claim their own entry: the
+     * token itself is held from before the transaction until after its end, so
+     * that the second restore's look for the token sees the first one's share.
+     */
+    public function testRestoreHoldsTheTokenForTheWholeTransaction(): void {
+        $this->arrangeRestore($this->retainedLinkEntity());
+        $this->stubTokenPasswordUpdateQuery();
+
+        $this->service->restore(1);
+
+        $this->assertSame([
+            'acquire:share_audit_dashboard/restore-token/tok123@',
+            'release:share_audit_dashboard/restore-token/tok123@begin,claim,createShare,commit',
+        ], $this->locks);
+    }
+
+    public function testRestoreReleasesTheTokenWhenItFails(): void {
+        $this->arrangeRestore($this->retainedLinkEntity());
+        $this->createFails = true;
+
+        $this->service->restore(1);
+
+        $this->assertSame([
+            'acquire:share_audit_dashboard/restore-token/tok123@',
+            'release:share_audit_dashboard/restore-token/tok123@begin,claim,createShare,rollBack',
+        ], $this->locks);
+    }
+
+    public function testRestorePutsTheDownloadRestrictionsBackBeforeCreatingTheShare(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setHideDownload(true);
+        $entity->setAttributes(json_encode([['scope' => 'permissions', 'key' => 'download', 'value' => false]]));
+        $newShare = $this->arrangeRestore($entity);
+        $this->stubTokenPasswordUpdateQuery();
+        $attributes = $this->createMock(IAttributes::class);
+        $newShare->method('newAttributes')->willReturn($attributes);
+
+        $newShare->expects($this->once())->method('setHideDownload')->with(true)
+            ->willReturnCallback(function () use ($newShare) {
+                $this->steps[] = 'setHideDownload';
+                return $newShare;
+            });
+        $attributes->expects($this->once())->method('setAttribute')->with('permissions', 'download', false);
+        $newShare->expects($this->once())->method('setAttributes')->with($attributes)
+            ->willReturnCallback(function () use ($newShare) {
+                $this->steps[] = 'setAttributes';
+                return $newShare;
+            });
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertFalse($result['downloadHiddenAssumed']);
+        $this->assertSame(['setHideDownload', 'setAttributes', 'begin', 'claim', 'createShare', 'commit'], $this->steps);
+    }
+
+    /**
+     * An entry kept before the restrictions were: nothing says whether the
+     * link hid downloads, so it comes back hiding them, and the caller is told.
+     */
+    public function testRestoreOfALinkKeptWithoutItsRestrictionsHidesDownloads(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setHideDownload(null);
+        $entity->setAttributes(null);
+        $newShare = $this->arrangeRestore($entity);
+        $this->stubTokenPasswordUpdateQuery();
+
+        $newShare->expects($this->once())->method('setHideDownload')->with(true);
+        $newShare->expects($this->never())->method('setAttributes');
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['downloadHiddenAssumed']);
+    }
+
+    public function testRestoreOfAUserShareKeptWithoutItsRestrictionsChangesNothing(): void {
+        $entity = $this->retainedLinkEntity();
+        $entity->setShareType(IShare::TYPE_USER);
+        $entity->setShareWith('carol');
+        $entity->setToken(null);
+        $entity->setHideDownload(null);
+        $entity->setAttributes(null);
+        $newShare = $this->arrangeRestore($entity);
+
+        $newShare->expects($this->never())->method('setHideDownload');
+
+        $result = $this->service->restore(1);
+
+        $this->assertTrue($result['success']);
+        $this->assertFalse($result['downloadHiddenAssumed']);
+        $this->assertSame([], $this->locks, 'no token, nothing to hold');
     }
 
     /**

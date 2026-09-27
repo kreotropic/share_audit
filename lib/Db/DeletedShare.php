@@ -51,6 +51,12 @@ class DeletedShare extends Entity {
     // back). Nullable only for the same dirty-tracking reason as every
     // other field above, even though it is a real bool, not "unknown".
     protected ?bool $sourceExistsAtDeletion = null;
+    // The share's download restrictions (see Migration\Version0011Date...):
+    // `hide_download` and its attributes as IAttributes::toArray() JSON. Both
+    // NULL on an entry captured before they were kept, which is "unknown",
+    // not "none" — see SoftDeleteService::restore().
+    protected ?bool $hideDownload = null;
+    protected ?string $attributes = null;
 
     public function __construct() {
         $this->addType('originalShareId', 'integer');
@@ -71,5 +77,7 @@ class DeletedShare extends Entity {
         $this->addType('deletedBy', 'string');
         $this->addType('purgeAfter', 'integer');
         $this->addType('sourceExistsAtDeletion', 'boolean');
+        $this->addType('hideDownload', 'boolean');
+        $this->addType('attributes', 'string');
     }
 }
