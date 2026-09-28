@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.8.0]
+
 ### Added
 - **Move the files of an orphan share's owner, not just the share.** A share
   whose file sits in a *disabled* account's own home used to be skipped

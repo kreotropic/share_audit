@@ -6,3 +6,4 @@
 /js/*.map
 /.phpunit.result.cache
 /.claude/
+/build/artifacts/
