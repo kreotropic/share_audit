@@ -147,3 +147,30 @@ Things to know:
   because a race is not one that happens every time; a bug they are meant to
   catch shows as more than one success, not as a flaky pass.
 
+## Releasing to the App Store
+
+Signing needs the app certificate: `~/.nextcloud/certificates/` holds
+`share_audit_dashboard.key` and `.crt`. See the certificate-request and
+signing-trap notes in DiskMap's own `build/README.md` — the mechanics
+(`krankerl package`, sign an *extracted copy* of the tarball, never the
+working tree, verify with `occ integrity:check-app` on a disposable
+instance) are identical across every app in this workspace and are not
+repeated here.
+
+**`krankerl package` wipes the whole `build/artifacts/` directory on every
+run** — not just the file it writes. Anything left there from a previous
+release (a signed tarball, its release signature) is gone the next time
+`krankerl package` runs, in this session or a later one. Treat
+`build/artifacts/` as disposable scratch only. As soon as a release is
+packaged, signed and verified, copy the final signed tarball and its
+release-signature file out to `releases/` (gitignored, not shipped) with
+the version in the filename and never overwrite an existing one there:
+
+```
+releases/share_audit_dashboard-v<version>-signed.tar.gz
+releases/share_audit_dashboard-v<version>-signed.tar.gz.sig.b64
+```
+
+That directory is what actually gets handed over for the GitHub release
+asset and the App Store upload form — not `build/artifacts/`.
+
