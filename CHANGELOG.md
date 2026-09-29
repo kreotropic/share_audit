@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.8.1]
+
+### Fixed
+- The auditor's read-only view (issue #16) could not be scrolled on
+  Dashboard, All shares or Security alerts — the page clipped instead of
+  showing a scrollbar, making the lower part of those views unreachable.
+  Lookup & Orphans and Deleted shares were unaffected because their content
+  already fit on screen.
+- The Share Audit icon in the top app menu rendered white and was barely
+  visible against a light Nextcloud header.
+
 ## [0.8.0]
 
 ### Added
