@@ -5,7 +5,7 @@
 
 # Share Audit Dashboard: Roadmap
 
-## Current state (v0.8.1, unreleased)
+## Current state (v0.8.2)
 
 The app is **published on the App Store** (`min-version` 31, `max-version`
 35) and functionally complete: three review rounds (security, pre-submission
@@ -23,10 +23,11 @@ also gone from one that can still be transferred (issue #21). 0.8.0 closed a
 follow-up review of 0.7.0 (Talk-token oracles, atomic restore, a real-database
 integration suite; see the CHANGELOG's 0.8.0 section) and let an admin
 **move the files of a disabled owner** from *Orphan shares*, not only hand
-over the share. 0.8.1, still unreleased, fixes two UI issues an auditor
-reported after 0.8.0: the read-only view couldn't be scrolled on Dashboard,
-All shares or Security alerts, and the top app menu icon was nearly invisible
-against a light header. The app has a test suite (`phpunit`,
+over the share. 0.8.1 and 0.8.2 fix UI issues an auditor reported after
+0.8.0: the read-only view couldn't be scrolled on Dashboard, All shares or
+Security alerts, the top app menu icon was nearly invisible against a light
+header, and the view had no panel of its own (cards on the theme wallpaper,
+each tab a different width). The app has a test suite (`phpunit`,
 `tests/Unit/`, 465 tests; 215 integration tests in `tests/Integration/`, which
 run inside a real Nextcloud on MariaDB and PostgreSQL; 11 node tests for the
 frontend's selection logic in `tests/js/`) and CI (`.github/workflows/ci.yml`:

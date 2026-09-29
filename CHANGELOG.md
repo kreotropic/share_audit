@@ -10,6 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.8.2]
+
+### Fixed
+- The auditor's read-only view (issue #16) had no panel background of its
+  own: the cards sat directly on the theme wallpaper, which showed through
+  the charts and made their muted text hard to read. Each tab also took only
+  its own content's width instead of the full page width, so the page changed
+  width when switching tabs.
+
 ## [0.8.1]
 
 ### Fixed
