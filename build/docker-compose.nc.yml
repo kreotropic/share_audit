@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Ricardo Ferreira <rsfneg@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Disposable single-container Nextcloud instance for checking Share Audit
+# Dashboard against one specific version out of the range declared in
+# appinfo/info.xml (<nextcloud min-version="31" max-version="35"/>). SQLite,
+# no separate db container: this is about API/behaviour compatibility across
+# Nextcloud versions, not about the database engine -- docker-compose.
+# {pgsql,mysql}.yml already cover that, pinned to one Nextcloud version.
+#
+# Not meant to be brought up by hand: NC_VERSION and NC_PORT must be set in
+# the environment, which build/nc-instance.sh does. Each version gets its own
+# container/volume names, so several can run side by side. See build/README.md.
+services:
+  app:
+    image: nextcloud:${NC_VERSION}-apache
+    container_name: shareaudit-nc${NC_VERSION}-app
+    restart: unless-stopped
+    ports:
+      - "${NC_PORT}:80"
+    volumes:
+      - ncdata:/var/www/html
+      - ..:/var/www/html/custom_apps/share_audit_dashboard
+    environment:
+      - SQLITE_DATABASE=nextcloud
+      - NEXTCLOUD_ADMIN_USER=ncadmin
+      - NEXTCLOUD_ADMIN_PASSWORD=shareaudit-nc${NC_VERSION}-verify
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost
+
+volumes:
+  # Compose does not interpolate variables inside mapping keys, only in
+  # values -- this key must stay fixed. It doesn't collide between versions
+  # because `docker compose -p shareaudit-ncNN` prefixes it with the project
+  # name (shareaudit-nc33_ncdata, shareaudit-nc35_ncdata, ...).
+  ncdata:
