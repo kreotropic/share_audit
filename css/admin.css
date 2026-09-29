@@ -7,6 +7,25 @@
 	max-width: 100%;
 }
 
+/*
+ * templates/viewer.php only (the read-only auditor entry point). It mounts
+ * as a direct child of core's #content, which is a fixed-height flex box
+ * with `overflow: clip` and no scrolling of its own — templates/admin.php
+ * doesn't need this because Settings' own layout already provides a
+ * scrollable ancestor. `overflow-y: auto` alone isn't enough on a flex
+ * child: its automatic min-height would still be its content's height,
+ * so the container would just grow past #content's fixed height and get
+ * clipped instead of scrolling — min-height: 0 lets it shrink to the
+ * available space first.
+ */
+#content > #share-audit-dashboard.sad-standalone {
+	min-height: 0;
+	height: 100%;
+	overflow-y: auto;
+	box-sizing: border-box;
+	padding: 20px;
+}
+
 #share-audit-dashboard .sad-loading {
 	padding: 20px 0;
 	color: var(--color-text-maxcontrast);
