@@ -17,6 +17,8 @@ working on the app, not for running it.
 | `seed-fixture.php` | Creates a deterministic set of shares to compare between the two. |
 | `dump-readpaths.php` | Prints every read path over that fixture, normalised so two instances can be diffed. |
 | `run-integration.sh` | Runs `tests/Integration` on those two instances (see *Integration tests* below). |
+| `docker-compose.nc.yml` | Disposable single-container SQLite Nextcloud instance, parameterised by version. Brought up via `nc-instance.sh`, not by hand. |
+| `nc-instance.sh` | Starts/stops one instance per Nextcloud version declared in `info.xml` (see *Version matrix* below). |
 
 ## Cross-engine checks
 
@@ -93,6 +95,37 @@ docker compose -p shareaudit-my -f build/docker-compose.mysql.yml down -v
 Note that Nextcloud refuses to start on a *lower* version than its data already
 has, so lowering the `image:` in a compose file against an existing instance
 means tearing it down first.
+
+## Version matrix
+
+`appinfo/info.xml` declares `<nextcloud min-version="31" max-version="35"/>`,
+but day-to-day development happens against whatever the persistent instance in
+`../../docker-compose.yml` runs (currently NC32). That leaves the rest of the
+declared range unverified by construction. `nc-instance.sh` brings up a
+disposable single-container instance (SQLite, no separate db container --
+this is about API/behaviour differences between Nextcloud versions, not the
+database engine) for any one version out of that range, so it can be started
+or stopped on its own without touching the persistent instance or the
+cross-engine ones above:
+
+```bash
+build/nc-instance.sh up 33      # http://localhost:8092, ncadmin / shareaudit-nc33-verify
+build/nc-instance.sh up 35      # a second one, side by side -- own port, own volumes
+build/nc-instance.sh ls         # every declared version: port + running state
+build/nc-instance.sh down 33
+build/nc-instance.sh down --all
+```
+
+Ports are fixed per version (31→8090 … 35→8094) so they never collide with
+each other, with the persistent instance, or with the cross-engine ones. `up`
+waits for install, enables the app and disables `firstrunwizard` (its setup
+modal blocks every click), so the instance is ready to log into as soon as the
+command returns. `down` always passes `-v`, so a version's data never survives
+being torn down -- there is nothing in a purely version-compatibility check
+worth keeping between runs.
+
+If `info.xml`'s declared range changes, update the `VERSIONS`/`PORTS` arrays
+at the top of the script to match.
 
 ## Integration tests
 

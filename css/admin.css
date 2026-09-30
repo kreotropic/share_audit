@@ -17,10 +17,19 @@
  * so the container would just grow past #content's fixed height and get
  * clipped instead of scrolling — min-height: 0 lets it shrink to the
  * available space first.
+ *
+ * Other apps also get their panel from #app-content (NcAppContent), which
+ * this page doesn't use: without flex-grow the div shrinks to its content's
+ * width (so each tab came out a different width), and without a background
+ * the cards sit straight on the theme wallpaper. #content already provides
+ * the margin and rounded corners, and clips this to them.
  */
 #content > #share-audit-dashboard.sad-standalone {
+	flex: 1 1 auto;
+	width: 100%;
 	min-height: 0;
 	height: 100%;
+	background-color: var(--color-main-background);
 	overflow-y: auto;
 	box-sizing: border-box;
 	padding: 20px;
